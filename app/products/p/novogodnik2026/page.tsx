@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/supabaseServer";
+import { AddToCartButton } from "@/src/components/AddToCartButton";
 
 type EventWithTickets = {
     id: string;
@@ -133,14 +134,15 @@ export default async function NovogodnikProductPage() {
                                 Осталось билетов: {remaining}
                             </p>
 
-                            <button className="mt-8 bg-black px-6 py-4 font-bold text-[#f5a047]">
-                                Добавить в корзину
-                            </button>
-
-                            <p className="mt-5 text-sm">
-                                Пока это визуальная кнопка. Следующий шаг — создать корзину и
-                                Stripe checkout.
-                            </p>
+                            <AddToCartButton
+                                ticketTypeId={ticket.id}
+                                eventSlug={typedEvent.slug}
+                                eventTitle={typedEvent.title}
+                                ticketName={ticket.name}
+                                unitPriceCents={ticket.price_cents}
+                                currency={ticket.currency}
+                                remaining={remaining}
+                            />
                         </div>
                     </div>
                 </div>

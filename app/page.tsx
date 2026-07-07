@@ -13,6 +13,7 @@ export default function HomePage() {
           <a href="/line-up">Юмористы</a>
           <a href="/faq">Вопросы</a>
           <a href="/programme">Программа</a>
+          <a href="/cart">Корзина</a>
           <a
             href="/products"
             className="border border-black px-5 py-3 font-bold"
