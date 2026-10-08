@@ -53,6 +53,8 @@ export default function AdminLogin() {
           {error && <p role="alert" className="rounded-lg bg-red-100 px-3 py-3 text-sm text-red-900">{error}</p>}
           <button type="submit" disabled={busy} className="w-full rounded-lg bg-black px-5 py-4 font-bold text-white disabled:opacity-50">{busy ? "Signing in…" : "Sign in"}</button>
         </form>
+        <Link href="/admin/forgot-password" className="mt-4 inline-block text-sm font-semibold underline">Forgot password?</Link>
+        <div />
         <Link href="/" className="mt-6 inline-block text-sm font-semibold underline">← Back to website</Link>
       </div>
     </main>
