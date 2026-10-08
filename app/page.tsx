@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-[#f5a047] text-black">
@@ -23,17 +25,14 @@ export default function HomePage() {
         </nav>
       </section>
 
-      <section className="flex h-[360px] items-center justify-center bg-black px-6 text-center text-[#f5a047] md:h-[520px]">
-        <div>
-          <p className="text-lg uppercase tracking-[0.3em]">Auckland</p>
-          <h1 className="mt-5 text-5xl font-black md:text-7xl">
-            Новогодник 2026
-          </h1>
-          <p className="mt-6 max-w-2xl text-xl font-bold">
-            Музыка, юмор, танцы и праздничное настроение — всё, что нужно в эту
-            ночь.
-          </p>
-        </div>
+      <section className="relative h-[360px] overflow-hidden bg-black md:h-[620px]">
+        <Image
+          src="/images/home/hero.jpg"
+          alt="Юморильник"
+          fill
+          priority
+          className="object-cover"
+        />
       </section>
 
       <section className="mx-auto grid max-w-5xl gap-10 px-6 py-20 md:grid-cols-3 md:items-center md:px-10 md:py-28">
