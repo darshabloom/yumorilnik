@@ -3,28 +3,6 @@ import Image from "next/image";
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-[#f5a047] text-black">
-      <section className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-8 md:flex-row md:items-center md:justify-between md:px-10">
-        <a href="/" className="text-4xl font-black text-pink-600 md:text-5xl">
-          Юморильник
-        </a>
-
-        <nav className="flex flex-wrap items-center gap-5 text-base md:gap-8 md:text-lg">
-          <a href="/" className="underline underline-offset-8">
-            Главная
-          </a>
-          <a href="/line-up">Юмористы</a>
-          <a href="/faq">Вопросы</a>
-          <a href="/programme">Программа</a>
-          <a href="/cart">Корзина</a>
-          <a
-            href="/products"
-            className="border border-black px-5 py-3 font-bold"
-          >
-            Билеты
-          </a>
-        </nav>
-      </section>
-
       <section className="relative h-[360px] overflow-hidden bg-black md:h-[620px]">
         <Image
           src="/images/home/hero.jpg"
