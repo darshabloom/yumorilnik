@@ -10,7 +10,22 @@ export default function HomePage() {
           fill
           priority
           className="object-cover"
+          sizes="100vw"
         />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 via-black/25 to-transparent" aria-hidden="true" />
+        <div className="absolute inset-x-0 bottom-0 px-6 pb-7 pt-12 text-white sm:px-10 sm:pb-10 lg:px-16 lg:pb-14">
+          <div className="mx-auto max-w-7xl">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#f5a047] sm:text-sm">
+              Юморильник · Окленд
+            </p>
+            <h1 className="max-w-2xl text-3xl font-black leading-tight drop-shadow-lg sm:text-5xl lg:text-6xl">
+              Юмор, люди, истории.
+            </h1>
+            <p className="mt-3 max-w-xl text-sm font-medium leading-relaxed drop-shadow-lg sm:text-lg">
+              Встречаемся, смеёмся и делимся тем, что интересно.
+            </p>
+          </div>
+        </div>
       </section>
 
       <section className="mx-auto grid max-w-5xl gap-10 px-6 py-20 md:grid-cols-3 md:items-center md:px-10 md:py-28">
