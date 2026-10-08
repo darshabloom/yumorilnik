@@ -15,7 +15,7 @@ export default function HomePage() {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/85 via-black/25 to-transparent" aria-hidden="true" />
         <div className="absolute inset-x-0 bottom-0 px-6 pb-7 pt-12 text-white sm:px-10 sm:pb-10 lg:px-16 lg:pb-14">
           <div className="mx-auto max-w-7xl">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#f5a047] sm:text-sm">
+            <p className="mb-3 inline-block rounded bg-black/85 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[#ffd08a] sm:text-sm">
               Юморильник · Окленд
             </p>
             <h1 className="max-w-2xl text-3xl font-black leading-tight drop-shadow-lg sm:text-5xl lg:text-6xl">
