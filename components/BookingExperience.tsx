@@ -21,7 +21,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const language=useSiteLanguage();
  const en=language==="en";
  const tableBooking=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
- const zonePricing=event.pricing_model==="zone_full_seat"&&!tableBooking&&event.seating_mode!=="general_admission";
+ const zonePricing=!tableBooking&&event.seating_mode!=="general_admission"&&(event.pricing_model==="zone_full_seat"||(venue?.zones.length??0)>0);
  const seatingMode=tableBooking?"whole_table":"individual_seats";
  function toggleMapSelection(key:string){if(!tableBooking&&!mapSelections.includes(key)&&mapSelections.length>=adultTicketCount+(zonePricing?childTicketCount:0)){setSeatLimitNotice(true);return;}setSeatLimitNotice(false);setMapSelections(old=>old.includes(key)?old.filter(item=>item!==key):[...old,key]);}
  const count=tickets.reduce((total,t)=>total+(quantities[t.id]??0),0);
@@ -112,7 +112,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
          {event.adult_seat_required&&event.seating_mode!=="general_admission"&&<p className="rounded-lg border border-[#f5a047] bg-[#fff2db] px-4 py-3 text-sm font-semibold">{seatsStillNeeded>0?(en?`Select ${seatsStillNeeded} more seat(s) for adults.`:`Для взрослых необходимо выбрать ещё ${seatsStillNeeded} мест(а).`):(en?"Each adult ticket requires a reserved seat. Children’s seats are optional.":"Для каждого взрослого билета требуется отдельное место. Места для детей — по желанию.")}</p>}
          {zonePricing&&<p className="text-sm font-semibold">{en?"Please select your seats. Every adult needs one; child seats are optional and cost the full zone price.":"Пожалуйста, выберите места. Для каждого взрослого требуется место; детям места необязательны и стоят полную цену зоны."}</p>}
          <h2 id="seating-title" className="text-xl font-bold">{event.seating_mode==="general_admission"?(en?"General admission":"Вход без закреплённых мест"):event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?(en?"Seats at tables":"Места за столами"):(en?"Whole-table booking":"Бронирование столов")):(en?"Seating":"Рассадка")}</h2>
-         {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage} mode={seatingMode} selectedKeys={mapSelections} onToggle={toggleMapSelection} zones={zonePricing?venue.zones:[]} />:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
+         {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage} mode={seatingMode} selectedKeys={mapSelections} onToggle={toggleMapSelection} zones={venue.zones} />:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
             <div className="flex h-12 w-40 items-center justify-center rounded-lg bg-[#f5a047]/50 text-sm font-bold">{en?"Stage":"Сцена"}</div>
             <div className="grid grid-cols-3 gap-6 opacity-35" aria-hidden="true">
               {Array.from({length:9},(_,i)=><div key={i} className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-black/50 bg-[#fff2db]">○</div>)}
