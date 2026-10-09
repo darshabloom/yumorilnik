@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-type Event = {id:string;slug:string;title:string;image_url:string|null;booking_image_url:string|null;booking_image_fit:string;booking_image_position_x:number;booking_image_position_y:number;seating_mode:string;table_booking_mode:string};
+type Event = {id:string;slug:string;title:string;image_url:string|null;booking_image_url:string|null;booking_image_fit:string;booking_image_position_x:number;booking_image_position_y:number;seating_mode:string;table_booking_mode:string;adult_seat_required:boolean};
 type Ticket = {id:string;event_id:string;name:string;description:string|null;price_cents:number;currency:string;quantity_total:number;quantity_sold:number;is_active:boolean;show_remaining:boolean};
 type Form = {name:string;description:string;price:string;quantity:string;active:boolean;showRemaining:boolean};
 const empty:Form={name:"",description:"",price:"",quantity:"100",active:true,showRemaining:false};
@@ -37,7 +37,7 @@ export default function TicketEditor(){
     const {data:admin,error:roleError}=await supabase.from("admin_users").select("role").eq("user_id",user.id).maybeSingle();
     if(roleError||!admin){router.replace("/admin/login");return;}
     const [ev,ts]=await Promise.all([
-      supabase.from("events").select("id,slug,title,image_url,booking_image_url,booking_image_fit,booking_image_position_x,booking_image_position_y,seating_mode,table_booking_mode").eq("id",id).single(),
+      supabase.from("events").select("id,slug,title,image_url,booking_image_url,booking_image_fit,booking_image_position_x,booking_image_position_y,seating_mode,table_booking_mode,adult_seat_required").eq("id",id).single(),
       supabase.from("ticket_types").select("id,event_id,name,description,price_cents,currency,quantity_total,quantity_sold,is_active,show_remaining").eq("event_id",id).order("created_at",{ascending:true})
     ]);
     if(ev.error)throw ev.error;
@@ -195,6 +195,15 @@ export default function TicketEditor(){
                <label className="flex items-start gap-3"><input type="radio" name="table_booking_mode" checked={event.table_booking_mode==="individual_seats"} disabled={modeSaving} onChange={()=>void changeTableBookingMode("individual_seats")} className="mt-1"/> <span><strong className="block">Individual seats at tables</strong><span className="text-sm text-gray-600">Guests choose their seats, and may share a table.</span></span></label>
              </div>
            </fieldset>}
+           {event.seating_mode!=="general_admission"&&<label className="mt-4 flex items-start gap-3 rounded-lg border border-black/15 bg-[#fff2db] p-4">
+             <input type="checkbox" checked={event.adult_seat_required} disabled={modeSaving} onChange={async e=>{
+               const value=e.target.checked;setModeSaving(true);setError("");
+               const {error:saveError}=await supabase.from("events").update({adult_seat_required:value}).eq("id",id);
+               if(saveError)setError(saveError.message);else{setEvent(old=>old?{...old,adult_seat_required:value}:old);setNotice("Adult seat requirement saved.");}
+               setModeSaving(false);
+             }} className="mt-1 h-5 w-5"/>
+             <span><strong className="block">Require a reserved seat for every adult</strong><span className="text-sm text-gray-600">If enabled, customers must select at least as many seats as adult tickets. Child seats remain optional. Does not affect other events.</span></span>
+           </label>}
            <p className="mt-3 text-xs text-gray-600">Changing the mode does not create or reserve seats. Capacity and layout setup are coming next.</p>
          </div>}
          <div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center">
