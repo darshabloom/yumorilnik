@@ -26,7 +26,8 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const seatCount=mapSelections.length;
  const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&seatCount>count;
  const invalidTablePrices=tableBooking&&mapSelections.some(key=>venue?.tables.find(t=>t.id===key)?.table_price_cents==null);
- const canReview=count>0&&!seatOverage&&seatsStillNeeded===0&&!missingSeatPrices&&!invalidTablePrices&&(!tableBooking||mapSelections.length>0);
+ const canReview=count>0&&!seatOverage&&seatsStillNeeded===0&&(!tableBooking||mapSelections.length>0);
+ const pricingIncomplete=missingSeatPrices||invalidTablePrices;
  const selections=mapSelections.map(key=>{
   const table=venue?.tables.find(t=>t.id===(tableBooking?key:key.split(":")[0]));
   return {key,label:table?.label??"Стол",seat:tableBooking?null:key.split(":")[1],cost:tableBooking?table?.table_price_cents:table?.seat_price_cents};
@@ -51,7 +52,8 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
        <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">Проверьте ваш выбор</h2><button type="button" onClick={()=>setReview(false)} className="text-sm font-semibold underline">← Изменить</button></div>
        <div><h3 className="mb-2 font-semibold">Входные билеты</h3>{tickets.filter(t=>(quantities[t.id]??0)>0).map(t=><div key={t.id} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{t.name} × {quantities[t.id]}</span><span>{format.format(t.price_cents*(quantities[t.id]??0)/100)}</span></div>)}</div>
        {event.seating_mode!=="general_admission"&&<div><h3 className="mb-2 font-semibold">{tableBooking?"Выбранные столы":"Выбранные места"}</h3>{selections.length===0?<p className="text-sm text-gray-600">Места не выбраны</p>:selections.map(s=><div key={s.key} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{s.label}{s.seat?` · место ${s.seat}`:""}</span><span>{s.cost==null?"Цена не указана":format.format(s.cost/100)}</span></div>)}</div>}
-       <div className="space-y-1 border-t border-black/20 pt-4"><div className="flex justify-between text-sm"><span>Билеты</span><span>{format.format(ticketTotal/100)}</span></div><div className="flex justify-between text-sm"><span>Места</span><span>{format.format((tableBooking?tableTotal:seatTotal)/100)}</span></div><div className="flex justify-between pt-2 text-lg font-bold"><span>Итого</span><span>{format.format(total/100)}</span></div></div>
+       <div className="space-y-1 border-t border-black/20 pt-4"><div className="flex justify-between text-sm"><span>Билеты</span><span>{format.format(ticketTotal/100)}</span></div><div className="flex justify-between text-sm"><span>Места</span><span>{pricingIncomplete?"Цена уточняется":format.format((tableBooking?tableTotal:seatTotal)/100)}</span></div><div className="flex justify-between pt-2 text-lg font-bold"><span>Итого</span><span>{pricingIncomplete?"Цена уточняется":format.format(total/100)}</span></div></div>
+       {pricingIncomplete&&<p role="status" className="rounded-lg border border-orange-300 bg-orange-50 p-4 text-sm">Для некоторых выбранных мест цена ещё не установлена организатором. Итоговая сумма будет известна после настройки цен.</p>}
        <p className="rounded-lg bg-[#fff2db] p-4 text-sm">Это предварительный расчёт. Места не забронированы. Оплата и подтверждение заказа пока недоступны.</p>
        <button type="button" onClick={()=>setReview(false)} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">Изменить выбор</button>
      </section>:<div className="mt-6 flex flex-col gap-8">
@@ -93,7 +95,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/20 bg-white px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] sm:px-8">
      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
        <div><p className="text-xs font-semibold text-gray-600">{tableBooking?`${mapSelections.length} стол(ов) выбрано · предварительно`: `${count} билет(ов)`} {event.seating_mode==="general_admission"?" · Свободная посадка":!tableBooking?` · ${mapSelections.length} мест выбрано · предварительно`:""}</p><p className="text-sm text-gray-600">Билеты: {format.format(ticketTotal/100)} · Места: {missingSeatPrices?"Цена не указана":format.format((tableBooking?tableTotal:seatTotal)/100)}</p><p className="text-2xl font-black">{missingSeatPrices?"—":format.format(total/100)}</p><p className="text-[11px] text-gray-600">Не является бронированием</p></div>
-       <button type="button" disabled={review||!canReview} onClick={()=>{setReview(true);window.scrollTo({top:0,behavior:"smooth"});}} title={!canReview?"Выберите билеты и необходимые места с указанными ценами":undefined} className="min-h-12 rounded-lg bg-black px-5 py-3 font-bold text-white disabled:opacity-45">{review?"Предпросмотр заказа":"Проверить выбор →"}</button>
+       <button type="button" disabled={review||!canReview} onClick={()=>{setReview(true);window.scrollTo({top:0,behavior:"smooth"});}} title={!canReview?"Выберите билеты и необходимые места":undefined} className="min-h-12 rounded-lg bg-black px-5 py-3 font-bold text-white disabled:opacity-45">{review?"Предпросмотр заказа":"Проверить выбор →"}</button>
      </div>
    </div>
  </main>;
