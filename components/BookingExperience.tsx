@@ -29,34 +29,34 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  }
  return <main className="min-h-screen bg-[#fffaf1] pb-36 text-black">
    <div className="relative bg-[#fffaf1]">
-     {event.image_url?<img src={event.image_url} alt="" className="h-44 w-full object-cover sm:h-64 lg:h-72"/>:<div className="h-40 w-full bg-[#f5a047]/30"/>}
+     {event.image_url?<img src={event.image_url} alt="" className="h-32 w-full object-cover sm:h-44 lg:h-48"/>:<div className="h-40 w-full bg-[#f5a047]/30"/>}
    </div>
-   <div className="mx-auto w-full max-w-[1600px] px-3 py-6 sm:px-6 sm:py-10 lg:px-10">
+   <div className="mx-auto w-full max-w-[1600px] px-3 py-5 sm:px-6 sm:py-7 lg:px-10">
      <Link href={`/events/${event.slug}`} className="text-sm font-bold underline">← Вернуться к мероприятию</Link>
-     <h1 className="mt-5 text-3xl font-black sm:text-5xl">{event.title}</h1>
-     <div className="mt-8 grid items-start gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
-       <section aria-labelledby="tickets-title" className="space-y-5 xl:sticky xl:top-4">
-         <h2 id="tickets-title" className="text-2xl font-black">Билеты</h2>
-         {tickets.length===0?<p className="rounded-xl border border-black/15 bg-white p-5">Билеты пока не добавлены.</p>:tickets.map(ticket=>{
+     <h1 className="mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl">{event.title}</h1>
+     <div className="mt-6 flex flex-col gap-8">
+       <section aria-labelledby="tickets-title" className="space-y-3">
+         <h2 id="tickets-title" className="text-xl font-bold">Билеты</h2>
+         {tickets.length===0?<p className="rounded-xl border border-black/15 bg-white p-5">Билеты пока не добавлены.</p>:<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{tickets.map(ticket=>{
             const quantity=quantities[ticket.id]??0;
             const remaining=Math.max(0,(ticket.quantity_total??0)-(ticket.quantity_sold??0));
-            return <div key={ticket.id} className="flex flex-wrap items-center justify-between gap-4 border-b border-black/15 pb-5">
-              <div className="min-w-40 flex-1">
-                <h3 className="text-lg font-bold">{ticket.name}</h3>
+            return <div key={ticket.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-black/15 bg-white px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-semibold">{ticket.name}</h3>
                 {ticket.description&&<p className="mt-1 text-sm text-gray-600">{ticket.description}</p>}
                 <p className="mt-1 font-semibold">{format.format(ticket.price_cents/100)}</p>
                 {remaining===0?<p className="text-sm text-red-700">Нет в наличии</p>:ticket.show_remaining&&<p className="mt-1 text-xs text-gray-600">Осталось билетов: {remaining}</p>}
               </div>
-              <div className="flex items-center gap-3" aria-label={`Количество: ${ticket.name}`}>
-                <button type="button" aria-label={`Уменьшить количество: ${ticket.name}`} disabled={quantity===0} onClick={()=>adjust(ticket,-1)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-black text-2xl disabled:opacity-30">−</button>
+              <div className="flex items-center gap-2" aria-label={`Количество: ${ticket.name}`}>
+                <button type="button" aria-label={`Уменьшить количество: ${ticket.name}`} disabled={quantity===0} onClick={()=>adjust(ticket,-1)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/40 text-xl disabled:opacity-30">−</button>
                 <output className="w-5 text-center text-lg font-bold">{quantity}</output>
                 <button type="button" aria-label={`Увеличить количество: ${ticket.name}`} disabled={quantity>=Math.min(max,remaining)} onClick={()=>adjust(ticket,1)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-black text-2xl disabled:opacity-30">+</button>
               </div>
             </div>;
-         })}
+         })}</div>}
        </section>
        <section aria-labelledby="seating-title" className="min-w-0 space-y-4">
-         <h2 id="seating-title" className="text-2xl font-black">{event.seating_mode==="general_admission"?"Вход без закреплённых мест":event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?"Места за столами":"Бронирование столов"):"Рассадка"}</h2>
+         <h2 id="seating-title" className="text-xl font-bold">{event.seating_mode==="general_admission"?"Вход без закреплённых мест":event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?"Места за столами":"Бронирование столов"):"Рассадка"}</h2>
          {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage} mode={seatingMode} selectedKeys={mapSelections} onToggle={toggleMapSelection}/>:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
             <div className="flex h-12 w-40 items-center justify-center rounded-lg bg-[#f5a047]/50 text-sm font-bold">Сцена</div>
             <div className="grid grid-cols-3 gap-6 opacity-35" aria-hidden="true">
