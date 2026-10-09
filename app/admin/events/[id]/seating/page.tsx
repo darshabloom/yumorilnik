@@ -105,7 +105,7 @@ export default function SeatingBuilder(){
   const work=Object.values(batch);
   if(work.length){setMessage("Saving…");setError("");}
   for(const t of work){
-   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,seat_price_cents:t.seat_price_cents,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
+   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,seat_price_cents:t.seat_price_cents,shape:t.shape,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
    if(e){pending.current[t.id]=pending.current[t.id]??t;setError("Autosave failed: "+e.message);setMessage("Not saved");}
   }
   flushing.current=false;
@@ -366,7 +366,7 @@ export default function SeatingBuilder(){
         </svg>}
        {!framing&&!traceMode&&<button type="button" onPointerDown={beginStageDrag} onPointerMove={moveStageDrag} onPointerUp={()=>{stageDrag.current=null}} onPointerCancel={()=>{stageDrag.current=null}} onClick={()=>{setEditingStage(true);setSelected(null)}} className={`absolute z-10 flex touch-none select-none items-center justify-center rounded-lg border-2 border-black/25 bg-[#f5a047] text-sm font-bold ${editingStage?"ring-2 ring-pink-600":""}`} style={{left:stageItem.x/W*100+"%",top:stageItem.y/H*100+"%",width:stageItem.width/W*100+"%",height:stageItem.height/H*100+"%",transform:`rotate(${stageItem.rotation}deg)`}}>Stage</button>}
        {!framing&&tables.filter(t=>t.is_active).map(t=><div key={t.id} className={traceMode?"pointer-events-none absolute opacity-75":"absolute"} style={{left:t.x/W*100+"%",top:t.y/H*100+"%",width:t.width/W*100+"%",height:t.height/H*100+"%",transform:`rotate(${t.rotation_deg}deg)`}}><button type="button" onPointerDown={e=>pointerDown(e,t)} onPointerMove={pointerMove} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}}
-        className={`absolute select-none touch-none rounded-lg border-2 text-sm font-bold shadow ${selected===t.id?"border-pink-600 bg-[#ffd7e8]":"border-black/50 bg-white"}`}
+        className={`absolute select-none touch-none ${t.shape==="round"||t.shape==="oval"?"rounded-full":"rounded-lg"} border-2 text-sm font-bold shadow ${selected===t.id?"border-pink-600 bg-[#ffd7e8]":"border-black/50 bg-white"}`}
         style={{width:"100%",height:"100%"}}>
          {t.label}<SeatMarkers t={t}/>
        </button>
@@ -405,6 +405,7 @@ export default function SeatingBuilder(){
        </div>
        <h3 className="mt-5 font-bold">Seats around table · {seats(current)}</h3>
        <div className="mt-2 grid grid-cols-2 gap-3">{([{field:"seats_top",label:"Top"},{field:"seats_bottom",label:"Bottom"},{field:"seats_left",label:"Left"},{field:"seats_right",label:"Right"}] as const).map(o=><label key={o.field} className="text-sm font-semibold">{o.label}<input type="number" min="0" max="30" value={current[o.field]} onChange={e=>mutate(current.id,{[o.field]:Math.max(0,Math.min(30,Number(e.target.value)||0))})} className="mt-1 w-full rounded border p-2"/></label>)}</div>
+       <label className="mt-4 block text-sm font-bold">Table shape<select value={current.shape} onChange={e=>mutate(current.id,{shape:e.target.value})} className="mt-1 w-full rounded border p-3"><option value="rectangle">Rectangle</option><option value="round">Round</option><option value="oval">Oval</option></select></label>
        <label className="mt-5 block font-bold">Seat surcharge (NZD)
          <input type="number" min="0" step="0.01" placeholder="Not set" value={current.seat_price_cents===null?"":(current.seat_price_cents/100).toFixed(2)} onChange={e=>mutate(current.id,{seat_price_cents:e.target.value===""?null:Math.max(0,Math.round(Number(e.target.value)*100))})} className="mt-1 w-full rounded border p-3"/>
        </label>
