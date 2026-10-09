@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-type Event = {id:string;slug:string;title:string;image_url:string|null;seating_mode:string};
+type Event = {id:string;slug:string;title:string;image_url:string|null;seating_mode:string;table_booking_mode:string};
 type Ticket = {id:string;event_id:string;name:string;description:string|null;price_cents:number;currency:string;quantity_total:number;quantity_sold:number;is_active:boolean;show_remaining:boolean};
 type Form = {name:string;description:string;price:string;quantity:string;active:boolean;showRemaining:boolean};
 const empty:Form={name:"",description:"",price:"",quantity:"100",active:true,showRemaining:false};
@@ -34,7 +34,7 @@ export default function TicketEditor(){
     const {data:admin,error:roleError}=await supabase.from("admin_users").select("role").eq("user_id",user.id).maybeSingle();
     if(roleError||!admin){router.replace("/admin/login");return;}
     const [ev,ts]=await Promise.all([
-      supabase.from("events").select("id,slug,title,image_url,seating_mode").eq("id",id).single(),
+      supabase.from("events").select("id,slug,title,image_url,seating_mode,table_booking_mode").eq("id",id).single(),
       supabase.from("ticket_types").select("id,event_id,name,description,price_cents,currency,quantity_total,quantity_sold,is_active,show_remaining").eq("event_id",id).order("created_at",{ascending:true})
     ]);
     if(ev.error)throw ev.error;
@@ -69,6 +69,14 @@ export default function TicketEditor(){
     setEditing(null);setNotice("Ticket type saved.");
   }catch(e){setError(e instanceof Error?e.message:"Saving failed.");}
   finally{setSaving(false);}
+ }
+ async function changeTableBookingMode(mode:"whole_table"|"individual_seats"){
+  if(!event)return;
+  setModeSaving(true);setError("");setNotice("");
+  const {error}=await supabase.from("events").update({table_booking_mode:mode}).eq("id",event.id);
+  if(error)setError(error.message);
+  else {setEvent({...event,table_booking_mode:mode});setNotice("Table booking preference saved.");}
+  setModeSaving(false);
  }
  async function changeMode(mode:string){
   if(!event)return;
@@ -130,6 +138,13 @@ export default function TicketEditor(){
                <span><strong className="block">{option.title}</strong><span className="text-sm text-gray-600">{option.desc}</span></span>
              </label>)}
            </div>
+           {event.seating_mode==="tables"&&<fieldset className="mt-4 rounded-lg bg-[#fff2db] p-4">
+             <legend className="font-bold">How can customers book a table?</legend>
+             <div className="mt-2 space-y-3">
+               <label className="flex items-start gap-3"><input type="radio" name="table_booking_mode" checked={event.table_booking_mode==="whole_table"} disabled={modeSaving} onChange={()=>void changeTableBookingMode("whole_table")} className="mt-1"/> <span><strong className="block">Entire tables</strong><span className="text-sm text-gray-600">One booking reserves every place at that table.</span></span></label>
+               <label className="flex items-start gap-3"><input type="radio" name="table_booking_mode" checked={event.table_booking_mode==="individual_seats"} disabled={modeSaving} onChange={()=>void changeTableBookingMode("individual_seats")} className="mt-1"/> <span><strong className="block">Individual seats at tables</strong><span className="text-sm text-gray-600">Guests choose their seats, and may share a table.</span></span></label>
+             </div>
+           </fieldset>}
            <p className="mt-3 text-xs text-gray-600">Changing the mode does not create or reserve seats. Capacity and layout setup are coming next.</p>
          </div>}
          <div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center">
