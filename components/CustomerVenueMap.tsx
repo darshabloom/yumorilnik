@@ -2,6 +2,7 @@
 
 import {useEffect,useRef,useState} from "react";
 import type {VenueFeature} from "@/components/VenueLines";
+import {useSiteLanguage} from "@/lib/useSiteLanguage";
 
 export type PublicTable={id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;is_active:boolean};
 export type PublicStage={stage_x:number;stage_y:number;stage_width:number;stage_height:number;stage_rotation:number};
@@ -22,6 +23,7 @@ function seatPositions(table:PublicTable):Seat[]{
  return output;
 }
 export default function CustomerVenueMap({tables,features,stage,mode="whole_table",selectedKeys=[],onToggle}:{tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null;mode?:Mode;selectedKeys?:string[];onToggle?:(key:string)=>void}){
+ const en=useSiteLanguage()==="en";
  const [view,setView]=useState({x:0,y:0,w:WIDTH,h:HEIGHT});
  const [baseWidth,setBaseWidth]=useState(WIDTH);
  const [baseHeight,setBaseHeight]=useState(HEIGHT);
@@ -100,24 +102,24 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
  const money=(cents:number)=>new Intl.NumberFormat("en-NZ",{style:"currency",currency:"NZD"}).format(cents/100);
  return <div className="space-y-3">
    <div className="flex flex-wrap items-center justify-between gap-2">
-    <p className="text-sm text-gray-600">Перемещайте схему пальцем, увеличивайте двумя пальцами или кнопками.</p>
+    <p className="text-sm text-gray-600">{en?"Drag to pan. Pinch or use the buttons to zoom.":"Перемещайте схему пальцем, увеличивайте двумя пальцами или кнопками."}</p>
     <div className="flex items-center gap-1">
-      <button type="button" onClick={()=>setExpanded(v=>!v)} className="rounded border border-black/30 bg-white px-3 py-2 text-xs font-bold">{expanded?"Свернуть":"На весь экран"}</button>
-      <button type="button" aria-label="Уменьшить" onClick={()=>zoomTo(zoom/1.4)} className="h-10 w-10 rounded border border-black/30 bg-white font-bold">−</button>
+      <button type="button" onClick={()=>setExpanded(v=>!v)} className="rounded border border-black/30 bg-white px-3 py-2 text-xs font-bold">{expanded?(en?"Exit full screen":"Свернуть"):(en?"Full screen":"На весь экран")}</button>
+      <button type="button" aria-label={en?"Zoom out":"Уменьшить"} onClick={()=>zoomTo(zoom/1.4)} className="h-10 w-10 rounded border border-black/30 bg-white font-bold">−</button>
       <button type="button" onClick={()=>zoomTo(1)} className="rounded border border-black/30 bg-white px-3 py-2 text-xs font-bold">{Math.round(zoom*100)}%</button>
-      <button type="button" aria-label="Увеличить" onClick={()=>zoomTo(zoom*1.4)} className="h-10 w-10 rounded border border-black/30 bg-white font-bold">+</button>
+      <button type="button" aria-label={en?"Zoom in":"Увеличить"} onClick={()=>zoomTo(zoom*1.4)} className="h-10 w-10 rounded border border-black/30 bg-white font-bold">+</button>
     </div>
    </div>
    <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#fff2db]":"relative h-[65svh] min-h-[420px] overflow-hidden rounded-xl border border-black/15 bg-[#fff2db] lg:h-[min(78vh,880px)]"}>
-    {expanded&&<button type="button" onClick={()=>setExpanded(false)} className="absolute right-3 top-3 z-10 rounded-lg bg-white px-4 py-3 font-bold shadow">Закрыть ✕</button>}
-    <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet" aria-label="План зала" role="group" className="block h-full w-full cursor-grab touch-none" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+    {expanded&&<button type="button" onClick={()=>setExpanded(false)} className="absolute right-3 top-3 z-10 rounded-lg bg-white px-4 py-3 font-bold shadow">{en?"Close ✕":"Закрыть ✕"}</button>}
+    <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet" aria-label={en?"Venue seating plan":"План зала"} role="group" className="block h-full w-full cursor-grab touch-none" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
       {features.map(f=><g key={f.id}>
        <polyline points={f.points.map(p=>p.x+","+p.y).join(" ")} stroke={f.kind==="entrance"?"#16803b":"#252525"} strokeWidth={f.kind==="entrance"?10:7} strokeDasharray={f.kind==="entrance"?"11 9":undefined} fill="none" strokeLinecap="round" strokeLinejoin="round"/>
        {f.label&&f.points[0]&&<text x={f.points[0].x+12} y={f.points[0].y-15} fontSize="18" fill="#16803b">{f.label}</text>}
       </g>)}
       {stage&&<g transform={`translate(${stage.stage_x} ${stage.stage_y}) rotate(${stage.stage_rotation} ${stage.stage_width/2} ${stage.stage_height/2})`}>
        <rect width={stage.stage_width} height={stage.stage_height} rx="7" fill="#f5a047" stroke="#9a5c19" strokeWidth="2"/>
-       <text x={stage.stage_width/2} y={stage.stage_height/2+6} fontSize="19" textAnchor="middle" fontWeight="700">Сцена</text>
+       <text x={stage.stage_width/2} y={stage.stage_height/2+6} fontSize="19" textAnchor="middle" fontWeight="700">{en?"Stage":"Сцена"}</text>
       </g>}
       {tables.filter(t=>t.is_active).map(t=><g key={t.id} transform={`translate(${t.x} ${t.y}) rotate(${t.rotation_deg} ${t.width/2} ${t.height/2})`}>
         <rect x="0" y="0" width={t.width} height={t.height} rx="7" fill={selectedKeys.includes(t.id)?"#f8c6dc":focused===t.id?"#ffe1ee":"#fff"} stroke={selectedKeys.includes(t.id)?"#c41e73":"#777"} strokeWidth="2" data-seat-key={mode==="whole_table"?t.id:""} data-table-id={t.id} style={{cursor:"pointer"}}/>
@@ -129,13 +131,13 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
       </g>)}
     </svg>
    </div>
-   <div className="flex flex-wrap gap-4 text-xs text-gray-600"><span>◯ Место</span><span className="text-pink-700">● Выбрано</span><span>Бронирование ещё не открыто</span></div>
+   <div className="flex flex-wrap gap-4 text-xs text-gray-600"><span>{en?"◯ Seat":"◯ Место"}</span><span className="text-pink-700">{en?"● Selected":"● Выбрано"}</span><span>{en?"Reservations are not open yet":"Бронирование ещё не открыто"}</span></div>
    {selected&&<div className="rounded-lg border border-black/15 bg-white p-4" aria-live="polite">
     <strong>{selected.label}</strong>
-    <p className="text-sm">{seatPositions(selected).length} мест {mode==="whole_table"&&selected.table_price_cents!==null?" · Весь стол: "+money(selected.table_price_cents):""}</p>
-    {mode==="individual_seats"&&<p className="mt-1 text-sm font-semibold">Доплата за место: {selected.seat_price_cents===null?"Цена не указана":money(selected.seat_price_cents)}</p>}
-    <p className="mt-1 text-xs text-gray-600">{mode==="whole_table"?"Нажмите на стол для предварительного выбора.":"Нажмите на отдельное место для предварительного выбора."} Это не бронь.</p>
-    {mode==="individual_seats"&&<div className="mt-3"><p className="mb-2 text-sm font-semibold">Выберите место за этим столом:</p><div className="flex flex-wrap gap-2">{selectedSeats.map(seat=><button key={seat.key} type="button" onClick={()=>onToggle?.(seat.key)} className={`min-h-11 min-w-11 rounded-lg border px-3 font-bold ${selectedKeys.includes(seat.key)?"border-pink-600 bg-pink-100":"border-black/25 bg-white"}`}>{seat.label}</button>)}</div></div>}
+    <p className="text-sm">{seatPositions(selected).length} {en?"seats":"мест"} {mode==="whole_table"&&selected.table_price_cents!==null?(en?" · Whole table: ":" · Весь стол: ")+money(selected.table_price_cents):""}</p>
+    {mode==="individual_seats"&&<p className="mt-1 text-sm font-semibold">{en?"Seat surcharge: ":"Доплата за место: "}{selected.seat_price_cents==null?(en?"Price not set":"Цена не указана"):money(selected.seat_price_cents)}</p>}
+    <p className="mt-1 text-xs text-gray-600">{mode==="whole_table"?(en?"Tap a table to preview your choice.":"Нажмите на стол для предварительного выбора."):(en?"Tap a seat to preview your choice.":"Нажмите на отдельное место для предварительного выбора.")} {en?"This is not a reservation.":"Это не бронь."}</p>
+    {mode==="individual_seats"&&<div className="mt-3"><p className="mb-2 text-sm font-semibold">{en?"Choose a seat at this table:":"Выберите место за этим столом:"}</p><div className="flex flex-wrap gap-2">{selectedSeats.map(seat=><button key={seat.key} type="button" onClick={()=>onToggle?.(seat.key)} className={`min-h-11 min-w-11 rounded-lg border px-3 font-bold ${selectedKeys.includes(seat.key)?"border-pink-600 bg-pink-100":"border-black/25 bg-white"}`}>{seat.label}</button>)}</div></div>}
    </div>}
  </div>;
 }
