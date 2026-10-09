@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-type Event = {id:string;slug:string;title:string;image_url:string|null};
-type Ticket = {id:string;event_id:string;name:string;description:string|null;price_cents:number;currency:string;quantity_total:number;quantity_sold:number;is_active:boolean};
-type Form = {name:string;description:string;price:string;quantity:string;active:boolean};
-const empty:Form={name:"",description:"",price:"",quantity:"100",active:true};
-function initial(t:Ticket):Form{return {name:t.name,description:t.description??"",price:(t.price_cents/100).toFixed(2),quantity:String(t.quantity_total),active:t.is_active};}
+type Event = {id:string;slug:string;title:string;image_url:string|null;seating_mode:string};
+type Ticket = {id:string;event_id:string;name:string;description:string|null;price_cents:number;currency:string;quantity_total:number;quantity_sold:number;is_active:boolean;show_remaining:boolean};
+type Form = {name:string;description:string;price:string;quantity:string;active:boolean;showRemaining:boolean};
+const empty:Form={name:"",description:"",price:"",quantity:"100",active:true,showRemaining:false};
+function initial(t:Ticket):Form{return {name:t.name,description:t.description??"",price:(t.price_cents/100).toFixed(2),quantity:String(t.quantity_total),active:t.is_active,showRemaining:t.show_remaining};}
 const price=(t:Ticket)=>new Intl.NumberFormat("en-NZ",{style:"currency",currency:t.currency.toUpperCase()}).format(t.price_cents/100);
 
 export default function TicketEditor(){
@@ -23,6 +23,7 @@ export default function TicketEditor(){
  const [form,setForm]=useState<Form>(empty);
  const [saving,setSaving]=useState(false);
  const [preview,setPreview]=useState(false);
+ const [modeSaving,setModeSaving]=useState(false);
 
  useEffect(()=>{
   let active=true;
@@ -33,8 +34,8 @@ export default function TicketEditor(){
     const {data:admin,error:roleError}=await supabase.from("admin_users").select("role").eq("user_id",user.id).maybeSingle();
     if(roleError||!admin){router.replace("/admin/login");return;}
     const [ev,ts]=await Promise.all([
-      supabase.from("events").select("id,slug,title,image_url").eq("id",id).single(),
-      supabase.from("ticket_types").select("id,event_id,name,description,price_cents,currency,quantity_total,quantity_sold,is_active").eq("event_id",id).order("created_at",{ascending:true})
+      supabase.from("events").select("id,slug,title,image_url,seating_mode").eq("id",id).single(),
+      supabase.from("ticket_types").select("id,event_id,name,description,price_cents,currency,quantity_total,quantity_sold,is_active,show_remaining").eq("event_id",id).order("created_at",{ascending:true})
     ]);
     if(ev.error)throw ev.error;
     if(ts.error)throw ts.error;
@@ -54,20 +55,28 @@ export default function TicketEditor(){
   const current=tickets.find(t=>t.id===editing);
   if(current && q<current.quantity_sold){setError("Capacity cannot be smaller than tickets already sold.");return;}
   setSaving(true);setError("");
-  const values={name:form.name.trim(),description:form.description.trim()||null,price_cents:Math.round(p*100),quantity_total:q,is_active:form.active};
+  const values={name:form.name.trim(),description:form.description.trim()||null,price_cents:Math.round(p*100),quantity_total:q,is_active:form.active,show_remaining:form.showRemaining};
   try{
     if(current){
-      const {data,error}=await supabase.from("ticket_types").update(values).eq("id",current.id).eq("event_id",id).select("id,event_id,name,description,price_cents,currency,quantity_total,quantity_sold,is_active").single();
+      const {data,error}=await supabase.from("ticket_types").update(values).eq("id",current.id).eq("event_id",id).select("id,event_id,name,description,price_cents,currency,quantity_total,quantity_sold,is_active,show_remaining").single();
       if(error)throw error;
       setTickets(previous=>previous.map(t=>t.id===current.id?data as Ticket:t));
     }else{
-      const {data,error}=await supabase.from("ticket_types").insert({...values,event_id:id,currency:"NZD",quantity_sold:0}).select("id,event_id,name,description,price_cents,currency,quantity_total,quantity_sold,is_active").single();
+      const {data,error}=await supabase.from("ticket_types").insert({...values,event_id:id,currency:"NZD",quantity_sold:0}).select("id,event_id,name,description,price_cents,currency,quantity_total,quantity_sold,is_active,show_remaining").single();
       if(error)throw error;
       setTickets(previous=>[...previous,data as Ticket]);
     }
     setEditing(null);setNotice("Ticket type saved.");
   }catch(e){setError(e instanceof Error?e.message:"Saving failed.");}
   finally{setSaving(false);}
+ }
+ async function changeMode(mode:string){
+  if(!event)return;
+  setModeSaving(true);setError("");setNotice("");
+  const {error}=await supabase.from("events").update({seating_mode:mode}).eq("id",event.id);
+  if(error)setError(error.message);
+  else {setEvent({...event,seating_mode:mode});setNotice("Seating type saved. Seat/table mapping comes next.");}
+  setModeSaving(false);
  }
  async function toggle(ticket:Ticket){
    setError("");setNotice("");
@@ -101,7 +110,7 @@ export default function TicketEditor(){
           shown.map(t=><div key={t.id} className="mb-3 rounded-xl border border-black/15 bg-white p-4">
            <div className="flex items-start justify-between gap-3">
              <div className="min-w-0"><h3 className="text-xl font-bold">{t.name}</h3>{t.description&&<p className="mt-1 whitespace-pre-wrap text-sm">{t.description}</p>}<p className="mt-2 font-bold">{price(t)}</p>
-               {!preview&&<p className="mt-1 text-xs text-gray-600">{t.quantity_sold} sold · {Math.max(0,t.quantity_total-t.quantity_sold)} remaining · {t.is_active?"Visible":"Hidden"}</p>}
+               {!preview&&<p className="mt-1 text-xs text-gray-600">{t.quantity_sold} sold · {Math.max(0,t.quantity_total-t.quantity_sold)} remaining · {t.is_active?"Visible":"Hidden"} · {t.show_remaining?"Customer count shown":"Customer count hidden"}</p>}
              </div>
              {!preview&&<button onClick={()=>open(t)} className="rounded-lg border border-black px-3 py-2 text-sm font-bold">Edit</button>}
              {preview&&<div className="flex items-center gap-2 text-sm"><button disabled className="h-9 w-9 rounded border opacity-40">−</button>0<button disabled className="h-9 w-9 rounded border opacity-40">+</button></div>}
@@ -113,6 +122,16 @@ export default function TicketEditor(){
        </section>
        <section>
          <h2 className="mb-5 text-2xl font-black">Рассадка</h2>
+         {!preview&&<div className="mb-5 rounded-xl border bg-white p-4">
+           <p className="mb-3 font-bold">Seating type for this event</p>
+           <div className="space-y-3">
+             {([{id:"general_admission",title:"General admission",desc:"Tickets without assigned seats"},{id:"assigned_seats",title:"Individual seats",desc:"Visitors choose numbered seats"},{id:"tables",title:"Table bookings",desc:"Visitors book tables; capacity rules are configured next"}]).map(option=><label key={option.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-black/15 p-3">
+               <input type="radio" name="seating_mode" value={option.id} checked={event.seating_mode===option.id} disabled={modeSaving} onChange={()=>void changeMode(option.id)} className="mt-1 h-4 w-4"/>
+               <span><strong className="block">{option.title}</strong><span className="text-sm text-gray-600">{option.desc}</span></span>
+             </label>)}
+           </div>
+           <p className="mt-3 text-xs text-gray-600">Changing the mode does not create or reserve seats. Capacity and layout setup are coming next.</p>
+         </div>}
          <div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center">
            <div className="rounded-lg bg-[#f5a047]/40 px-10 py-3 font-bold">Сцена</div>
            <p className="font-bold">Seating map setup is next</p>
@@ -131,6 +150,7 @@ export default function TicketEditor(){
          <label className="block text-sm font-bold">Price (NZD)<input required type="number" min="0" step="0.01" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} className="mt-1 w-full rounded-lg border border-black/30 p-3"/></label>
          <label className="block text-sm font-bold">Total quantity<input required type="number" min="0" step="1" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})} className="mt-1 w-full rounded-lg border border-black/30 p-3"/></label>
         </div>
+        <label className="flex items-center gap-3 rounded-lg bg-[#fff2db] p-3 text-sm font-bold"><input type="checkbox" checked={form.showRemaining} onChange={e=>setForm({...form,showRemaining:e.target.checked})} className="h-5 w-5"/> Show remaining ticket quantity to customers</label>
         <label className="flex items-center gap-3 rounded-lg bg-[#fff2db] p-3 text-sm font-bold"><input type="checkbox" checked={form.active} onChange={e=>setForm({...form,active:e.target.checked})} className="h-5 w-5"/> Visible to customers</label>
        </div>
        {error&&<p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
