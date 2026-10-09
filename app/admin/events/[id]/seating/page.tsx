@@ -234,11 +234,15 @@ export default function SeatingBuilder(){
  if(!event)return <main role="alert" className="p-8">{error||"Event unavailable"}</main>;
  const whole=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
  return <main className="min-h-screen bg-[#fffaf1] px-4 py-6 text-black sm:px-8">
+  <div className="mx-auto mb-5 rounded-xl border border-black/15 bg-white p-5 lg:hidden">
+   <h2 className="text-xl font-black">Edit table layout on a computer</h2>
+   <p className="mt-2 text-sm text-gray-700">The seating layout requires precise dragging, resizing and rotation. Use a computer to make changes. You can still review the venue plan below on your phone.</p>
+  </div>
   <div className="mx-auto max-w-7xl">
    <Link href={`/admin/events/${id}/tickets`} className="text-sm font-bold underline">← Tickets</Link>
    <div className="sticky top-0 z-40 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-black/15 bg-[#fffaf1]/95 px-3 py-3 shadow-sm backdrop-blur"><div><p className="text-xs font-bold uppercase tracking-widest text-pink-700">Seating layout</p><h1 className="text-3xl font-black">{event.title}</h1></div><div className="flex gap-2"><button onClick={()=>void add()} disabled={saving} className="rounded-lg bg-black px-4 py-3 font-bold text-white">+ Add table</button><button onClick={()=>void save()} disabled={saving} className="rounded-lg border border-black px-4 py-3 font-bold">{saving?"Saving…":"Save layout"}</button></div></div>
    <p className="mt-3 text-sm text-gray-600">Drag the stage to its actual location. Drag a table to position it. Select a table to edit its size, seats, rotation and price. Pricing is per entire table in whole-table mode.</p>
-   <details className="mt-3 rounded-xl border border-black/15 bg-white"><summary className="cursor-pointer px-4 py-3 text-sm font-bold">Floor plan image & framing controls ▾</summary><div className="border-t border-black/10 p-2">   <div className="flex flex-wrap items-center gap-3 p-3">
+   <details className="mt-3 hidden rounded-xl border border-black/15 bg-white lg:block"><summary className="cursor-pointer px-4 py-3 text-sm font-bold">Floor plan image & framing controls ▾</summary><div className="border-t border-black/10 p-2">   <div className="flex flex-wrap items-center gap-3 p-3">
      <label className="cursor-pointer rounded-lg border-2 border-dashed border-black bg-[#fff2db] px-4 py-3 text-sm font-bold">
        {uploading?"Uploading…":background?"Replace floor plan":"Upload floor plan"}
        <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} className="sr-only" onChange={e=>{void uploadFloorPlan(e.target.files?.[0]);e.target.value="";}}/>
@@ -266,7 +270,7 @@ export default function SeatingBuilder(){
    {message&&<p role="status" className="mt-3 text-sm font-semibold">{message}</p>}
    <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
     <div className="overflow-x-auto rounded-xl border border-black/20 bg-white p-2">
-     <div ref={stage} className="relative w-full min-w-[420px] overflow-hidden rounded-lg bg-[#fff2db]" style={{aspectRatio:W+"/"+H,touchAction:framing?"none":"pan-y"}} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={()=>{panDrag.current=null}} onPointerCancel={()=>{panDrag.current=null}}>
+     <div ref={stage} className="pointer-events-none relative w-full min-w-[320px] overflow-hidden rounded-lg bg-[#fff2db] lg:pointer-events-auto" style={{aspectRatio:W+"/"+H,touchAction:framing?"none":"pan-y"}} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={()=>{panDrag.current=null}} onPointerCancel={()=>{panDrag.current=null}}>
        {background&&<div className="pointer-events-none absolute inset-0 overflow-hidden"><img src={background} alt="Uploaded venue floor plan" className="absolute h-full w-full object-contain" style={{transform:`scale(${zoom})`,objectPosition:`${panX}% ${panY}%`,transformOrigin:`${panX}% ${panY}%`}}/></div>}
        {!framing&&<button type="button" onPointerDown={beginStageDrag} onPointerMove={moveStageDrag} onPointerUp={()=>{stageDrag.current=null}} onPointerCancel={()=>{stageDrag.current=null}} onClick={()=>{setEditingStage(true);setSelected(null)}} className={`absolute z-10 flex touch-none select-none items-center justify-center rounded-lg border-2 border-black/25 bg-[#f5a047] text-sm font-bold ${editingStage?"ring-2 ring-pink-600":""}`} style={{left:stageItem.x/W*100+"%",top:stageItem.y/H*100+"%",width:stageItem.width/W*100+"%",height:stageItem.height/H*100+"%",transform:`rotate(${stageItem.rotation}deg)`}}>Stage</button>}
        {!framing&&tables.filter(t=>t.is_active).map(t=><div key={t.id} className="absolute" style={{left:t.x/W*100+"%",top:t.y/H*100+"%",width:t.width/W*100+"%",height:t.height/H*100+"%",transform:`rotate(${t.rotation_deg}deg)`}}><button type="button" onPointerDown={e=>pointerDown(e,t)} onPointerMove={pointerMove} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}}
@@ -279,7 +283,7 @@ export default function SeatingBuilder(){
        </div>)}
      </div>
     </div>
-    <aside className="rounded-xl border border-black/20 bg-white p-4 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
+    <aside className="hidden rounded-xl border border-black/20 bg-white p-4 lg:sticky lg:block lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
      {editingStage?<><h2 className="text-xl font-black">Edit stage</h2><p className="mt-2 text-sm text-gray-600">Drag the stage into place or adjust its size and rotation here.</p>
        <div className="mt-4 grid grid-cols-2 gap-3">
          {([{key:"width",label:"Width",min:60,max:400},{key:"height",label:"Height",min:25,max:220},{key:"rotation",label:"Rotation °",min:-180,max:180}] as const).map(f=><label key={f.key} className="text-sm font-bold">{f.label}<input type="number" className="mt-1 w-full rounded border p-2" min={f.min} max={f.max} value={stageItem[f.key]} onChange={e=>setStageItem(old=>({...old,[f.key]:Math.max(f.min,Math.min(f.max,Number(e.target.value)||0))}))}/></label>)}
