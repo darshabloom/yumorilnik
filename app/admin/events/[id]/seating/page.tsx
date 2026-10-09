@@ -38,6 +38,11 @@ export default function SeatingBuilder(){
  const stage=useRef<HTMLDivElement|null>(null);
  const drag=useRef<{id:string;startX:number;startY:number;x:number;y:number}|null>(null);
  const resize=useRef<{id:string;startX:number;startY:number;width:number;height:number;angle:number}|null>(null);
+ const rotating=useRef<{id:string;centerX:number;centerY:number}|null>(null);
+ const pending=useRef<Record<string,TableItem>>({});
+ const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const flushing=useRef(false);
+ const latest=useRef<TableItem[]>([]);
  useEffect(()=>{let mounted=true;(async()=>{
   try{
    const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace("/admin/login");return;}
@@ -45,12 +50,34 @@ export default function SeatingBuilder(){
    if(!admin){router.replace("/admin/login");return;}
    const [e,t,m]=await Promise.all([supabase.from("events").select("id,title,seating_mode,table_booking_mode").eq("id",id).single(),supabase.from("seating_tables").select("*").eq("event_id",id).order("created_at"),supabase.from("event_seating_maps").select("background_image_url,background_zoom,background_x,background_y,stage_x,stage_y,stage_width,stage_height,stage_rotation").eq("event_id",id).maybeSingle()]);
    if(e.error)throw e.error;if(t.error)throw t.error;if(m.error)throw m.error;
-   if(mounted){setEvent(e.data as EventItem);setTables((t.data??[]) as TableItem[]);setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50));setStageItem({x:Number(m.data?.stage_x??440),y:Number(m.data?.stage_y??18),width:Number(m.data?.stage_width??130),height:Number(m.data?.stage_height??42),rotation:Number(m.data?.stage_rotation??0)})}
+   if(mounted){setEvent(e.data as EventItem);setTables((t.data??[]) as TableItem[]);latest.current=(t.data??[]) as TableItem[];setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50));setStageItem({x:Number(m.data?.stage_x??440),y:Number(m.data?.stage_y??18),width:Number(m.data?.stage_width??130),height:Number(m.data?.stage_height??42),rotation:Number(m.data?.stage_rotation??0)})}
   }catch(ex){if(mounted)setError(ex instanceof Error?ex.message:"Unable to load seating map")}
   finally{if(mounted)setLoading(false)}
  })();return()=>{mounted=false}},[id,router]);
  const current=tables.find(t=>t.id===selected);
- function mutate(id:string,patch:Partial<TableItem>){setTables(old=>old.map(t=>t.id===id?{...t,...patch}:t));setMessage("Unsaved changes")}
+ function mutate(id:string,patch:Partial<TableItem>){
+  const next=latest.current.map(t=>t.id===id?{...t,...patch}:t);
+  latest.current=next;setTables(next);
+  const t=next.find(t=>t.id===id);if(t)pending.current[id]=t;
+  setMessage("Unsaved changes");
+  if(timer.current)clearTimeout(timer.current);
+  timer.current=setTimeout(()=>{void flushChanges()},950);
+ }
+ async function flushChanges(){
+  if(flushing.current)return;
+  flushing.current=true;
+  const batch=pending.current;pending.current={};
+  const work=Object.values(batch);
+  if(work.length){setMessage("Saving…");setError("");}
+  for(const t of work){
+   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
+   if(e){pending.current[t.id]=pending.current[t.id]??t;setError("Autosave failed: "+e.message);setMessage("Not saved");}
+  }
+  flushing.current=false;
+  if(Object.keys(pending.current).length){if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>{void flushChanges()},1100);}
+  else if(work.length)setMessage("Saved");
+ }
+
  async function saveStage(){
   setSaving(true);setError("");
   const {error:e}=await supabase.from("event_seating_maps").upsert({event_id:id,stage_x:stageItem.x,stage_y:stageItem.y,stage_width:stageItem.width,stage_height:stageItem.height,stage_rotation:stageItem.rotation,updated_at:new Date().toISOString()},{onConflict:"event_id"});
@@ -114,25 +141,29 @@ export default function SeatingBuilder(){
  }
  async function add(){
   const n=tables.length+1;
-  const record={event_id:id,label:"Table "+n,shape:"rectangle",x:130+(n%4)*175,y:130+Math.floor(n/4)*140,width:140,height:65,rotation_deg:0,seats_top:2,seats_bottom:2,seats_left:1,seats_right:1,table_price_cents:null,is_active:true};
+  const source=tables.find(t=>t.id===selected)??tables[tables.length-1];
+  const used=new Set(tables.map(t=>t.label));
+  let nextNumber=n;while(used.has("Table "+nextNumber))nextNumber++;
+  const record={event_id:id,label:"Table "+nextNumber,shape:source?.shape??"rectangle",x:source?Math.min(900,source.x+35):130,y:source?Math.min(620,source.y+45):130,width:source?.width??140,height:source?.height??65,rotation_deg:source?.rotation_deg??0,seats_top:source?.seats_top??2,seats_bottom:source?.seats_bottom??2,seats_left:source?.seats_left??1,seats_right:source?.seats_right??1,table_price_cents:source?.table_price_cents??null,is_active:true};
   setSaving(true);setError("");
   const {data,error:e}=await supabase.from("seating_tables").insert(record).select("*").single();
-  if(e)setError(e.message);else{setTables(old=>[...old,data as TableItem]);setSelected(data.id);setMessage("Table added")}
+  if(e)setError(e.message);else{setTables(old=>{const next=[...old,data as TableItem];latest.current=next;return next});setSelected(data.id);setMessage("Table added")}
   setSaving(false);
  }
  async function save(){
   setSaving(true);setError("");
-  for(const t of tables){
+  if(timer.current)clearTimeout(timer.current);
+  for(const t of latest.current){
    const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
    if(e){setError(e.message);setSaving(false);return}
   }
-  setMessage("Layout saved");setSaving(false);
+  pending.current={};setMessage("Layout saved");setSaving(false);
  }
  async function remove(){
   if(!current||!confirm("Remove "+current.label+" from this event?"))return;
   const {error:e}=await supabase.from("seating_tables").delete().eq("id",current.id).eq("event_id",id);
   if(e){setError(e.message);return}
-  setTables(old=>old.filter(t=>t.id!==current.id));setSelected(null);setMessage("Table removed");
+  setTables(old=>{const next=old.filter(t=>t.id!==current.id);latest.current=next;return next});delete pending.current[current.id];setSelected(null);setMessage("Table removed");
  }
  function pointerDown(e:React.PointerEvent<HTMLButtonElement>,t:TableItem){
   setEditingStage(false);
@@ -146,6 +177,19 @@ export default function SeatingBuilder(){
   const d=drag.current;if(!d)return;
   const scale=stage.current?.getBoundingClientRect().width/W||1;
   mutate(d.id,{x:Math.round(Math.max(0,Math.min(900,d.x+e.clientX/scale-d.startX))),y:Math.round(Math.max(0,Math.min(620,d.y+e.clientY/scale-d.startY)))});
+ }
+ function rotateDown(e:React.PointerEvent<HTMLButtonElement>,t:TableItem){
+  e.stopPropagation();e.preventDefault();setSelected(t.id);setEditingStage(false);
+  const rect=stage.current?.getBoundingClientRect();if(!rect)return;
+  const scale=rect.width/W;
+  rotating.current={id:t.id,centerX:rect.left+(t.x+t.width/2)*scale,centerY:rect.top+(t.y+t.height/2)*scale};
+  e.currentTarget.setPointerCapture(e.pointerId);
+ }
+ function rotateMove(e:React.PointerEvent<HTMLButtonElement>){
+  const d=rotating.current;if(!d)return;e.preventDefault();e.stopPropagation();
+  const angle=Math.atan2(e.clientY-d.centerY,e.clientX-d.centerX)*180/Math.PI+90;
+  const normalized=((Math.round(angle/5)*5+180+360)%360)-180;
+  mutate(d.id,{rotation_deg:normalized});
  }
  function resizeDown(e:React.PointerEvent<HTMLButtonElement>,t:TableItem){
   e.preventDefault();e.stopPropagation();setSelected(t.id);setEditingStage(false);
@@ -205,6 +249,7 @@ export default function SeatingBuilder(){
         style={{width:"100%",height:"100%"}}>
          {t.label}<SeatMarkers t={t}/>
        </button>
+       {selected===t.id&&<button type="button" aria-label={"Rotate "+t.label} title="Drag to rotate" onPointerDown={e=>rotateDown(e,t)} onPointerMove={rotateMove} onPointerUp={()=>{rotating.current=null}} onPointerCancel={()=>{rotating.current=null}} className="absolute -top-10 left-1/2 z-20 flex h-8 w-8 -translate-x-1/2 touch-none items-center justify-center rounded-full border-2 border-pink-600 bg-white text-lg font-black shadow">⟳</button>}
        {selected===t.id&&<button type="button" aria-label={"Resize "+t.label} title="Drag to resize table" onPointerDown={e=>resizeDown(e,t)} onPointerMove={resizeMove} onPointerUp={()=>{resize.current=null}} onPointerCancel={()=>{resize.current=null}} className="absolute -bottom-3 -right-3 z-20 flex h-7 w-7 touch-none items-center justify-center rounded-md border-2 border-pink-600 bg-white text-sm font-black shadow">↘</button>}
        </div>)}
      </div>
