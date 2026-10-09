@@ -11,13 +11,13 @@ type Props = { event:EventPageData; editable?:boolean; heading?:ReactNode; descr
   bookingHref?:string; bookingAction?:()=>void; bookingDisabled?:boolean };
 export default function EventPresentation({event,editable=false,heading,description,dateAndPlace,bannerControl,imageControl,bookingHref,bookingAction,bookingDisabled=false}:Props){
  const photo=event.image_url;
- return <article className="mx-auto w-full max-w-6xl overflow-hidden bg-[#fffaf1] text-black">
+ return <article className="w-full overflow-hidden bg-[#fffaf1] text-black">
    <div className="relative bg-[#1b1714]">
-     {photo?<img src={photo} alt="" className="h-56 w-full object-cover sm:h-80 lg:h-[440px]"/>:
-     <div className="flex h-56 items-center justify-center bg-[#f5a047]/40 text-sm sm:h-80 lg:h-[440px]">Event banner image</div>}
+     {photo?<img src={photo} alt="" className="h-[45vh] min-h-64 w-full object-cover sm:h-[58vh] lg:h-[68vh]"/>:
+     <div className="flex h-[45vh] min-h-64 items-center justify-center bg-[#f5a047]/40 text-sm sm:h-[58vh] lg:h-[68vh]">Event banner image</div>}
      {bannerControl&&<div className="absolute bottom-4 right-4">{bannerControl}</div>}
    </div>
-   <div className="px-5 pb-14 pt-7 sm:px-10 sm:pt-10 lg:px-14">
+   <div className="px-5 pb-14 pt-7 sm:px-10 sm:pt-10 lg:px-[6vw]">
      <div className="mb-7 flex flex-col gap-4 border-b border-black/15 pb-6 md:flex-row md:items-start md:justify-between">
        <div className="min-w-0 flex-1">{heading??<h1 className="text-3xl font-black leading-tight sm:text-5xl">{event.title}</h1>}</div>
        <div className="shrink-0 md:max-w-64 md:text-right">{dateAndPlace??<div className="space-y-1 font-semibold"><p>{event.event_date} · {event.event_time.slice(0,5)}</p><p>{event.location||"Venue to be confirmed"}</p></div>}</div>
