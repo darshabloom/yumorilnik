@@ -9,12 +9,12 @@ type EventRow = {
   id: string; slug: string; title: string; title_en: string | null;
   description: string | null; description_en: string | null;
   event_date: string; event_time: string; location: string | null;
-  image_url: string | null; is_active: boolean;
+  image_url: string | null; is_active: boolean; event_type:"internal"|"external";external_url:string|null;
 };
 type Fields = Omit<EventRow, "id">;
 const empty: Fields = { slug: "", title: "", title_en: "", description: "",
   description_en: "", event_date: "", event_time: "19:00", location: "",
-  image_url: "", is_active: false };
+  image_url: "", is_active: false, event_type:"internal",external_url:null };
 
 export default function AdminEventsPage() {
   const router = useRouter();
@@ -40,7 +40,7 @@ export default function AdminEventsPage() {
         if (!active) return;
         setAllowed(true);
         const { data, error: dbError } = await supabase.from("events")
-          .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,is_active")
+          .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,is_active,event_type,external_url")
           .order("event_date", { ascending: false });
         if (dbError) throw dbError;
         if (active) setEvents((data ?? []) as EventRow[]);
@@ -61,12 +61,12 @@ export default function AdminEventsPage() {
       description: item.description ?? "", description_en: item.description_en ?? "",
       event_date: item.event_date, event_time: item.event_time.slice(0, 5),
       location: item.location ?? "", image_url: item.image_url ?? "",
-      is_active: item.is_active });
+      is_active: item.is_active, event_type:item.event_type??"internal",external_url:item.external_url??null });
     setError(""); setMessage("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function reset() { setSelectedId(null); setFields(empty); setError(""); setMessage(""); setShowForm(true); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function reset() { setSelectedId(null); setFields(old=>({...empty,event_type:old.event_type})); setError(""); setMessage(""); setShowForm(true); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function backToList() { setShowForm(false); setSelectedId(null); setFields(empty); setError(""); setMessage(""); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function update<K extends keyof Fields>(key: K, value: Fields[K]) {
     setFields(current => ({ ...current, [key]: value }));
@@ -77,11 +77,13 @@ export default function AdminEventsPage() {
     if (!fields.slug.trim() || !fields.title.trim() || !fields.event_date) {
       setError("Russian title, slug and date are required."); return;
     }
+    if(fields.event_type==="external"){try{const url=new URL(fields.external_url||"");if(url.protocol!=="https:")throw Error();}catch{setError("External events need a valid HTTPS booking URL.");return;}}
     setSaving(true); setError(""); setMessage("");
     const payload = { ...fields, slug: fields.slug.trim().toLowerCase(),
       title: fields.title.trim(), title_en: fields.title_en?.trim() || null,
       description: fields.description?.trim() || null, description_en: fields.description_en?.trim() || null,
       location: fields.location?.trim() || null, image_url: fields.image_url?.trim() || null,
+      event_type:fields.event_type,external_url:fields.event_type==="external"?fields.external_url?.trim()||null:null,
       updated_at: new Date().toISOString() };
     const query = selectedId
       ? supabase.from("events").update(payload).eq("id", selectedId).select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,is_active").single()
@@ -110,7 +112,7 @@ export default function AdminEventsPage() {
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <div><p className="text-xs font-bold uppercase tracking-widest text-pink-700">Yumorilnik / Admin</p>
           <h1 className="mt-1 text-3xl font-black">Manage events</h1></div>
-          <button type="button" onClick={reset} className="rounded-lg bg-black px-4 py-3 font-bold text-white">+ Add event</button>
+          <div className="flex items-center gap-2"><label htmlFor="new-event-type" className="sr-only">New event type</label><select id="new-event-type" value={fields.event_type} onChange={e=>setFields(old=>({...old,event_type:e.target.value as Fields["event_type"]}))} className="rounded-lg border border-black bg-white px-3 py-3"><option value="internal">Internal</option><option value="external">External</option></select><button type="button" onClick={reset} className="rounded-lg bg-black px-4 py-3 font-bold text-white">+ Add event</button></div>
         </div>
 
         {message && !showForm && <p role="status" className="mt-5 rounded bg-green-100 p-4 text-green-900">{message}</p>}
@@ -122,6 +124,8 @@ export default function AdminEventsPage() {
 
           <section className="space-y-4">
             <h3 className="border-b pb-2 text-lg font-black">1. Basic details</h3>
+            <div><label htmlFor="event-kind" className={labelClass}>Ticketing type</label><select id="event-kind" value={fields.event_type} onChange={e=>update("event_type",e.target.value as Fields["event_type"])} className={inputClass}><option value="internal">Internal — tickets sold here</option><option value="external">External — tickets on another website</option></select></div>
+            {fields.event_type==="external"&&<div><label htmlFor="event-link" className={labelClass}>External booking website *</label><input id="event-link" required type="url" placeholder="https://..." className={inputClass} value={fields.external_url??""} onChange={e=>update("external_url",e.target.value)}/></div>}
             <div><label htmlFor="event-title" className={labelClass}>Russian title *</label>
               <input id="event-title" required className={inputClass} value={fields.title} onChange={e => update("title", e.target.value)} /></div>
             <div><label htmlFor="event-title-en" className={labelClass}>English title</label>
@@ -167,7 +171,7 @@ export default function AdminEventsPage() {
             {events.map(item => <article key={item.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-black bg-white p-4">
               <div><h3 className="font-black">{item.title}</h3>
                 <p className="text-sm">{item.event_date} · {item.location || "Venue TBD"}</p>
-                <p className="mt-1 text-xs font-bold">{item.is_active ? "Published" : "Draft"}</p></div>
+                <p className="mt-1 text-xs font-bold">{item.is_active ? "Published" : "Draft"} · {item.event_type==="external"?"External":"Internal"}</p></div>
               <button type="button" onClick={() => router.push(`/admin/events/${item.id}`)} className="rounded-lg border-2 border-black px-5 py-3 font-bold">Open event →</button>
             </article>)}
           </div>}
