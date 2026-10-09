@@ -13,7 +13,7 @@ export default function EventPresentation({event,editable=false,heading,descript
  const banner=event.image_url;
  const detail=event.detail_image_url;
  return <article className="w-full bg-[#fffaf1] text-black">
-   <div className="relative bg-[#fffaf1]">
+   <div className="relative bg-[#f5a047]/20">
      {banner?<img src={banner} alt="" style={{objectFit:event.banner_fit==="contain"?"contain":"cover",objectPosition:`${event.banner_position_x??50}% ${event.banner_position_y??50}%`}} className={event.banner_fit==="contain"?"block h-auto max-h-[65svh] w-full object-contain sm:h-[78vh] sm:max-h-none lg:h-[86vh]":"block h-[48svh] min-h-[260px] w-full object-cover sm:h-[78vh] lg:h-[86vh]"}/>:
      <div className="flex h-[46svh] min-h-[250px] items-center justify-center bg-[#f5a047]/40 text-sm sm:h-[78vh] lg:h-[86vh]">Event banner image</div>}
      {bannerControl&&<div className="absolute bottom-4 right-4">{bannerControl}</div>}
