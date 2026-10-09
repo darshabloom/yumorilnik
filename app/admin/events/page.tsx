@@ -168,7 +168,7 @@ export default function AdminEventsPage() {
               <div><h3 className="font-black">{item.title}</h3>
                 <p className="text-sm">{item.event_date} · {item.location || "Venue TBD"}</p>
                 <p className="mt-1 text-xs font-bold">{item.is_active ? "Published" : "Draft"}</p></div>
-              <button type="button" onClick={() => edit(item)} className="rounded-lg border-2 border-black px-5 py-3 font-bold">Edit</button>
+              <button type="button" onClick={() => router.push(`/admin/events/${item.id}`)} className="rounded-lg border-2 border-black px-5 py-3 font-bold">Open event →</button>
             </article>)}
           </div>}
         </section>}
