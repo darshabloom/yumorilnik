@@ -28,7 +28,7 @@ export default function SiteHeader() {
   const t = labels[language];
   const links = [
     { href: "/", label: t.home },
-    { href: "/products", label: t.events },
+    { href: "/events", label: t.events },
     { href: "/about", label: t.about },
     { href: "/contact", label: t.contact },
   ];
@@ -46,7 +46,7 @@ export default function SiteHeader() {
               {label}
             </Link>
           ))}
-          <Link href="/products" className="border-2 border-black px-4 py-2 font-bold transition-colors hover:bg-black hover:text-[#f5a047]">
+          <Link href="/events" className="border-2 border-black px-4 py-2 font-bold transition-colors hover:bg-black hover:text-[#f5a047]">
             {t.tickets}
           </Link>
         </nav>
@@ -88,7 +88,7 @@ export default function SiteHeader() {
             {label}
           </Link>
         ))}
-        <Link href="/products" onClick={() => setOpen(false)} className="mt-2 bg-black px-4 py-3 text-center font-bold text-[#f5a047]">
+        <Link href="/events" onClick={() => setOpen(false)} className="mt-2 bg-black px-4 py-3 text-center font-bold text-[#f5a047]">
           {t.tickets}
         </Link>
       </nav>
