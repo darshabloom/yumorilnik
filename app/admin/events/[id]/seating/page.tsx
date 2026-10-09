@@ -4,6 +4,7 @@ import Link from "next/link";
 import {useParams,useRouter} from "next/navigation";
 import {supabase} from "@/lib/supabaseClient";
 import {VenueLines, type VenueFeature, type Point} from "@/components/VenueLines";
+import CustomerVenueMap from "@/components/CustomerVenueMap";
 
 type TableItem={id:string;event_id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;is_active:boolean;shape:string};
 type EventItem={id:string;title:string;seating_mode:string;table_booking_mode:string};
@@ -286,11 +287,15 @@ export default function SeatingBuilder(){
  if(!event)return <main role="alert" className="p-8">{error||"Event unavailable"}</main>;
  const whole=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
  return <main className="min-h-screen bg-[#fffaf1] px-4 py-6 text-black sm:px-8">
-  <div className="mx-auto mb-5 rounded-xl border border-black/15 bg-white p-5 lg:hidden">
-   <h2 className="text-xl font-black">Edit table layout on a computer</h2>
-   <p className="mt-2 text-sm text-gray-700">The seating layout requires precise dragging, resizing and rotation. Use a computer to make changes. You can still review the venue plan below on your phone.</p>
-  </div>
-  <div className="mx-auto max-w-7xl">
+  <section className="mx-auto max-w-xl space-y-4 lg:hidden">
+    <Link href={`/admin/events/${id}/tickets`} className="text-sm font-bold underline">← Tickets</Link>
+    <div className="rounded-xl border border-black/15 bg-white p-5">
+      <h1 className="text-xl font-black">{event.title}</h1>
+      <p className="mt-2 text-sm text-gray-700">The venue plan is for viewing on a phone. To move tables, trace walls or change prices, open this page on a computer.</p>
+    </div>
+    <CustomerVenueMap tables={tables} features={features} stage={{stage_x:stageItem.x,stage_y:stageItem.y,stage_width:stageItem.width,stage_height:stageItem.height,stage_rotation:stageItem.rotation}} mode={whole?"whole_table":"individual_seats"}/>
+  </section>
+  <div className="mx-auto hidden max-w-7xl lg:block">
    <Link href={`/admin/events/${id}/tickets`} className="text-sm font-bold underline">← Tickets</Link>
    <div className="sticky top-0 z-40 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-black/15 bg-[#fffaf1]/95 px-3 py-3 shadow-sm backdrop-blur"><div><p className="text-xs font-bold uppercase tracking-widest text-pink-700">Seating layout</p><h1 className="text-3xl font-black">{event.title}</h1></div><div className="flex gap-2"><button onClick={()=>void add()} disabled={saving} className="rounded-lg bg-black px-4 py-3 font-bold text-white">+ Add table</button><button onClick={()=>void save()} disabled={saving} className="rounded-lg border border-black px-4 py-3 font-bold">{saving?"Saving…":"Save layout"}</button></div></div>
    <p className="mt-3 text-sm text-gray-600">Drag the stage to its actual location. Drag a table to position it. Select a table to edit its size, seats, rotation and price. Pricing is per entire table in whole-table mode.</p>
