@@ -1,20 +1,15 @@
-export default function EventsPage() {
-    return (
-        <main className="min-h-screen bg-[#f5a047] px-6 py-16 text-black">
-            <section className="mx-auto max-w-4xl">
-                <h1 className="text-5xl font-black text-pink-600">События</h1>
-
-                <p className="mt-8 text-xl">
-                    Все текущие билеты и события находятся на странице билетов.
-                </p>
-
-                <a
-                    href="/products"
-                    className="mt-8 inline-block bg-black px-6 py-4 font-bold text-[#f5a047]"
-                >
-                    Перейти к билетам
-                </a>
-            </section>
-        </main>
-    );
+import Link from "next/link";
+import { supabaseServer } from "@/lib/supabaseServer";
+export default async function EventsPage() {
+ const today = new Date().toISOString().slice(0,10);
+ const {data: events,error} = await supabaseServer.from("events").select("id,slug,title,event_date,event_time,location,image_url").eq("is_active",true).gte("event_date",today).order("event_date",{ascending:true});
+ return <main className="min-h-screen bg-[#fffaf1] px-5 py-12 text-black sm:px-10 lg:px-[6vw]">
+  <h1 className="text-4xl font-black sm:text-6xl">Афиша</h1>
+  <p className="mt-3 text-lg">Ближайшие мероприятия Юморильника</p>
+  {error?<p role="alert" className="mt-8">Не удалось загрузить афишу.</p>:!events?.length?<p className="mt-8 rounded-xl bg-white p-8">Скоро новые мероприятия!</p>:
+  <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">{events.map(event=><Link key={event.id} href={"/events/"+event.slug} className="overflow-hidden rounded-xl border bg-white hover:shadow-xl">
+   {event.image_url?<img src={event.image_url} alt="" className="aspect-[16/10] w-full object-cover"/>:<div className="flex aspect-[16/10] items-center justify-center bg-[#f5a047]/30">Юморильник</div>}
+   <div className="space-y-3 p-5"><p className="text-sm font-semibold">{event.event_date} · {event.event_time.slice(0,5)}</p><h2 className="text-2xl font-black">{event.title}</h2><p>{event.location}</p><p className="font-bold underline">Подробнее →</p></div>
+  </Link>)}</div>}
+ </main>;
 }
