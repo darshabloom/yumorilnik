@@ -129,7 +129,7 @@ export default function TicketEditor(){
          {notice&&<p role="status" className="my-4 rounded bg-green-100 p-3 text-sm text-green-800">{notice}</p>}
        </section>
        <section>
-         <h2 className="mb-5 text-2xl font-black">Рассадка</h2>
+         <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-2xl font-black">Рассадка</h2>{!preview&&<Link href={`/admin/events/${id}/seating`} className="rounded-lg bg-black px-4 py-3 text-sm font-bold text-white">Edit seating map →</Link>}</div>
          {!preview&&<div className="mb-5 rounded-xl border bg-white p-4">
            <p className="mb-3 font-bold">Seating type for this event</p>
            <div className="space-y-3">
