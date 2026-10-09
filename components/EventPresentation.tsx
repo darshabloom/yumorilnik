@@ -13,9 +13,9 @@ export default function EventPresentation({event,editable=false,heading,descript
  const banner=event.image_url;
  const detail=event.detail_image_url;
  return <article className="w-full bg-[#fffaf1] text-black">
-   <div className="relative bg-[#1b1714]">
-     {banner?<img src={banner} alt="" style={{objectFit:event.banner_fit==="contain"?"contain":"cover",objectPosition:`${event.banner_position_x??50}% ${event.banner_position_y??50}%`}} className="h-[45vh] min-h-64 w-full sm:h-[58vh] lg:h-[68vh]"/>:
-     <div className="flex h-[45vh] min-h-64 items-center justify-center bg-[#f5a047]/40 text-sm sm:h-[58vh] lg:h-[68vh]">Event banner image</div>}
+   <div className="relative bg-[#fffaf1]">
+     {banner?<img src={banner} alt="" style={{objectFit:event.banner_fit==="contain"?"contain":"cover",objectPosition:`${event.banner_position_x??50}% ${event.banner_position_y??50}%`}} className="h-[68vh] min-h-[420px] w-full sm:h-[78vh] lg:h-[86vh]"/>:
+     <div className="flex h-[68vh] min-h-[420px] items-center justify-center bg-[#f5a047]/40 text-sm sm:h-[78vh] lg:h-[86vh]">Event banner image</div>}
      {bannerControl&&<div className="absolute bottom-4 right-4">{bannerControl}</div>}
    </div>
    <div className="px-5 pb-14 pt-7 sm:px-10 sm:pt-10 lg:px-[6vw]">
@@ -29,8 +29,8 @@ export default function EventPresentation({event,editable=false,heading,descript
          {description??<p className="whitespace-pre-wrap leading-7">{event.description||"Описание скоро появится."}</p>}
        </section>
        <div className="relative rounded-lg bg-[#f5a047]/20">
-         {detail?<img src={detail} alt="" style={{objectFit:event.detail_fit==="contain"?"contain":"cover",objectPosition:`${event.detail_position_x??50}% ${event.detail_position_y??50}%`}} className="aspect-[4/5] w-full bg-black"/>:
-          <div className="flex aspect-[4/5] items-center justify-center px-4 text-center text-sm text-gray-600">Event photograph</div>}
+         {detail?<img src={detail} alt="" style={{objectFit:event.detail_fit==="contain"?"contain":"cover",objectPosition:`${event.detail_position_x??50}% ${event.detail_position_y??50}%`}} className="h-[65vh] min-h-[420px] w-full bg-[#fffaf1] sm:h-[85vh]"/>:
+          <div className="flex h-[65vh] min-h-[420px] items-center justify-center sm:h-[85vh] px-4 text-center text-sm text-gray-600">Event photograph</div>}
          {imageControl&&<div className="absolute bottom-3 right-3">{imageControl}</div>}
        </div>
      </div>
