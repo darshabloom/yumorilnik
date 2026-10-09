@@ -121,7 +121,8 @@ export default function InlineEventEditor() {
         </div>}
         bannerControl={!isPreview?<button type="button" onClick={()=>setEditingImage(!editingImage)} className="rounded bg-white px-4 py-3 text-sm font-bold">Change image</button>:undefined}
         imageControl={!isPreview?<button type="button" onClick={()=>setEditingImage(!editingImage)} className="rounded bg-white px-3 py-2 text-sm font-bold">Edit photo</button>:undefined}
-        bookingAction={()=>router.push(`/admin/events/${event.id}/tickets`)}
+        bookingAction={()=>{}}
+        bookingDisabled
       />
       {!isPreview && <div className="mx-auto max-w-5xl space-y-5 bg-white px-5 pb-12 sm:px-10">
         {editingImage && <label className="block rounded-lg bg-[#fff2db] p-4 text-sm font-bold">Image URL
