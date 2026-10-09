@@ -4,16 +4,17 @@ import type { ReactNode } from "react";
 
 export type EventPageData = {
   slug:string; title:string; description:string|null; event_date:string;
-  event_time:string; location:string|null; image_url:string|null;
+  event_time:string; location:string|null; image_url:string|null; detail_image_url?:string|null; banner_fit?:string; banner_position_x?:number; banner_position_y?:number; detail_fit?:string; detail_position_x?:number; detail_position_y?:number;
 };
 type Props = { event:EventPageData; editable?:boolean; heading?:ReactNode; description?:ReactNode;
   dateAndPlace?:ReactNode; bannerControl?:ReactNode; imageControl?:ReactNode;
   bookingHref?:string; bookingAction?:()=>void; bookingDisabled?:boolean };
 export default function EventPresentation({event,editable=false,heading,description,dateAndPlace,bannerControl,imageControl,bookingHref,bookingAction,bookingDisabled=false}:Props){
- const photo=event.image_url;
+ const banner=event.image_url;
+ const detail=event.detail_image_url;
  return <article className="w-full overflow-hidden bg-[#fffaf1] text-black">
    <div className="relative bg-[#1b1714]">
-     {photo?<img src={photo} alt="" className="h-[45vh] min-h-64 w-full object-cover sm:h-[58vh] lg:h-[68vh]"/>:
+     {banner?<img src={banner} alt="" style={{objectFit:event.banner_fit==="contain"?"contain":"cover",objectPosition:`${event.banner_position_x??50}% ${event.banner_position_y??50}%`}} className="h-[45vh] min-h-64 w-full sm:h-[58vh] lg:h-[68vh]"/>:
      <div className="flex h-[45vh] min-h-64 items-center justify-center bg-[#f5a047]/40 text-sm sm:h-[58vh] lg:h-[68vh]">Event banner image</div>}
      {bannerControl&&<div className="absolute bottom-4 right-4">{bannerControl}</div>}
    </div>
@@ -28,7 +29,7 @@ export default function EventPresentation({event,editable=false,heading,descript
          {description??<p className="whitespace-pre-wrap leading-7">{event.description||"Описание скоро появится."}</p>}
        </section>
        <div className="relative overflow-hidden rounded-lg bg-[#f5a047]/20">
-         {photo?<img src={photo} alt="" className="aspect-[4/5] w-full object-cover"/>:
+         {detail?<img src={detail} alt="" style={{objectFit:event.detail_fit==="contain"?"contain":"cover",objectPosition:`${event.detail_position_x??50}% ${event.detail_position_y??50}%`}} className="aspect-[4/5] w-full bg-black"/>:
           <div className="flex aspect-[4/5] items-center justify-center px-4 text-center text-sm text-gray-600">Event photograph</div>}
          {imageControl&&<div className="absolute bottom-3 right-3">{imageControl}</div>}
        </div>
