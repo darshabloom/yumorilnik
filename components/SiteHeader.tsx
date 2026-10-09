@@ -23,6 +23,7 @@ export default function SiteHeader() {
     setLanguage(next);
     window.localStorage.setItem("yumorilnik-language", next);
     document.documentElement.lang = next;
+    window.dispatchEvent(new Event("yumorilnik-language-change"));
   };
 
   const t = labels[language];
