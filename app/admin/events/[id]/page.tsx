@@ -204,9 +204,9 @@ export default function InlineEventEditor() {
 
       <EventPresentation
         event={{slug:event.slug,title,description,event_date:event.event_date,event_time:event.event_time,location:event.location,image_url:event.image_url,detail_image_url:event.detail_image_url,banner_fit:event.banner_fit,banner_position_x:event.banner_position_x,banner_position_y:event.banner_position_y,detail_fit:event.detail_fit,detail_position_x:event.detail_position_x,detail_position_y:event.detail_position_y}}
-        heading={isPreview ? undefined : <input aria-label="Event title" value={title} onChange={e=>change(titleKey,e.target.value)}
-          placeholder={language==="ru"?"Название мероприятия":"Event title"}
-          className="w-full rounded-md bg-transparent text-3xl font-black outline-none hover:bg-black/5 focus:bg-white focus:ring-2 focus:ring-pink-600 sm:text-5xl"/>}
+        heading={isPreview ? undefined : <textarea aria-label="Event title" value={title} onChange={e=>change(titleKey,e.target.value.replace(/\\n/g," "))}
+          rows={2} placeholder={language==="ru"?"Название мероприятия":"Event title"}
+          className="block min-h-24 w-full min-w-0 resize-y whitespace-pre-wrap break-words rounded-md bg-transparent text-3xl font-black leading-tight outline-none hover:bg-black/5 focus:bg-white focus:ring-2 focus:ring-pink-600 sm:min-h-28 sm:text-5xl"/>}
         description={isPreview ? undefined : <textarea aria-label="Event description" rows={Math.max(8,description.split("\n").length+3)}
           value={description} onChange={e=>change(descKey,e.target.value)}
           placeholder="Click to write a description"
