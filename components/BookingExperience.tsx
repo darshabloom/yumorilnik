@@ -18,6 +18,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [step,setStep]=useState<"tickets"|"seats"|"review"|"guests">("tickets");
  const [seatLimitNotice,setSeatLimitNotice]=useState(false);
  const [guestInfo,setGuestInfo]=useState<Record<string,{name:string;email:string;phone:string}>>({});
+ const [guestErrors,setGuestErrors]=useState(false);
  const language=useSiteLanguage();
  const en=language==="en";
  const tableBooking=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
@@ -62,16 +63,36 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
      <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-semibold sm:text-sm">{([{id:"tickets",en:"1 · Tickets",ru:"1 · Билеты"},{id:"seats",en:"2 · Seats",ru:"2 · Места"},{id:"review",en:"3 · Review",ru:"3 · Проверка"},{id:"guests",en:"4 · Guests",ru:"4 · Гости"}] as const).filter(s=>needsSeats||s.id!=="seats").map((s,i,steps)=><button type="button" key={s.id} disabled={i>steps.findIndex(item=>item.id===step)} onClick={()=>{setStep(s.id);window.scrollTo({top:0,behavior:"smooth"});}} aria-current={step===s.id?"step":undefined} className={`rounded-full border px-3 py-2 ${step===s.id?"border-black bg-black text-white":i<steps.findIndex(item=>item.id===step)?"border-black/25 bg-white text-black underline underline-offset-2":"border-black/15 bg-white text-gray-400"} disabled:cursor-default`}>{en?s.en:s.ru}</button>)}</div>
      {step==="guests"?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8">
        <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Guest details":"Данные гостей"}</h2><button type="button" className="text-sm underline" onClick={()=>{setStep("review")}}>{en?"← Back to review":"← К заказу"}</button></div>
-       <p className="text-sm text-gray-600">{en?"Enter each adult's name. Email and phone are optional. This is a local preview: nothing is submitted or stored.":"Укажите имя каждого взрослого. Телефон и email необязательны. Это только предварительный просмотр: данные не отправляются и не сохраняются."}</p>
-       {Array.from({length:adultTicketCount},(_,i)=>{
+       <p className="text-sm text-gray-600">{en?"Enter a name, email address and phone number for every attendee. We will use these for event safety and, once ticket delivery is enabled, to email each person's ticket. During this preview, nothing is submitted or saved.":"Укажите имя, адрес электронной почты и телефон каждого гостя. Контакты понадобятся для безопасности мероприятия и рассылки билетов после запуска бронирования. Сейчас это предварительный просмотр: данные не отправляются и не сохраняются."}</p>
+       {zonePricing&&childTicketCount>0&&<div className="rounded-lg border border-[#e7cc8a] bg-[#fffaf0] p-4 text-sm">
+         <strong>{en?"Children and reserved seats":"Дети и места за столами"}</strong>
+         <p className="mt-1">{en?"Child admission is $30 without an assigned table seat. If you selected extra seats beyond the adult count, those are reserved child seats at the full zone price. Children without reserved seats will use seating arranged at the event.":"Детский билет стоит $30 без закреплённого места за столом. Если вы выбрали мест больше, чем взрослых, дополнительные места предназначены для детей и оплачиваются по полной цене зоны. Детям без брони предоставят места на мероприятии."}</p>
+       </div>}
+       {Array.from({length:adultTicketCount+childTicketCount},(_,i)=>{
          const key=String(i),guest=guestInfo[key]??{name:"",email:"",phone:""};
+         const isChild=i>=adultTicketCount;
+         const adultSeat=!tableBooking&&i<adultTicketCount?selections[i]:null;
+         const childSeat=!tableBooking&&isChild?selections[adultTicketCount+(i-adultTicketCount)]:null;
+         const assigned=adultSeat??childSeat;
+         const seatLabel=assigned?`${assigned.label} · ${en?"seat":"место"} ${assigned.seat}`:(isChild?(en?"No reserved seat":"Без закреплённого места"):(en?"No seat selected":"Место не выбрано"));
          const update=(field:"name"|"email"|"phone",value:string)=>setGuestInfo(old=>({...old,[key]:{...(old[key]??{name:"",email:"",phone:""}),[field]:value}}));
-         return <fieldset key={key} className="space-y-3 rounded-xl border border-black/15 p-4"><legend className="px-2 font-semibold">{en?"Adult":"Взрослый"} {i+1}</legend>
-           <label className="block text-sm font-semibold">{en?"Full name":"Имя и фамилия"} *<input autoComplete="off" type="text" value={guest.name} onChange={e=>update("name",e.target.value)} className="mt-1 block w-full rounded-lg border border-black/30 p-3"/></label>
-           <div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-semibold">{en?"Email (optional)":"Email (необязательно)"}<input type="email" value={guest.email} onChange={e=>update("email",e.target.value)} className="mt-1 block w-full rounded-lg border border-black/30 p-3"/></label>
-           <label className="block text-sm font-semibold">{en?"Phone (optional)":"Телефон (необязательно)"}<input type="tel" value={guest.phone} onChange={e=>update("phone",e.target.value)} className="mt-1 block w-full rounded-lg border border-black/30 p-3"/></label></div>
+         const fieldClass="mt-1 block w-full rounded-lg border border-black/30 p-3";
+         return <fieldset key={key} className="space-y-3 rounded-xl border border-black/15 p-4">
+           <legend className="px-2 font-semibold">{isChild?(en?"Child":"Ребёнок"):(en?"Adult":"Взрослый")} {isChild?i-adultTicketCount+1:i+1}</legend>
+           <p className="text-sm font-semibold text-gray-700">{seatLabel}</p>
+           <label className="block text-sm font-semibold">{en?"Full name":"Имя и фамилия"} *<input autoComplete="off" required type="text" value={guest.name} onChange={e=>update("name",e.target.value)} aria-invalid={guestErrors&&!guest.name.trim()} className={fieldClass}/></label>
+           <div className="grid gap-3 sm:grid-cols-2">
+             <label className="block text-sm font-semibold">{en?"Email address":"Электронная почта"} *<input type="email" required value={guest.email} onChange={e=>update("email",e.target.value)} aria-invalid={guestErrors&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guest.email)} className={fieldClass}/></label>
+             <label className="block text-sm font-semibold">{en?"Phone number":"Номер телефона"} *<input type="tel" required value={guest.phone} onChange={e=>update("phone",e.target.value)} aria-invalid={guestErrors&&!guest.phone.trim()} className={fieldClass}/></label>
+           </div>
          </fieldset>;
        })}
+       <p className="text-xs text-gray-600">{en?"For children without their own contact details, a parent or guardian's email and phone can be entered. Ticket emails will be sent to the supplied address when delivery is enabled.":"Для детей без личных контактов можно указать email и телефон родителя или опекуна. После запуска рассылки билет придёт на указанный адрес."}</p>
+       {guestErrors&&<p role="alert" className="text-sm font-semibold text-red-700">{en?"Please complete a name, valid email and phone for every attendee.":"Укажите имя, правильный email и телефон каждого гостя."}</p>}
+       <button type="button" onClick={()=>{
+         const complete=Array.from({length:adultTicketCount+childTicketCount},(_,i)=>guestInfo[String(i)]).every(g=>g?.name.trim()&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(g.email)&&g.phone.trim());
+         setGuestErrors(!complete);
+       }} className="w-full rounded-lg border border-black/30 bg-white px-4 py-3 font-semibold">{en?"Check guest details":"Проверить данные гостей"}</button>
        <p className="rounded-lg bg-[#fff2db] p-4 text-sm">{en?"Booking confirmation and guest-data submission are not yet enabled.":"Подтверждение бронирования и отправка данных гостей пока недоступны."}</p>
        <button type="button" onClick={()=>{setStep("review")}} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Back to review":"Вернуться к заказу"}</button>
      </section>:step==="review"?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8" aria-label={en?"Order review":"Проверка заказа"}>
