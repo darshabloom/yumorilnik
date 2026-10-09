@@ -217,6 +217,26 @@ export default function SeatingBuilder(){
    if(e){setError(e.message);return;}
    setFeatures(old=>old.filter(item=>item.id!==featureSelected));setFeatureSelected(null);setSelectedPoint(null);setMessage("Feature deleted.");
  }
+ async function applySuggestedSeatPrices(){
+  if(!confirm("Apply the proposed $10/$20/$30 seat prices? This will replace existing seat surcharges for the named tables, but leave all other tables unchanged."))return;
+  const pricing:Record<number,number>={1:10,4:10,5:10,7:10,9:10,17:10,2:20,3:20,6:20,11:20,12:20,16:20,10:30,13:30,14:30,15:30,18:30};
+  const changes=latest.current.flatMap(t=>{
+    const match=t.label.match(/^(?:table\\s*|t)(\\d+)$/i);
+    const amount=match?pricing[Number(match[1])]:undefined;
+    return amount===undefined?[]:[{...t,seat_price_cents:amount*100}];
+  });
+  if(!changes.length){setError("No matching numbered tables found. Edit each table price manually.");return;}
+  setSaving(true);setError("");
+  let saved=0;
+  for(const t of changes){
+    const {error:e}=await supabase.from("seating_tables").update({seat_price_cents:t.seat_price_cents}).eq("id",t.id).eq("event_id",id);
+    if(e){setError("Bulk pricing stopped: "+e.message);break;}
+    saved++;
+    setTables(old=>{const next=old.map(row=>row.id===t.id?{...row,seat_price_cents:t.seat_price_cents}:row);latest.current=next;return next});
+  }
+  setMessage(saved+" table surcharge(s) saved. Other tables unchanged.");
+  setSaving(false);
+ }
  async function add(){
   const n=tables.length+1;
   const source=tables.find(t=>t.id===selected)??tables[tables.length-1];
@@ -356,6 +376,7 @@ export default function SeatingBuilder(){
      </div>
     </div>
     <aside className="hidden rounded-xl border border-black/20 bg-white p-4 lg:sticky lg:block lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
+     <button type="button" disabled={saving} onClick={()=>void applySuggestedSeatPrices()} className="mb-4 w-full rounded-lg border border-black/30 bg-[#fff2db] p-3 text-left text-sm font-semibold disabled:opacity-50">Apply proposed seat tiers · $10 / $20 / $30</button>
      {traceMode?<><h2 className="text-xl font-black">Tracing walls</h2><p className="mt-2 text-sm">Click along walls to create connected segments. Double-click or Finish to save. Drag circular points to make corrections.</p>
        <h3 className="mt-5 font-bold">Saved features</h3>
        {features.map(f=><button key={f.id} type="button" onClick={()=>{setFeatureSelected(f.id);setSelectedPoint(null)}} className={`mt-2 block w-full rounded border p-2 text-left text-sm ${featureSelected===f.id?"border-pink-600 bg-pink-50":""}`}>{f.kind==="wall"?"Wall":"Entrance"} · {f.points.length} points</button>)}
