@@ -26,6 +26,8 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
  const pointers=useRef(new Map<number,{x:number;y:number}>());
  const gesture=useRef<{x:number;y:number;w:number;h:number;cx:number;cy:number;distance:number}|null>(null);
  const moved=useRef(false);
+ const tap=useRef<{key:string;tableId:string}|null>(null);
+ const downOrigin=useRef<{x:number;y:number}|null>(null);
  const selected=tables.find(t=>t.id===focused);
  const zoom=WIDTH/view.w;
  function clamp(x:number,y:number,w:number,h:number){return {x:Math.max(0,Math.min(WIDTH-w,x)),y:Math.max(0,Math.min(HEIGHT-h,y)),w,h};}
@@ -40,6 +42,12 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
   return {cx:b?(a.x+b.x)/2:a.x,cy:b?(a.y+b.y)/2:a.y,distance:b?Math.hypot(a.x-b.x,a.y-b.y):0};
  }
  function down(e:React.PointerEvent<SVGSVGElement>){
+  if(pointers.current.size===0){
+    const target=e.target as Element;
+    const element=target.closest("[data-seat-key]");
+    tap.current=element&&element.getAttribute("data-seat-key")?{key:element.getAttribute("data-seat-key")??"",tableId:element.getAttribute("data-table-id")??""}:null;
+    downOrigin.current={x:e.clientX,y:e.clientY};
+  }
   pointers.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
   const p=getGesture();if(!p)return;
   const rect=e.currentTarget.getBoundingClientRect();
@@ -51,7 +59,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
   const prev=pointers.current.get(e.pointerId);if(!prev||!gesture.current)return;
   pointers.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
   const p=getGesture();if(!p)return;
-  if(Math.hypot(e.clientX-prev.x,e.clientY-prev.y)>2)moved.current=true;
+  if(downOrigin.current&&Math.hypot(e.clientX-downOrigin.current.x,e.clientY-downOrigin.current.y)>6)moved.current=true;
   const rect=e.currentTarget.getBoundingClientRect(),g=gesture.current;
   const ratio=g.distance&&p.distance?Math.max(1,Math.min(4,WIDTH/g.w*p.distance/g.distance)):WIDTH/g.w;
   const w=WIDTH/ratio,h=HEIGHT/ratio;
@@ -61,14 +69,15 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
  }
  function up(e:React.PointerEvent<SVGSVGElement>){
   pointers.current.delete(e.pointerId);
-  if(pointers.current.size===0){gesture.current=null;return;}
+  if(pointers.current.size===0){
+   if(!moved.current&&tap.current){
+    setFocused(tap.current.tableId);
+    onToggle?.(tap.current.key);
+   }
+   tap.current=null;downOrigin.current=null;gesture.current=null;return;
+  }
   const p=getGesture(),rect=e.currentTarget.getBoundingClientRect();if(!p)return;
   gesture.current={x:view.x,y:view.y,w:view.w,h:view.h,cx:(p.cx-rect.left)/rect.width,cy:(p.cy-rect.top)/rect.height,distance:p.distance};
- }
- function pick(table:PublicTable,key:string){
-  if(moved.current)return;
-  setFocused(table.id);
-  onToggle?.(key);
  }
  const money=(cents:number)=>new Intl.NumberFormat("en-NZ",{style:"currency",currency:"NZD"}).format(cents/100);
  return <div className="space-y-3">
@@ -91,9 +100,9 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
        <text x={stage.stage_width/2} y={stage.stage_height/2+6} fontSize="19" textAnchor="middle" fontWeight="700">Сцена</text>
       </g>}
       {tables.filter(t=>t.is_active).map(t=><g key={t.id} transform={`translate(${t.x} ${t.y}) rotate(${t.rotation_deg} ${t.width/2} ${t.height/2})`}>
-        <rect x="0" y="0" width={t.width} height={t.height} rx="7" fill={selectedKeys.includes(t.id)?"#f8c6dc":focused===t.id?"#ffe1ee":"#fff"} stroke={selectedKeys.includes(t.id)?"#c41e73":"#777"} strokeWidth="3" onClick={()=>pick(t,t.id)} style={{cursor:"pointer"}}/>
+        <rect x="0" y="0" width={t.width} height={t.height} rx="7" fill={selectedKeys.includes(t.id)?"#f8c6dc":focused===t.id?"#ffe1ee":"#fff"} stroke={selectedKeys.includes(t.id)?"#c41e73":"#777"} strokeWidth="3" data-seat-key={mode==="whole_table"?t.id:""} data-table-id={t.id} style={{cursor:"pointer"}}/>
         <text x={t.width/2} y={t.height/2+7} fontSize="20" textAnchor="middle" fontWeight="700" pointerEvents="none">{t.label}</text>
-        {seatPositions(t).map(s=><g key={s.key} onClick={()=>pick(t,mode==="individual_seats"?s.key:t.id)} style={{cursor:"pointer"}}>
+        {seatPositions(t).map(s=><g key={s.key} data-seat-key={mode==="individual_seats"?s.key:t.id} data-table-id={t.id} style={{cursor:"pointer"}}>
           <circle cx={s.x} cy={s.y} r={13} fill={selectedKeys.includes(s.key)?"#f5a047":"#fff"} stroke="#333" strokeWidth="2"/>
           <text x={s.x} y={s.y+4} textAnchor="middle" fontSize="11" pointerEvents="none">{s.label}</text>
         </g>)}
