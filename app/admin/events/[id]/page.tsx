@@ -184,7 +184,7 @@ export default function InlineEventEditor() {
           <label className="block text-xs font-bold">Venue<input value={event.location??""} onChange={e=>change("location",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
         </div>}
         bannerControl={!isPreview?<div className="relative">{editingImage==="banner"&&imageEditor("banner")}<button type="button" onClick={()=>setEditingImage(editingImage==="banner"?null:"banner")} aria-expanded={editingImage==="banner"} className="rounded bg-white px-4 py-3 text-sm font-bold shadow">Change image</button></div>:undefined}
-        imageControl={!isPreview?<div className="relative">{editingImage==="detail"&&imageEditor}<button type="button" onClick={()=>setEditingImage(editingImage==="detail"?null:"detail")} aria-expanded={editingImage==="detail"} className="rounded bg-white px-3 py-2 text-sm font-bold shadow">Edit photo</button></div>:undefined}
+        imageControl={!isPreview?<div className="relative">{editingImage==="detail"&&imageEditor("detail")}<button type="button" onClick={()=>setEditingImage(editingImage==="detail"?null:"detail")} aria-expanded={editingImage==="detail"} className="rounded bg-white px-3 py-2 text-sm font-bold shadow">Edit photo</button></div>:undefined}
         bookingAction={()=>{}}
         bookingDisabled
       />
