@@ -5,7 +5,7 @@ import type {VenueFeature} from "@/components/VenueLines";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import {zoneForTable,zonePoints,type PriceZone} from "@/lib/priceZones";
 
-export type PublicTable={id:string;label:string;shape?:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;is_active:boolean};
+export type PublicTable={id:string;label:string;shape?:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id?:string|null;is_active:boolean};
 export type PublicStage={stage_x:number;stage_y:number;stage_width:number;stage_height:number;stage_rotation:number};
 type Seat={key:string;label:string;tableId:string;x:number;y:number};
 type Mode="whole_table"|"individual_seats";
