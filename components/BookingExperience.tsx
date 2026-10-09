@@ -9,7 +9,7 @@ export type BookingTicket = {
  id:string; name:string; description:string|null; price_cents:number;
  currency:string; quantity_total:number|null; quantity_sold:number|null;show_remaining?:boolean;
 };
-export type BookingEvent = { slug:string;title:string;image_url:string|null;booking_image_url?:string|null;booking_image_fit?:string|null;booking_image_position_x?:number|null;booking_image_position_y?:number|null;banner_fit?:string|null;seating_mode?:string|null;table_booking_mode?:string|null };
+export type BookingEvent = { slug:string;title:string;image_url:string|null;booking_image_url?:string|null;booking_image_fit?:string|null;booking_image_position_x?:number|null;booking_image_position_y?:number|null;banner_fit?:string|null;seating_mode?:string|null;table_booking_mode?:string|null;adult_seat_required?:boolean };
 export default function BookingExperience({event,tickets,venue}:{event:BookingEvent;tickets:BookingTicket[];venue?:{tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null}}) {
  const [quantities,setQuantities]=useState<Record<string,number>>({});
  const [mapSelections,setMapSelections]=useState<string[]>([]);
@@ -18,6 +18,8 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  function toggleMapSelection(key:string){setMapSelections(old=>old.includes(key)?old.filter(item=>item!==key):[...old,key]);}
  const count=tickets.reduce((total,t)=>total+(quantities[t.id]??0),0);
  const ticketTotal=tickets.reduce((sum,t)=>sum+t.price_cents*(quantities[t.id]??0),0);
+ const adultTicketCount=tickets.filter(t=>/adult|взросл/i.test(t.name)).reduce((sum,t)=>sum+(quantities[t.id]??0),0);
+ const seatsStillNeeded=event.adult_seat_required&&event.seating_mode!=="general_admission"?Math.max(0,adultTicketCount-mapSelections.length):0;
  const tableTotal=tableBooking?mapSelections.reduce((sum,key)=>sum+(venue?.tables.find(t=>t.id===key)?.table_price_cents??0),0):0;
  const total=tableBooking?tableTotal:ticketTotal;
  const currency=tickets[0]?.currency?.toUpperCase()||"NZD";
@@ -56,6 +58,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
          })}</div>}
        </section>
        <section aria-labelledby="seating-title" className="min-w-0 space-y-4">
+         {event.adult_seat_required&&event.seating_mode!=="general_admission"&&<p className="rounded-lg border border-[#f5a047] bg-[#fff2db] px-4 py-3 text-sm font-semibold">{seatsStillNeeded>0?`Для взрослых необходимо выбрать ещё ${seatsStillNeeded} мест(а).`:"Для каждого взрослого билета требуется отдельное место. Места для детей — по желанию."}</p>}
          <h2 id="seating-title" className="text-xl font-bold">{event.seating_mode==="general_admission"?"Вход без закреплённых мест":event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?"Места за столами":"Бронирование столов"):"Рассадка"}</h2>
          {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage} mode={seatingMode} selectedKeys={mapSelections} onToggle={toggleMapSelection}/>:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
             <div className="flex h-12 w-40 items-center justify-center rounded-lg bg-[#f5a047]/50 text-sm font-bold">Сцена</div>
