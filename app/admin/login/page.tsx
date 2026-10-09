@@ -12,6 +12,19 @@ export default function AdminLogin() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  async function signInWithGoogle() {
+    setBusy(true);
+    setError("");
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/admin` },
+    });
+    if (oauthError) {
+      setError(oauthError.message);
+      setBusy(false);
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -41,7 +54,21 @@ export default function AdminLogin() {
         <p className="text-sm font-bold uppercase tracking-widest text-pink-700">Юморильник</p>
         <h1 className="mt-3 text-3xl font-black">Admin sign in</h1>
         <p className="mt-2 text-sm">Sign in with your Yumorilnik administrator account.</p>
-        <form onSubmit={submit} className="mt-8 space-y-5">
+        <button
+          type="button"
+          onClick={signInWithGoogle}
+          disabled={busy}
+          className="mt-8 flex w-full items-center justify-center gap-3 rounded-lg border-2 border-black bg-white px-5 py-4 font-bold hover:bg-gray-50 disabled:opacity-50"
+        >
+          <span aria-hidden="true" className="font-black text-[#4285f4]">G</span>
+          Continue with Google
+        </button>
+        <div className="my-5 flex items-center gap-3 text-sm text-gray-600">
+          <span className="h-px flex-1 bg-black/20" />
+          or sign in with email
+          <span className="h-px flex-1 bg-black/20" />
+        </div>
+        <form onSubmit={submit} className="space-y-5">
           <div>
             <label htmlFor="email" className="mb-2 block font-semibold">Email</label>
             <input id="email" type="email" required autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded-lg border-2 border-black bg-white px-4 py-3" />
