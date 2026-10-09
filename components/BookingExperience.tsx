@@ -20,8 +20,10 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const ticketTotal=tickets.reduce((sum,t)=>sum+t.price_cents*(quantities[t.id]??0),0);
  const adultTicketCount=tickets.filter(t=>/adult|взросл/i.test(t.name)).reduce((sum,t)=>sum+(quantities[t.id]??0),0);
  const seatsStillNeeded=event.adult_seat_required&&event.seating_mode!=="general_admission"?Math.max(0,adultTicketCount-mapSelections.length):0;
+ const seatTotal=!tableBooking?mapSelections.reduce((sum,key)=>sum+(venue?.tables.find(t=>t.id===key.split(":")[0])?.seat_price_cents??0),0):0;
+ const missingSeatPrices=!tableBooking&&mapSelections.some(key=>venue?.tables.find(t=>t.id===key.split(":")[0])?.seat_price_cents===null);
  const tableTotal=tableBooking?mapSelections.reduce((sum,key)=>sum+(venue?.tables.find(t=>t.id===key)?.table_price_cents??0),0):0;
- const total=tableBooking?tableTotal:ticketTotal;
+ const total=ticketTotal+(tableBooking?tableTotal:seatTotal);
  const currency=tickets[0]?.currency?.toUpperCase()||"NZD";
  const format=useMemo(()=>new Intl.NumberFormat("en-NZ",{style:"currency",currency}),[currency]);
  const max=10;
@@ -73,7 +75,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    </div>
    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/20 bg-white px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] sm:px-8">
      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-       <div><p className="text-xs font-semibold text-gray-600">{tableBooking?`${mapSelections.length} стол(ов) выбрано · предварительно`: `${count} билет(ов)`} {event.seating_mode==="general_admission"?" · Свободная посадка":!tableBooking?` · ${mapSelections.length} мест выбрано · предварительно`:""}</p><p className="text-2xl font-black">{format.format(total/100)}</p><p className="text-[11px] text-gray-600">Не является бронированием</p></div>
+       <div><p className="text-xs font-semibold text-gray-600">{tableBooking?`${mapSelections.length} стол(ов) выбрано · предварительно`: `${count} билет(ов)`} {event.seating_mode==="general_admission"?" · Свободная посадка":!tableBooking?` · ${mapSelections.length} мест выбрано · предварительно`:""}</p><p className="text-sm text-gray-600">Билеты: {format.format(ticketTotal/100)} · Места: {missingSeatPrices?"Цена не указана":format.format((tableBooking?tableTotal:seatTotal)/100)}</p><p className="text-2xl font-black">{missingSeatPrices?"—":format.format(total/100)}</p><p className="text-[11px] text-gray-600">Не является бронированием</p></div>
        <button type="button" disabled title="Продажа и выбор мест станут доступны после настройки зала и оплаты" className="min-h-12 rounded-lg bg-black px-5 py-3 font-bold text-white opacity-45">Продолжить →</button>
      </div>
    </div>
