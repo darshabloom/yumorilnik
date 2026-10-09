@@ -5,7 +5,7 @@ import {useParams,useRouter} from "next/navigation";
 import {supabase} from "@/lib/supabaseClient";
 import {VenueLines, type VenueFeature, type Point} from "@/components/VenueLines";
 import CustomerVenueMap from "@/components/CustomerVenueMap";
-import {type PriceZone} from "@/lib/priceZones";
+import {type PriceZone,zonePoints,type ZonePoint} from "@/lib/priceZones";
 
 type TableItem={id:string;event_id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;is_active:boolean;shape:string};
 type EventItem={id:string;title:string;seating_mode:string;table_booking_mode:string};
@@ -29,7 +29,9 @@ export default function SeatingBuilder(){
  const [editingZones,setEditingZones]=useState(false);
  const [activeZone,setActiveZone]=useState<string|null>(null);
  const [zoneSaving,setZoneSaving]=useState(false);
- const zoneDrag=useRef<{id:string;x:number;y:number;px:number;py:number}|null>(null);
+ const zoneDrag=useRef<{id:string;index:number}|null>(null);
+ const zonesRef=useRef<PriceZone[]>([]);
+ zonesRef.current=zones;
  const [traceMode,setTraceMode]=useState<"wall"|"entrance"|null>(null);
  const [draftPoints,setDraftPoints]=useState<Point[]>([]);
  const [featureSelected,setFeatureSelected]=useState<string|null>(null);
@@ -250,8 +252,9 @@ export default function SeatingBuilder(){
    {name:"Middle",price_cents:10500,color:"#ffd994",x:150,y:230,width:700,height:210},
    {name:"Back / hidden",price_cents:9000,color:"#b7d8f4",x:60,y:30,width:880,height:200}];
   const choice=choices.find(z=>!zones.some(old=>old.name===z.name))??{...choices[0],name:"New zone"};
+  const points=[{x:choice.x,y:choice.y},{x:choice.x+choice.width,y:choice.y},{x:choice.x+choice.width,y:choice.y+choice.height},{x:choice.x,y:choice.y+choice.height}];
   setZoneSaving(true);setError("");
-  const {data,error:e}=await supabase.from("event_price_zones").insert({...choice,event_id:id,sort_order:zones.length}).select("*").single();
+  const {data,error:e}=await supabase.from("event_price_zones").insert({...choice,points,event_id:id,sort_order:zones.length}).select("*").single();
   if(e)setError(e.message);else{setZones(old=>[...old,data as PriceZone]);setActiveZone(data.id);setEditingZones(true);}
   setZoneSaving(false);
  }
@@ -391,9 +394,21 @@ export default function SeatingBuilder(){
     <div className="overflow-x-auto rounded-xl border border-black/20 bg-white p-2">
      <div ref={stage} className="pointer-events-none relative w-full min-w-[320px] overflow-hidden rounded-lg bg-[#fff2db] lg:pointer-events-auto" style={{aspectRatio:W+"/"+H,touchAction:framing?"none":"pan-y"}} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={()=>{panDrag.current=null}} onPointerCancel={()=>{panDrag.current=null}}>
        {background&&showFloorPhoto&&<div className="pointer-events-none absolute inset-0 overflow-hidden"><img src={background} alt="Uploaded venue floor plan" className="absolute h-full w-full object-contain" style={{transform:`scale(${zoom})`,objectPosition:`${panX}% ${panY}%`,transformOrigin:`${panX}% ${panY}%`}}/></div>}
-       {zones.map(z=><div key={z.id} role={editingZones?"button":undefined} tabIndex={editingZones?0:undefined} onClick={()=>editingZones&&setActiveZone(z.id)} onPointerDown={e=>{if(!editingZones)return;e.stopPropagation();setActiveZone(z.id);zoneDrag.current={id:z.id,px:e.clientX,py:e.clientY,x:z.x,y:z.y};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{const d=zoneDrag.current;if(!editingZones||!d||d.id!==z.id)return;const scale=stage.current?.getBoundingClientRect().width/W||1;const nx=Math.max(0,Math.min(W-z.width,Math.round(d.x+(e.clientX-d.px)/scale))),ny=Math.max(0,Math.min(H-z.height,Math.round(d.y+(e.clientY-d.py)/scale)));setZones(old=>old.map(a=>a.id===z.id?{...a,x:nx,y:ny}:a));}} onPointerUp={e=>{const d=zoneDrag.current;if(d&&d.id===z.id){zoneDrag.current=null;void updateZone(z,{x:Math.max(0,Math.min(W-z.width,Math.round(d.x+(e.clientX-d.px)/(stage.current?.getBoundingClientRect().width/W||1)))),y:Math.max(0,Math.min(H-z.height,Math.round(d.y+(e.clientY-d.py)/(stage.current?.getBoundingClientRect().width/W||1))))})}}} className={`absolute ${editingZones?"z-[18] cursor-move border-2 border-dashed":"pointer-events-none z-0 border"} ${activeZone===z.id?"border-black":"border-black/20"}`} style={{left:z.x/W*100+"%",top:z.y/H*100+"%",width:z.width/W*100+"%",height:z.height/H*100+"%",backgroundColor:z.color,opacity:editingZones?.36:.20}}>
-        <span className="block bg-white/80 p-1 text-xs font-bold">{z.name} · ${(z.price_cents/100).toFixed(0)}</span>
-       </div>)}
+       <svg viewBox="0 0 1000 700" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 z-[9] h-full w-full">
+       {zones.map(z=><g key={z.id}>
+         <polygon points={zonePoints(z).map(p=>p.x+","+p.y).join(" ")} fill={z.color} fillOpacity={editingZones?.38:.20} stroke={z.color} strokeWidth="3" strokeDasharray={editingZones?"7 5":undefined} />
+         {editingZones&&activeZone===z.id&&zonePoints(z).map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="10" fill="white" stroke="#d12580" strokeWidth="3" />)}
+       </g>)}
+       </svg>
+       {editingZones&&<svg viewBox="0 0 1000 700" preserveAspectRatio="none" className="absolute inset-0 z-[30] h-full w-full touch-none" onPointerMove={e=>{
+         const d=zoneDrag.current;if(!d)return;const rect=e.currentTarget.getBoundingClientRect();const x=Math.round(Math.max(0,Math.min(W,(e.clientX-rect.left)/rect.width*W))),y=Math.round(Math.max(0,Math.min(H,(e.clientY-rect.top)/rect.height*H)));
+         setZones(old=>old.map(z=>z.id===d.id?{...z,points:zonePoints(z).map((p,i)=>i===d.index?{x,y}:p)}:z));
+       }} onPointerUp={e=>{const d=zoneDrag.current;if(!d)return;zoneDrag.current=null;const z=zonesRef.current.find(z=>z.id===d.id);if(z)void updateZone(z,{points:zonePoints(z)});e.currentTarget.releasePointerCapture(e.pointerId);}}>
+         {zones.map(z=><g key={z.id}>
+           <polygon points={zonePoints(z).map(p=>p.x+","+p.y).join(" ")} fill="transparent" stroke="transparent" strokeWidth="14" onClick={()=>setActiveZone(z.id)} />
+           {activeZone===z.id&&zonePoints(z).map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="13" fill="#fff" stroke="#d12580" strokeWidth="3" style={{cursor:"grab"}} onPointerDown={e=>{e.stopPropagation();setActiveZone(z.id);zoneDrag.current={id:z.id,index:i};e.currentTarget.ownerSVGElement?.setPointerCapture(e.pointerId)}} />)}
+         </g>)}
+       </svg>}
        <VenueLines features={features} editing={!!traceMode} onPointMove={moveFeaturePoint} onPick={setFeatureSelected} onPointPick={(fid,index)=>setSelectedPoint({id:fid,index})}/>
        {traceMode&&<svg viewBox="0 0 1000 700" preserveAspectRatio="none" className="absolute inset-0 z-[11] h-full w-full cursor-crosshair" onClick={e=>{if(e.detail>1)return;const point=coord(e);setDraftPoints(old=>[...old,point])}} onDoubleClick={e=>{e.preventDefault();void finishFeature()}}>
           {draftPoints.length>0&&<polyline points={draftPoints.map(p=>p.x+","+p.y).join(" ")} fill="none" stroke="#db2777" strokeWidth="5" strokeDasharray="10 6"/>}
@@ -450,7 +465,7 @@ export default function SeatingBuilder(){
        <label className="mt-4 flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={current.is_active} onChange={e=>mutate(current.id,{is_active:e.target.checked})}/>Table active</label>
        <button onClick={()=>void remove()} className="mt-5 text-sm font-bold text-red-700 underline">Remove table</button>
      </>:<><h2 className="text-xl font-black">Tables</h2><p className="mt-2 text-sm">Add a table or select one on the map.</p></>}
-     {editingZones&&<div className="mb-5 rounded-xl bg-[#fff2db] p-3"><h3 className="font-bold">Price areas</h3><p className="my-2 text-xs">Drag the coloured zones on the map, then adjust their size here. Tables inherit the price of the area containing their centre.</p>{zones.map(z=><div key={z.id} className="my-3 space-y-2 rounded-lg border bg-white p-3"><button type="button" onClick={()=>setActiveZone(z.id)} className="font-semibold underline">{z.name} · ${z.price_cents/100}</button><input aria-label="Zone name" className="w-full rounded border p-2" defaultValue={z.name} onBlur={e=>e.target.value!==z.name&&void updateZone(z,{name:e.target.value})}/><label className="block text-xs">Zone price (NZD)<input className="w-full rounded border p-2" type="number" min="0" step=".01" defaultValue={(z.price_cents/100).toFixed(2)} onBlur={e=>void updateZone(z,{price_cents:Math.round(Math.max(0,Number(e.target.value))*100)})}/></label><div className="grid grid-cols-2 gap-2">{(["width","height"] as const).map(field=><label key={field} className="text-xs">{field}<input type="number" className="w-full rounded border p-2" defaultValue={z[field]} min="40" max={field==="width"?1000-z.x:700-z.y} onBlur={e=>void updateZone(z,{[field]:Math.max(40,Math.min(field==="width"?1000-z.x:700-z.y,Number(e.target.value)))})}/></label>)}</div><button type="button" onClick={()=>void deleteZone(z)} className="text-xs text-red-700 underline">Delete zone</button></div>)}</div>}
+     {editingZones&&<div className="mb-5 rounded-xl bg-[#fff2db] p-3"><h3 className="font-bold">Price areas</h3><p className="my-2 text-xs">Click a zone, then drag its pink corner handles to reshape the area. Add or remove corners below. A table inherits the zone containing its centre.</p>{zones.map(z=><div key={z.id} className="my-3 space-y-2 rounded-lg border bg-white p-3"><button type="button" onClick={()=>setActiveZone(z.id)} className="font-semibold underline">{z.name} · ${z.price_cents/100}</button><input aria-label="Zone name" className="w-full rounded border p-2" defaultValue={z.name} onBlur={e=>e.target.value!==z.name&&void updateZone(z,{name:e.target.value})}/><label className="block text-xs">Zone price (NZD)<input className="w-full rounded border p-2" type="number" min="0" step=".01" defaultValue={(z.price_cents/100).toFixed(2)} onBlur={e=>void updateZone(z,{price_cents:Math.round(Math.max(0,Number(e.target.value))*100)})}/></label><div className="grid grid-cols-2 gap-2">{(["width","height"] as const).map(field=><label key={field} className="text-xs">{field}<input type="number" className="w-full rounded border p-2" defaultValue={z[field]} min="40" max={field==="width"?1000-z.x:700-z.y} onBlur={e=>void updateZone(z,{[field]:Math.max(40,Math.min(field==="width"?1000-z.x:700-z.y,Number(e.target.value)))})}/></label>)}</div><div className="flex gap-2"><button type="button" onClick={()=>{const points=zonePoints(z);const index=points.length-1;const a=points[index],b=points[0];void updateZone(z,{points:[...points,{x:Math.round((a.x+b.x)/2),y:Math.round((a.y+b.y)/2)}]})}} className="rounded border px-2 py-1 text-xs">+ Add corner</button><button type="button" disabled={zonePoints(z).length<=3} onClick={()=>void updateZone(z,{points:zonePoints(z).slice(0,-1)})} className="rounded border px-2 py-1 text-xs disabled:opacity-40">− Remove corner</button></div><button type="button" onClick={()=>void deleteZone(z)} className="text-xs text-red-700 underline">Delete zone</button></div>)}</div>}
      <div className="mt-5 border-t pt-4">{tables.map(t=><button key={t.id} onClick={()=>setSelected(t.id)} className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-[#fff2db]">{t.label} · {seats(t)} seats {t.table_price_cents!==null?"· $"+(t.table_price_cents/100).toFixed(2):""}</button>)}</div>
     </aside>
    </div>
