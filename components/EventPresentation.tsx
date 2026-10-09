@@ -19,9 +19,15 @@ export default function EventPresentation({event,editable=false,heading,descript
      {bannerControl&&<div className="absolute bottom-4 right-4">{bannerControl}</div>}
    </div>
    <div className="px-5 pb-14 pt-7 sm:px-10 sm:pt-10 lg:px-[6vw]">
-     <div className="mb-7 flex flex-col gap-4 border-b border-black/15 pb-6 md:flex-row md:items-start md:justify-between">
-       <div className="min-w-0 flex-1">{heading??<h1 className="text-3xl font-black leading-tight sm:text-5xl">{event.title}</h1>}</div>
-       <div className="shrink-0 md:max-w-64 md:text-right">{dateAndPlace??<div className="space-y-1 font-semibold"><p>{event.event_date} · {event.event_time.slice(0,5)}</p><p>{event.location||"Venue to be confirmed"}</p></div>}{!heading&&(bookingAction?<button type="button" disabled={bookingDisabled} onClick={bookingAction} className="mt-4 inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-7 py-3 font-bold text-white disabled:opacity-50">Билеты →</button>:<Link href={bookingHref??`/events/${event.slug}/book`} className="mt-4 inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-7 py-3 font-bold text-white">Билеты →</Link>)}</div>
+     <div className="mb-7 border-b border-black/15 pb-6">
+       <div className="min-w-0">{heading??<h1 className="text-3xl font-black leading-tight sm:text-5xl">{event.title}</h1>}</div>
+       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+         <div className="min-w-0 space-y-2">
+           {dateAndPlace??<div className="space-y-1 font-semibold"><p>{event.event_date} · {event.event_time.slice(0,5)}</p><p>{event.location||"Venue to be confirmed"}</p></div>}
+           {event.location?.trim()&&<a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold underline underline-offset-2">Открыть в Google Maps ↗</a>}
+         </div>
+         {!heading&&(bookingAction?<button type="button" disabled={bookingDisabled} onClick={bookingAction} className="inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-7 py-3 font-bold text-white disabled:opacity-50">Билеты →</button>:<Link href={bookingHref??`/events/${event.slug}/book`} className="inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-7 py-3 font-bold text-white">Билеты →</Link>)}
+       </div>
      </div>
      <div className="grid gap-7 md:grid-cols-[minmax(0,1fr)_minmax(0,0.82fr)] md:items-start md:gap-10">
        <section className="min-w-0">
