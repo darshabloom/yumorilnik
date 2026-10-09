@@ -3,6 +3,7 @@ import {useEffect,useRef,useState} from "react";
 import Link from "next/link";
 import {useParams,useRouter} from "next/navigation";
 import {supabase} from "@/lib/supabaseClient";
+import {VenueLines, type VenueFeature, type Point} from "@/components/VenueLines";
 
 type TableItem={id:string;event_id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;is_active:boolean;shape:string};
 type EventItem={id:string;title:string;seating_mode:string;table_booking_mode:string};
@@ -20,6 +21,12 @@ export default function SeatingBuilder(){
  const [event,setEvent]=useState<EventItem|null>(null);
  const [tables,setTables]=useState<TableItem[]>([]);
  const [background,setBackground]=useState<string|null>(null);
+ const [features,setFeatures]=useState<VenueFeature[]>([]);
+ const [traceMode,setTraceMode]=useState<"wall"|"entrance"|null>(null);
+ const [draftPoints,setDraftPoints]=useState<Point[]>([]);
+ const [featureSelected,setFeatureSelected]=useState<string|null>(null);
+ const [featureSaving,setFeatureSaving]=useState(false);
+ const featureTimers=useRef<Record<string,ReturnType<typeof setTimeout>>>({});
  const [stageItem,setStageItem]=useState({x:440,y:18,width:130,height:42,rotation:0});
  const [editingStage,setEditingStage]=useState(false);
  const stageDrag=useRef<{px:number;py:number;x:number;y:number}|null>(null);
@@ -50,9 +57,9 @@ export default function SeatingBuilder(){
    const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace("/admin/login");return;}
    const {data:admin}=await supabase.from("admin_users").select("role").eq("user_id",user.id).maybeSingle();
    if(!admin){router.replace("/admin/login");return;}
-   const [e,t,m]=await Promise.all([supabase.from("events").select("id,title,seating_mode,table_booking_mode").eq("id",id).single(),supabase.from("seating_tables").select("*").eq("event_id",id).order("created_at"),supabase.from("event_seating_maps").select("background_image_url,background_zoom,background_x,background_y,stage_x,stage_y,stage_width,stage_height,stage_rotation").eq("event_id",id).maybeSingle()]);
-   if(e.error)throw e.error;if(t.error)throw t.error;if(m.error)throw m.error;
-   if(mounted){setEvent(e.data as EventItem);setTables((t.data??[]) as TableItem[]);latest.current=(t.data??[]) as TableItem[];setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50));setStageItem({x:Number(m.data?.stage_x??440),y:Number(m.data?.stage_y??18),width:Number(m.data?.stage_width??130),height:Number(m.data?.stage_height??42),rotation:Number(m.data?.stage_rotation??0)});stageSaved.current=JSON.stringify([Number(m.data?.stage_x??440),Number(m.data?.stage_y??18),Number(m.data?.stage_width??130),Number(m.data?.stage_height??42),Number(m.data?.stage_rotation??0)]);framingSaved.current=JSON.stringify([Number(m.data?.background_zoom??1),Number(m.data?.background_x??50),Number(m.data?.background_y??50)])}
+   const [e,t,m,v]=await Promise.all([supabase.from("events").select("id,title,seating_mode,table_booking_mode").eq("id",id).single(),supabase.from("seating_tables").select("*").eq("event_id",id).order("created_at"),supabase.from("event_seating_maps").select("background_image_url,background_zoom,background_x,background_y,stage_x,stage_y,stage_width,stage_height,stage_rotation").eq("event_id",id).maybeSingle(),supabase.from("seating_features").select("id,event_id,kind,label,points").eq("event_id",id).order("created_at")]);
+   if(e.error)throw e.error;if(t.error)throw t.error;if(m.error)throw m.error;if(v.error)throw v.error;
+   if(mounted){setEvent(e.data as EventItem);setFeatures((v.data??[]) as VenueFeature[]);setTables((t.data??[]) as TableItem[]);latest.current=(t.data??[]) as TableItem[];setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50));setStageItem({x:Number(m.data?.stage_x??440),y:Number(m.data?.stage_y??18),width:Number(m.data?.stage_width??130),height:Number(m.data?.stage_height??42),rotation:Number(m.data?.stage_rotation??0)});stageSaved.current=JSON.stringify([Number(m.data?.stage_x??440),Number(m.data?.stage_y??18),Number(m.data?.stage_width??130),Number(m.data?.stage_height??42),Number(m.data?.stage_rotation??0)]);framingSaved.current=JSON.stringify([Number(m.data?.background_zoom??1),Number(m.data?.background_x??50),Number(m.data?.background_y??50)])}
   }catch(ex){if(mounted)setError(ex instanceof Error?ex.message:"Unable to load seating map")}
   finally{if(mounted)setLoading(false)}
  })();return()=>{mounted=false}},[id,router]);
@@ -164,6 +171,37 @@ export default function SeatingBuilder(){
    const {error:e}=await supabase.from("event_seating_maps").update({background_image_url:null,updated_at:new Date().toISOString()}).eq("event_id",id);
    if(e)setError(e.message);else{setBackground(null);setMessage("Floor plan removed.");}
  }
+ function coord(e:React.MouseEvent<SVGSVGElement>):Point{
+   const rect=e.currentTarget.getBoundingClientRect();
+   return {x:Math.round((e.clientX-rect.left)/rect.width*W),y:Math.round((e.clientY-rect.top)/rect.height*H)};
+ }
+ async function finishFeature(){
+  if(!traceMode||draftPoints.length<2){setError("Place at least two points to finish.");return;}
+  setFeatureSaving(true);setError("");
+  const {data,error:e}=await supabase.from("seating_features").insert({event_id:id,kind:traceMode,label:traceMode==="entrance"?"Entrance":null,points:draftPoints}).select("id,event_id,kind,label,points").single();
+  if(e)setError(e.message);else {setFeatures(old=>[...old,data as VenueFeature]);setDraftPoints([]);setMessage("Wall or entrance saved.");}
+  setFeatureSaving(false);
+ }
+ function moveFeaturePoint(fid:string,index:number,p:Point){
+  setFeatures(old=>old.map(item=>item.id===fid?{...item,points:item.points.map((old,i)=>i===index?p:old)}:item));
+  setMessage("Saving wall…");
+  if(featureTimers.current[fid])clearTimeout(featureTimers.current[fid]);
+  featureTimers.current[fid]=setTimeout(async()=>{
+    const currentFeatures=featuresRef.current;
+    const feat=currentFeatures.find(item=>item.id===fid);
+    if(!feat)return;
+    const {error:e}=await supabase.from("seating_features").update({points:feat.points,updated_at:new Date().toISOString()}).eq("id",fid).eq("event_id",id);
+    if(e)setError(e.message);else setMessage("Wall saved.");
+  },900);
+ }
+ const featuresRef=useRef<VenueFeature[]>(features);
+ featuresRef.current=features;
+ async function deleteFeature(){
+   if(!featureSelected)return;
+   const {error:e}=await supabase.from("seating_features").delete().eq("id",featureSelected).eq("event_id",id);
+   if(e){setError(e.message);return;}
+   setFeatures(old=>old.filter(item=>item.id!==featureSelected));setFeatureSelected(null);setMessage("Feature deleted.");
+ }
  async function add(){
   const n=tables.length+1;
   const source=tables.find(t=>t.id===selected)??tables[tables.length-1];
@@ -266,14 +304,28 @@ export default function SeatingBuilder(){
     </div>
    </div>}
 </div></details>
+   <div className="mt-3 hidden flex-wrap items-center gap-2 rounded-xl border border-black/15 bg-white p-3 lg:flex">
+     <span className="mr-2 text-sm font-black">Room layout</span>
+     <button type="button" onClick={()=>{setTraceMode(traceMode==="wall"?null:"wall");setDraftPoints([]);setFraming(false);}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="wall"?"bg-black text-white":""}`}>Trace walls</button>
+     <button type="button" onClick={()=>{setTraceMode(traceMode==="entrance"?null:"entrance");setDraftPoints([]);setFraming(false);}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="entrance"?"bg-black text-white":""}`}>Mark entrance</button>
+     {traceMode&&<><button type="button" disabled={featureSaving||draftPoints.length<2} onClick={()=>void finishFeature()} className="rounded-lg bg-black px-4 py-2 text-sm font-bold text-white disabled:opacity-40">Finish & save</button>
+     <button type="button" onClick={()=>setDraftPoints(old=>old.slice(0,-1))} className="rounded border px-3 py-2 text-sm">Undo point</button>
+     <button type="button" onClick={()=>{setTraceMode(null);setDraftPoints([])}} className="rounded border px-3 py-2 text-sm">Done tracing</button></>}
+     <span className="text-xs text-gray-600">{traceMode?"Click points along the photo. Double-click to finish. Drag pink endpoints to correct walls.":"Walls and entrances appear on the customer map."}</span>
+   </div>
    {error&&<p role="alert" className="mt-4 rounded bg-red-100 p-3 text-red-800">{error}</p>}
    {message&&<p role="status" className="mt-3 text-sm font-semibold">{message}</p>}
    <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
     <div className="overflow-x-auto rounded-xl border border-black/20 bg-white p-2">
      <div ref={stage} className="pointer-events-none relative w-full min-w-[320px] overflow-hidden rounded-lg bg-[#fff2db] lg:pointer-events-auto" style={{aspectRatio:W+"/"+H,touchAction:framing?"none":"pan-y"}} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={()=>{panDrag.current=null}} onPointerCancel={()=>{panDrag.current=null}}>
        {background&&<div className="pointer-events-none absolute inset-0 overflow-hidden"><img src={background} alt="Uploaded venue floor plan" className="absolute h-full w-full object-contain" style={{transform:`scale(${zoom})`,objectPosition:`${panX}% ${panY}%`,transformOrigin:`${panX}% ${panY}%`}}/></div>}
-       {!framing&&<button type="button" onPointerDown={beginStageDrag} onPointerMove={moveStageDrag} onPointerUp={()=>{stageDrag.current=null}} onPointerCancel={()=>{stageDrag.current=null}} onClick={()=>{setEditingStage(true);setSelected(null)}} className={`absolute z-10 flex touch-none select-none items-center justify-center rounded-lg border-2 border-black/25 bg-[#f5a047] text-sm font-bold ${editingStage?"ring-2 ring-pink-600":""}`} style={{left:stageItem.x/W*100+"%",top:stageItem.y/H*100+"%",width:stageItem.width/W*100+"%",height:stageItem.height/H*100+"%",transform:`rotate(${stageItem.rotation}deg)`}}>Stage</button>}
-       {!framing&&tables.filter(t=>t.is_active).map(t=><div key={t.id} className="absolute" style={{left:t.x/W*100+"%",top:t.y/H*100+"%",width:t.width/W*100+"%",height:t.height/H*100+"%",transform:`rotate(${t.rotation_deg}deg)`}}><button type="button" onPointerDown={e=>pointerDown(e,t)} onPointerMove={pointerMove} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}}
+       <VenueLines features={features} editing={!!traceMode} onPointMove={moveFeaturePoint} onPick={setFeatureSelected}/>
+       {traceMode&&<svg viewBox="0 0 1000 700" preserveAspectRatio="none" className="absolute inset-0 z-[11] h-full w-full cursor-crosshair" onClick={e=>{if(e.detail>1)return;setDraftPoints(old=>[...old,coord(e)])}} onDoubleClick={e=>{e.preventDefault();void finishFeature()}}>
+          {draftPoints.length>0&&<polyline points={draftPoints.map(p=>p.x+","+p.y).join(" ")} fill="none" stroke="#db2777" strokeWidth="5" strokeDasharray="10 6"/>}
+          {draftPoints.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="8" fill="#db2777" stroke="white" strokeWidth="3"/>)}
+        </svg>}
+       {!framing&&!traceMode&&<button type="button" onPointerDown={beginStageDrag} onPointerMove={moveStageDrag} onPointerUp={()=>{stageDrag.current=null}} onPointerCancel={()=>{stageDrag.current=null}} onClick={()=>{setEditingStage(true);setSelected(null)}} className={`absolute z-10 flex touch-none select-none items-center justify-center rounded-lg border-2 border-black/25 bg-[#f5a047] text-sm font-bold ${editingStage?"ring-2 ring-pink-600":""}`} style={{left:stageItem.x/W*100+"%",top:stageItem.y/H*100+"%",width:stageItem.width/W*100+"%",height:stageItem.height/H*100+"%",transform:`rotate(${stageItem.rotation}deg)`}}>Stage</button>}
+       {!framing&&!traceMode&&tables.filter(t=>t.is_active).map(t=><div key={t.id} className="absolute" style={{left:t.x/W*100+"%",top:t.y/H*100+"%",width:t.width/W*100+"%",height:t.height/H*100+"%",transform:`rotate(${t.rotation_deg}deg)`}}><button type="button" onPointerDown={e=>pointerDown(e,t)} onPointerMove={pointerMove} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}}
         className={`absolute select-none touch-none rounded-lg border-2 text-sm font-bold shadow ${selected===t.id?"border-pink-600 bg-[#ffd7e8]":"border-black/50 bg-white"}`}
         style={{width:"100%",height:"100%"}}>
          {t.label}<SeatMarkers t={t}/>
@@ -284,7 +336,11 @@ export default function SeatingBuilder(){
      </div>
     </div>
     <aside className="hidden rounded-xl border border-black/20 bg-white p-4 lg:sticky lg:block lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
-     {editingStage?<><h2 className="text-xl font-black">Edit stage</h2><p className="mt-2 text-sm text-gray-600">Drag the stage into place or adjust its size and rotation here.</p>
+     {traceMode?<><h2 className="text-xl font-black">Tracing walls</h2><p className="mt-2 text-sm">Click along walls to create connected segments. Double-click or Finish to save. Drag circular points to make corrections.</p>
+       <h3 className="mt-5 font-bold">Saved features</h3>
+       {features.map(f=><button key={f.id} type="button" onClick={()=>setFeatureSelected(f.id)} className={`mt-2 block w-full rounded border p-2 text-left text-sm ${featureSelected===f.id?"border-pink-600 bg-pink-50":""}`}>{f.kind==="wall"?"Wall":"Entrance"} · {f.points.length} points</button>)}
+       {featureSelected&&<button type="button" onClick={()=>void deleteFeature()} className="mt-3 font-bold text-red-700 underline">Delete selected</button>}
+     </>:editingStage?<><h2 className="text-xl font-black">Edit stage</h2><p className="mt-2 text-sm text-gray-600">Drag the stage into place or adjust its size and rotation here.</p>
        <div className="mt-4 grid grid-cols-2 gap-3">
          {([{key:"width",label:"Width",min:60,max:400},{key:"height",label:"Height",min:25,max:220},{key:"rotation",label:"Rotation °",min:-180,max:180}] as const).map(f=><label key={f.key} className="text-sm font-bold">{f.label}<input type="number" className="mt-1 w-full rounded border p-2" min={f.min} max={f.max} value={stageItem[f.key]} onChange={e=>setStageItem(old=>({...old,[f.key]:Math.max(f.min,Math.min(f.max,Number(e.target.value)||0))}))}/></label>)}
        </div>
