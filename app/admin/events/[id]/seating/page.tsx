@@ -139,13 +139,13 @@ export default function SeatingBuilder(){
   setFramingSaving(false);
  }
  function startPan(e:React.PointerEvent<HTMLDivElement>){
-  if(!framing || !background)return;
+  if(!framing || traceMode || !background || e.target!==e.currentTarget)return;
   e.preventDefault();
   panDrag.current={px:e.clientX,py:e.clientY,x:panX,y:panY};
   e.currentTarget.setPointerCapture(e.pointerId);
  }
  function movePan(e:React.PointerEvent<HTMLDivElement>){
-  if(!panDrag.current||!stage.current)return;
+  if(!framing||traceMode||!panDrag.current||!stage.current)return;
   const rect=stage.current.getBoundingClientRect();
   const x=Math.max(0,Math.min(100,panDrag.current.x+(e.clientX-panDrag.current.px)/rect.width*100));
   const y=Math.max(0,Math.min(100,panDrag.current.y+(e.clientY-panDrag.current.py)/rect.height*100));
@@ -319,8 +319,8 @@ export default function SeatingBuilder(){
 </div></details>
    <div className="mt-3 hidden flex-wrap items-center gap-2 rounded-xl border border-black/15 bg-white p-3 lg:flex">
      <span className="mr-2 text-sm font-black">Room layout</span>
-     <button type="button" onClick={()=>{setTraceMode(traceMode==="wall"?null:"wall");setDraftPoints([]);setFraming(false);}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="wall"?"bg-black text-white":""}`}>Trace walls</button>
-     <button type="button" onClick={()=>{setTraceMode(traceMode==="entrance"?null:"entrance");setDraftPoints([]);setFraming(false);}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="entrance"?"bg-black text-white":""}`}>Mark entrance</button>
+     <button type="button" onClick={()=>{setTraceMode(traceMode==="wall"?null:"wall");setDraftPoints([]);setFraming(false);panDrag.current=null;}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="wall"?"bg-black text-white":""}`}>Trace walls</button>
+     <button type="button" onClick={()=>{setTraceMode(traceMode==="entrance"?null:"entrance");setDraftPoints([]);setFraming(false);panDrag.current=null;}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="entrance"?"bg-black text-white":""}`}>Mark entrance</button>
      {traceMode&&<><button type="button" disabled={featureSaving||draftPoints.length<2} onClick={()=>void finishFeature()} className="rounded-lg bg-black px-4 py-2 text-sm font-bold text-white disabled:opacity-40">Finish & save</button>
      <button type="button" onClick={()=>setDraftPoints(old=>old.slice(0,-1))} className="rounded border px-3 py-2 text-sm">Undo point</button>
      <button type="button" onClick={()=>{setTraceMode(null);setDraftPoints([])}} className="rounded border px-3 py-2 text-sm">Done tracing</button></>}
