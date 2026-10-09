@@ -4,7 +4,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 
 export default async function HomePage() {
   const today = new Date().toISOString().slice(0,10);
-  const {data:events} = await supabaseServer.from("events").select("id,slug,title,event_date,event_time,location,image_url").eq("is_active",true).gte("event_date",today).order("event_date",{ascending:true}).limit(3);
+  const {data:events} = await supabaseServer.from("events").select("id,slug,title,event_date,event_time,location,image_url,event_type,external_url").eq("is_active",true).gte("event_date",today).order("event_date",{ascending:true}).limit(3);
   return (
     <main className="min-h-screen bg-[#f5a047] text-black">
       <section className="relative h-[360px] overflow-hidden bg-black md:h-[620px]">
@@ -38,9 +38,9 @@ export default async function HomePage() {
           <Link href="/events" className="font-bold underline">Вся афиша →</Link>
         </div>
         {events?.length?<div className="grid gap-6 md:grid-cols-3">
-          {events.map(event=><Link key={event.id} href={"/events/"+event.slug} className="overflow-hidden rounded-xl border border-black/15 bg-white transition-shadow hover:shadow-lg">
+          {events.map(event=><Link key={event.id} href={event.event_type==="external"&&event.external_url?event.external_url:"/events/"+event.slug} target={event.event_type==="external"?"_blank":undefined} rel={event.event_type==="external"?"noopener noreferrer":undefined} className="overflow-hidden rounded-xl border border-black/15 bg-white transition-shadow hover:shadow-lg">
             {event.image_url?<img src={event.image_url} alt="" className="aspect-[16/10] w-full object-cover"/>:<div className="flex aspect-[16/10] items-center justify-center bg-[#f5a047]/30">Юморильник</div>}
-            <div className="space-y-2 p-5"><p className="text-sm font-semibold">{event.event_date} · {event.event_time.slice(0,5)}</p><h3 className="text-2xl font-black">{event.title}</h3><p>{event.location}</p><p className="pt-2 font-bold underline">Подробнее →</p></div>
+            <div className="space-y-2 p-5"><p className="text-sm font-semibold">{event.event_date} · {event.event_time.slice(0,5)}</p><h3 className="text-2xl font-black">{event.title}</h3><p>{event.location}</p><p className="pt-2 font-bold underline">{event.event_type==="external"?"External tickets ↗":"Подробнее →"}</p></div>
           </Link>)}
         </div>:<p className="rounded-xl border border-black/15 bg-white p-6">Следите за афишей — новые мероприятия скоро появятся!</p>}
       </section>
