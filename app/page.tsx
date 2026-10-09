@@ -1,6 +1,10 @@
 import Image from "next/image";
+import Link from "next/link";
+import { supabaseServer } from "@/lib/supabaseServer";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const today = new Date().toISOString().slice(0,10);
+  const {data:events} = await supabaseServer.from("events").select("id,slug,title,event_date,event_time,location,image_url").eq("is_active",true).gte("event_date",today).order("event_date",{ascending:true}).limit(3);
   return (
     <main className="min-h-screen bg-[#f5a047] text-black">
       <section className="relative h-[360px] overflow-hidden bg-black md:h-[620px]">
@@ -28,31 +32,17 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-5xl gap-10 px-6 py-20 md:grid-cols-3 md:items-center md:px-10 md:py-28">
-        <div>
-          <h2 className="text-3xl font-black">31/12/25</h2>
-          <p className="mt-4 text-lg">Среда · 19:00</p>
-          <p className="mt-2 text-lg">Auckland</p>
+      <section className="bg-[#fffaf1] px-5 py-14 text-black sm:px-10 lg:px-[6vw]">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div><p className="text-sm font-bold uppercase tracking-wider text-pink-700">Скоро</p><h2 className="mt-2 text-3xl font-black sm:text-5xl">Ближайшие мероприятия</h2></div>
+          <Link href="/events" className="font-bold underline">Вся афиша →</Link>
         </div>
-
-        <div>
-          <h2 className="text-3xl font-black">Новогодний маскарад</h2>
-          <p className="mt-5 text-lg font-bold">
-            Праздничный вечер для русскоязычного сообщества Окленда: музыка,
-            юмор, танцы, общение и новогодняя атмосфера.
-          </p>
-
-          <a
-            href="/products/p/novogodnik2026"
-            className="mt-8 inline-block bg-black px-6 py-4 font-bold text-[#f5a047]"
-          >
-            Купить билеты
-          </a>
-        </div>
-
-        <div className="flex aspect-square items-center justify-center rounded-[32px] bg-black/20 p-8 text-center font-bold">
-          Здесь будет афиша / фото события
-        </div>
+        {events?.length?<div className="grid gap-6 md:grid-cols-3">
+          {events.map(event=><Link key={event.id} href={"/events/"+event.slug} className="overflow-hidden rounded-xl border border-black/15 bg-white transition-shadow hover:shadow-lg">
+            {event.image_url?<img src={event.image_url} alt="" className="aspect-[16/10] w-full object-cover"/>:<div className="flex aspect-[16/10] items-center justify-center bg-[#f5a047]/30">Юморильник</div>}
+            <div className="space-y-2 p-5"><p className="text-sm font-semibold">{event.event_date} · {event.event_time.slice(0,5)}</p><h3 className="text-2xl font-black">{event.title}</h3><p>{event.location}</p><p className="pt-2 font-bold underline">Подробнее →</p></div>
+          </Link>)}
+        </div>:<p className="rounded-xl border border-black/15 bg-white p-6">Следите за афишей — новые мероприятия скоро появятся!</p>}
       </section>
     </main>
   );
