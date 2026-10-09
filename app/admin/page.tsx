@@ -9,9 +9,9 @@ type Role = "owner" | "admin";
 type Access = { email: string; role: Role } | null;
 const tiles = [
   { title: "Events", detail: "Create events, update dates and ticket types", icon: "📅", href: "/admin/events" },
-  { title: "Bookings", detail: "Find guests and review ticket sales", icon: "🎟️" },
-  { title: "Check-in", detail: "Scan tickets at the venue", icon: "✅" },
-  { title: "Website content", detail: "Update images, homepage and videos", icon: "✏️" },
+  { title: "Bookings", detail: "Find guests and review ticket sales", icon: "🎟️", href: null },
+  { title: "Check-in", detail: "Scan tickets at the venue", icon: "✅", href: null },
+  { title: "Website content", detail: "Update images, homepage and videos", icon: "✏️", href: null },
 ];
 
 export default function AdminHome() {
