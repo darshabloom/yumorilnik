@@ -31,11 +31,11 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    <div className="relative bg-[#fffaf1]">
      {event.image_url?<img src={event.image_url} alt="" className="h-44 w-full object-cover sm:h-64 lg:h-72"/>:<div className="h-40 w-full bg-[#f5a047]/30"/>}
    </div>
-   <div className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
+   <div className="mx-auto w-full max-w-[1600px] px-3 py-6 sm:px-6 sm:py-10 lg:px-10">
      <Link href={`/events/${event.slug}`} className="text-sm font-bold underline">← Вернуться к мероприятию</Link>
      <h1 className="mt-5 text-3xl font-black sm:text-5xl">{event.title}</h1>
-     <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-       <section aria-labelledby="tickets-title" className="space-y-5">
+     <div className="mt-8 grid items-start gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
+       <section aria-labelledby="tickets-title" className="space-y-5 xl:sticky xl:top-4">
          <h2 id="tickets-title" className="text-2xl font-black">Билеты</h2>
          {tickets.length===0?<p className="rounded-xl border border-black/15 bg-white p-5">Билеты пока не добавлены.</p>:tickets.map(ticket=>{
             const quantity=quantities[ticket.id]??0;
@@ -55,7 +55,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
             </div>;
          })}
        </section>
-       <section aria-labelledby="seating-title" className="space-y-4">
+       <section aria-labelledby="seating-title" className="min-w-0 space-y-4">
          <h2 id="seating-title" className="text-2xl font-black">{event.seating_mode==="general_admission"?"Вход без закреплённых мест":event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?"Места за столами":"Бронирование столов"):"Рассадка"}</h2>
          {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage} mode={seatingMode} selectedKeys={mapSelections} onToggle={toggleMapSelection}/>:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
             <div className="flex h-12 w-40 items-center justify-center rounded-lg bg-[#f5a047]/50 text-sm font-bold">Сцена</div>
