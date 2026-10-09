@@ -105,7 +105,7 @@ export default function SeatingBuilder(){
   const work=Object.values(batch);
   if(work.length){setMessage("Saving…");setError("");}
   for(const t of work){
-   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
+   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,seat_price_cents:t.seat_price_cents,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
    if(e){pending.current[t.id]=pending.current[t.id]??t;setError("Autosave failed: "+e.message);setMessage("Not saved");}
   }
   flushing.current=false;
@@ -222,7 +222,7 @@ export default function SeatingBuilder(){
   const source=tables.find(t=>t.id===selected)??tables[tables.length-1];
   const used=new Set(tables.map(t=>t.label));
   let nextNumber=n;while(used.has("Table "+nextNumber))nextNumber++;
-  const record={event_id:id,label:"Table "+nextNumber,shape:source?.shape??"rectangle",x:source?Math.min(900,source.x+35):130,y:source?Math.min(620,source.y+45):130,width:source?.width??140,height:source?.height??65,rotation_deg:source?.rotation_deg??0,seats_top:source?.seats_top??2,seats_bottom:source?.seats_bottom??2,seats_left:source?.seats_left??1,seats_right:source?.seats_right??1,table_price_cents:source?.table_price_cents??null,is_active:true};
+  const record={event_id:id,label:"Table "+nextNumber,shape:source?.shape??"rectangle",x:source?Math.min(900,source.x+35):130,y:source?Math.min(620,source.y+45):130,width:source?.width??140,height:source?.height??65,rotation_deg:source?.rotation_deg??0,seats_top:source?.seats_top??2,seats_bottom:source?.seats_bottom??2,seats_left:source?.seats_left??1,seats_right:source?.seats_right??1,table_price_cents:source?.table_price_cents??null,seat_price_cents:source?.seat_price_cents??null,is_active:true};
   setSaving(true);setError("");
   const {data,error:e}=await supabase.from("seating_tables").insert(record).select("*").single();
   if(e)setError(e.message);else{setTables(old=>{const next=[...old,data as TableItem];latest.current=next;return next});setSelected(data.id);setMessage("Table added")}
@@ -232,7 +232,7 @@ export default function SeatingBuilder(){
   setSaving(true);setError("");
   if(timer.current)clearTimeout(timer.current);
   for(const t of latest.current){
-   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
+   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,seat_price_cents:t.seat_price_cents,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
    if(e){setError(e.message);setSaving(false);return}
   }
   pending.current={};setMessage("Layout saved");setSaving(false);
