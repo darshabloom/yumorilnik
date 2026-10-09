@@ -21,7 +21,7 @@ export default function EventPresentation({event,editable=false,heading,descript
    <div className="px-5 pb-14 pt-7 sm:px-10 sm:pt-10 lg:px-[6vw]">
      <div className="mb-7 flex flex-col gap-4 border-b border-black/15 pb-6 md:flex-row md:items-start md:justify-between">
        <div className="min-w-0 flex-1">{heading??<h1 className="text-3xl font-black leading-tight sm:text-5xl">{event.title}</h1>}</div>
-       <div className="shrink-0 md:max-w-64 md:text-right">{dateAndPlace??<div className="space-y-1 font-semibold"><p>{event.event_date} · {event.event_time.slice(0,5)}</p><p>{event.location||"Venue to be confirmed"}</p></div>}</div>
+       <div className="shrink-0 md:max-w-64 md:text-right">{dateAndPlace??<div className="space-y-1 font-semibold"><p>{event.event_date} · {event.event_time.slice(0,5)}</p><p>{event.location||"Venue to be confirmed"}</p></div>}{!heading&&(bookingAction?<button type="button" disabled={bookingDisabled} onClick={bookingAction} className="mt-4 inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-7 py-3 font-bold text-white disabled:opacity-50">Билеты →</button>:<Link href={bookingHref??`/events/${event.slug}/book`} className="mt-4 inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-7 py-3 font-bold text-white">Билеты →</Link>)}</div>
      </div>
      <div className="grid gap-7 md:grid-cols-[minmax(0,1fr)_minmax(0,0.82fr)] md:items-start md:gap-10">
        <section className="min-w-0">
