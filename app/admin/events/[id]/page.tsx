@@ -29,6 +29,9 @@ export default function InlineEventEditor() {
   const [editingWhen, setEditingWhen] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
   const savedVersion = useRef<EventRecord | null>(null);
+  const latestEvent = useRef<EventRecord | null>(null);
+  const saveInProgress = useRef(false);
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -45,6 +48,7 @@ export default function InlineEventEditor() {
         const { data: types } = await supabase.from("ticket_types")
           .select("id,name,price_cents,currency,quantity_total").eq("event_id", id);
         if (mounted) {
+          latestEvent.current = data as EventRecord;
           setEvent(data as EventRecord);
           savedVersion.current = data as EventRecord;
           setTickets((types ?? []) as Ticket[]);
@@ -57,8 +61,12 @@ export default function InlineEventEditor() {
   }, [id, router]);
 
   function change<K extends keyof EventRecord>(field: K, value: EventRecord[K]) {
-    setEvent(previous => previous ? { ...previous, [field]: value } : previous);
-    setStatus("");
+    setEvent(previous => {
+      const next = previous ? { ...previous, [field]: value } : previous;
+      latestEvent.current = next;
+      return next;
+    });
+    setStatus("Unsaved changes");
   }
 
   async function uploadImage(e: ChangeEvent<HTMLInputElement>, target: "banner"|"detail") {
@@ -80,7 +88,7 @@ export default function InlineEventEditor() {
       if (uploadError) throw uploadError;
       const { data } = supabase.storage.from("event-images").getPublicUrl(path);
       change(target==="banner"?"image_url":"detail_image_url", data.publicUrl);
-      setStatus("Image uploaded. Save changes to publish it.");
+      setStatus("Image uploaded · saving…");
       setEditingImage(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Image upload failed.");
@@ -88,28 +96,53 @@ export default function InlineEventEditor() {
   }
 
   async function save() {
-    if (!event || !event.title.trim()) { setError("A Russian title is required."); return; }
-    setSaving(true); setError(""); setStatus("");
-    const payload = {
-      title: event.title.trim(), title_en: event.title_en?.trim() || null,
-      description: event.description?.trim() || null, description_en: event.description_en?.trim() || null,
-      event_date: event.event_date, event_time: event.event_time,
-      location: event.location?.trim() || null, image_url: event.image_url?.trim() || null, detail_image_url: event.detail_image_url?.trim() || null,
-      banner_fit:event.banner_fit,banner_position_x:event.banner_position_x,banner_position_y:event.banner_position_y,
-      detail_fit:event.detail_fit,detail_position_x:event.detail_position_x,detail_position_y:event.detail_position_y,
-      is_active: event.is_active, updated_at: new Date().toISOString(),
-    };
-    const { data, error: saveError } = await supabase.from("events")
-      .update(payload).eq("id", event.id)
-      .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,detail_image_url,banner_fit,banner_position_x,banner_position_y,detail_fit,detail_position_x,detail_position_y,is_active").single();
-    if (saveError) setError(saveError.message);
-    else if (data) {
-      setEvent(data as EventRecord);
-      savedVersion.current = data as EventRecord;
-      setStatus("Changes saved.");
+    if (saveInProgress.current) return;
+    const snapshot = latestEvent.current;
+    if (!snapshot || !snapshot.title.trim() || !snapshot.event_date || !snapshot.event_time) {
+      setStatus("Unsaved changes");
+      return;
     }
+    if (JSON.stringify(snapshot) === JSON.stringify(savedVersion.current)) {
+      setStatus("Saved");
+      return;
+    }
+    saveInProgress.current = true;
+    setSaving(true); setError(""); setStatus("Saving…");
+    const payload = {
+      title: snapshot.title.trim(), title_en: snapshot.title_en?.trim() || null,
+      description: snapshot.description?.trim() || null, description_en: snapshot.description_en?.trim() || null,
+      event_date: snapshot.event_date, event_time: snapshot.event_time,
+      location: snapshot.location?.trim() || null, image_url: snapshot.image_url?.trim() || null,
+      detail_image_url: snapshot.detail_image_url?.trim() || null,
+      banner_fit:snapshot.banner_fit,banner_position_x:snapshot.banner_position_x,banner_position_y:snapshot.banner_position_y,
+      detail_fit:snapshot.detail_fit,detail_position_x:snapshot.detail_position_x,detail_position_y:snapshot.detail_position_y,
+      is_active:snapshot.is_active, updated_at:new Date().toISOString(),
+    };
+    const {error: saveError} = await supabase.from("events").update(payload).eq("id",snapshot.id);
+    saveInProgress.current = false;
     setSaving(false);
+    if (saveError) {
+      setError("Autosave failed: " + saveError.message);
+      setStatus("Not saved");
+      return;
+    }
+    savedVersion.current = snapshot;
+    if (JSON.stringify(latestEvent.current) === JSON.stringify(snapshot)) setStatus("Saved");
+    else {
+      setStatus("More changes to save…");
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      autosaveTimer.current = setTimeout(()=>{void save();},700);
+    }
   }
+
+  useEffect(()=>{
+    if (!event || !savedVersion.current) return;
+    if (JSON.stringify(event) === JSON.stringify(savedVersion.current)) return;
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(()=>{void save();},850);
+    return ()=>{if(autosaveTimer.current) clearTimeout(autosaveTimer.current);};
+  },[event]);
+
 
   const editable = isPreview ? "" : "rounded-md outline-none transition-colors hover:bg-black/5 focus:bg-white focus:ring-2 focus:ring-pink-600";
   const titleKey = language === "ru" ? "title" : "title_en";
@@ -164,7 +197,7 @@ export default function InlineEventEditor() {
             <span className="rounded-full bg-white px-3 py-2 text-xs font-bold">{event.is_active ? "Published" : "Draft"}</span>
             <button type="button" onClick={() => setLanguage(language === "ru" ? "en" : "ru")} className="rounded-lg border border-black px-3 py-2 text-sm font-bold">{language.toUpperCase()} ▾</button>
             <button type="button" onClick={() => setIsPreview(!isPreview)} className="rounded-lg border border-black px-3 py-2 text-sm font-bold">{isPreview ? "Edit" : "Preview"}</button>
-            <button type="button" disabled={saving} onClick={save} className="rounded-lg bg-black px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{saving ? "Saving…" : "Save"}</button>
+            <span role="status" aria-live="polite" className="min-w-20 text-right text-sm font-semibold">{status || (saving ? "Saving…" : "Autosave on")}</span>
           </div>
         </div>
       </div>
@@ -195,8 +228,7 @@ export default function InlineEventEditor() {
         </label>
         {error && <p role="alert" className="rounded bg-red-100 p-3 text-red-900">{error}</p>}
         {status && <p role="status" className="rounded bg-green-100 p-3 text-green-900">{status}</p>}
-        <button disabled={saving} onClick={save} className="rounded-lg bg-black px-6 py-4 font-bold text-white">Save changes</button>
-        <button type="button" onClick={()=>{if(savedVersion.current){setEvent({...savedVersion.current});setStatus("Unsaved edits discarded.");}}} className="ml-3 rounded-lg border px-5 py-4 font-bold">Discard edits</button>
+
       </div>}
     </main>
   );
