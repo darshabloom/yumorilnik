@@ -122,7 +122,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
    <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#F6F5F1]":"relative h-[48svh] min-h-[310px] overflow-hidden rounded-xl border border-black/15 bg-[#F6F5F1] lg:h-[min(78vh,880px)]"}>
     {expanded&&<button type="button" onClick={()=>setExpanded(false)} className="absolute right-3 top-3 z-10 rounded-lg bg-white px-4 py-3 font-bold shadow">{en?"Close ✕":"Закрыть ✕"}</button>}
     <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet" aria-label={en?"Venue seating plan":"План зала"} role="group" className={`block h-full w-full ${expanded?"cursor-grab touch-none":"cursor-pointer touch-pan-y lg:cursor-grab lg:touch-none"}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
-      {zones.map(z=><g key={z.id}><polygon points={zonePoints(z).map(p=>p.x+","+p.y).join(" ")} fill={z.color} opacity=".44" stroke={z.color} strokeWidth="3"/><text x={z.x+8} y={z.y+20} fontSize="15" fill="#303030" fontWeight="bold">{z.name}</text></g>)}
+      {zones.map(z=><g key={z.id}><polygon points={zonePoints(z).map(p=>p.x+","+p.y).join(" ")} fill={z.color} opacity=".44" stroke={z.color} strokeWidth="3"/></g>)}
       {features.map(f=><g key={f.id}>
        <polyline points={f.points.map(p=>p.x+","+p.y).join(" ")} stroke={f.kind==="entrance"?"#16803b":"#252525"} strokeWidth={f.kind==="entrance"?10:7} strokeDasharray={f.kind==="entrance"?"11 9":undefined} fill="none" strokeLinecap="round" strokeLinejoin="round"/>
        {f.label&&f.points[0]&&<text x={f.points[0].x+12} y={f.points[0].y-15} fontSize="18" fill="#16803b">{f.label}</text>}
