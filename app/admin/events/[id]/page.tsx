@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -25,6 +25,7 @@ export default function InlineEventEditor() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [editingImage, setEditingImage] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [editingWhen, setEditingWhen] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
   const savedVersion = useRef<EventRecord | null>(null);
@@ -58,6 +59,32 @@ export default function InlineEventEditor() {
   function change<K extends keyof EventRecord>(field: K, value: EventRecord[K]) {
     setEvent(previous => previous ? { ...previous, [field]: value } : previous);
     setStatus("");
+  }
+
+  async function uploadImage(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !event) return;
+    e.target.value = "";
+    if (!["image/jpeg","image/png","image/webp","image/gif"].includes(file.type)) {
+      setError("Choose a JPG, PNG, WebP or GIF image."); return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Choose an image smaller than 10 MB."); return;
+    }
+    setUploading(true); setError(""); setStatus("");
+    try {
+      const extension = file.type === "image/jpeg" ? "jpg" : file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "gif";
+      const path = `${event.id}/${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await supabase.storage.from("event-images")
+        .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from("event-images").getPublicUrl(path);
+      change("image_url", data.publicUrl);
+      setStatus("Image uploaded. Save changes to publish it.");
+      setEditingImage(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Image upload failed.");
+    } finally { setUploading(false); }
   }
 
   async function save() {
@@ -124,10 +151,17 @@ export default function InlineEventEditor() {
         bookingAction={()=>{}}
         bookingDisabled
       />
-      {!isPreview && <div className="mx-auto max-w-5xl space-y-5 bg-white px-5 pb-12 sm:px-10">
-        {editingImage && <label className="block rounded-lg bg-[#fff2db] p-4 text-sm font-bold">Image URL
-          <input type="url" className="mt-2 w-full rounded border bg-white p-3 font-normal" value={event.image_url??""} onChange={e=>change("image_url",e.target.value)}/>
-        </label>}
+      {!isPreview && <div className="w-full space-y-5 bg-white px-5 pb-12 sm:px-10 lg:px-[6vw]">
+        {editingImage && <div className="rounded-lg bg-[#fff2db] p-4">
+          <label htmlFor="event-image-upload" className="block text-sm font-bold">Upload an event image</label>
+          <input id="event-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploading} onChange={uploadImage}
+            className="mt-2 block w-full rounded border bg-white p-3 text-sm"/>
+          <p className="mt-2 text-xs">JPG, PNG, WebP or GIF · maximum 10 MB</p>
+          {uploading && <p role="status" className="mt-2 font-semibold">Uploading image…</p>}
+          <label className="mt-4 block text-sm font-bold">Or use an image URL
+            <input type="url" className="mt-2 w-full rounded border bg-white p-3 font-normal" value={event.image_url??""} onChange={e=>change("image_url",e.target.value)} />
+          </label>
+        </div>}
         <label className="flex items-center gap-3 rounded-lg border p-4 font-bold">
           <input type="checkbox" checked={event.is_active} onChange={e=>change("is_active",e.target.checked)} className="h-5 w-5"/> Publish event
         </label>
