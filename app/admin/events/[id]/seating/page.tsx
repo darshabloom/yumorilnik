@@ -221,7 +221,7 @@ export default function SeatingBuilder(){
   if(!confirm("Apply the proposed $10/$20/$30 seat prices? This will replace existing seat surcharges for the named tables, but leave all other tables unchanged."))return;
   const pricing:Record<number,number>={1:10,4:10,5:10,7:10,9:10,17:10,2:20,3:20,6:20,11:20,12:20,16:20,10:30,13:30,14:30,15:30,18:30};
   const changes=latest.current.flatMap(t=>{
-    const match=t.label.match(/^(?:table\\s*|t)(\\d+)$/i);
+    const match=t.label.match(/^(?:table\s*|t)(\d+)$/i);
     const amount=match?pricing[Number(match[1])]:undefined;
     return amount===undefined?[]:[{...t,seat_price_cents:amount*100}];
   });
