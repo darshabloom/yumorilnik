@@ -23,8 +23,7 @@ export default function EventPresentation({event,editable=false,heading,descript
        <div className="min-w-0">{heading??<h1 className="text-3xl font-black leading-tight sm:text-5xl">{event.title}</h1>}</div>
        <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
          <div className="min-w-0 space-y-2">
-           {dateAndPlace??<div className="space-y-1 font-semibold"><p>{event.event_date} · {event.event_time.slice(0,5)}</p><p>{event.location||"Venue to be confirmed"}</p></div>}
-           {event.location?.trim()&&<a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold underline underline-offset-2">Открыть в Google Maps ↗</a>}
+           {dateAndPlace??<div className="space-y-1 font-semibold"><p>{event.event_date} · {event.event_time.slice(0,5)}</p><p className="flex flex-wrap items-center gap-x-3 gap-y-1">{event.location||"Venue to be confirmed"}{event.location?.trim()&&<a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold underline underline-offset-2">Открыть в Google Maps ↗</a>}</p></div>}
          </div>
          {!heading&&(bookingAction?<button type="button" disabled={bookingDisabled} onClick={bookingAction} className="inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-7 py-3 font-bold text-white disabled:opacity-50">Билеты →</button>:<Link href={bookingHref??`/events/${event.slug}/book`} className="inline-flex min-h-12 items-center justify-center rounded-lg bg-black px-7 py-3 font-bold text-white">Билеты →</Link>)}
        </div>
