@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-type Event = {id:string;slug:string;title:string;image_url:string|null;booking_image_url:string|null;booking_image_fit:string;booking_image_position_x:number;booking_image_position_y:number;seating_mode:string;table_booking_mode:string;adult_seat_required:boolean};
+type Event = {id:string;slug:string;title:string;image_url:string|null;booking_image_url:string|null;booking_image_fit:string;booking_image_position_x:number;booking_image_position_y:number;seating_mode:string;table_booking_mode:string;adult_seat_required:boolean;pricing_model:string;child_unseated_price_cents:number};
 type Ticket = {id:string;event_id:string;name:string;description:string|null;price_cents:number;currency:string;quantity_total:number;quantity_sold:number;is_active:boolean;show_remaining:boolean};
 type Form = {name:string;description:string;price:string;quantity:string;active:boolean;showRemaining:boolean};
 const empty:Form={name:"",description:"",price:"",quantity:"100",active:true,showRemaining:false};
@@ -37,7 +37,7 @@ export default function TicketEditor(){
     const {data:admin,error:roleError}=await supabase.from("admin_users").select("role").eq("user_id",user.id).maybeSingle();
     if(roleError||!admin){router.replace("/admin/login");return;}
     const [ev,ts]=await Promise.all([
-      supabase.from("events").select("id,slug,title,image_url,booking_image_url,booking_image_fit,booking_image_position_x,booking_image_position_y,seating_mode,table_booking_mode,adult_seat_required").eq("id",id).single(),
+      supabase.from("events").select("id,slug,title,image_url,booking_image_url,booking_image_fit,booking_image_position_x,booking_image_position_y,seating_mode,table_booking_mode,adult_seat_required,pricing_model,child_unseated_price_cents").eq("id",id).single(),
       supabase.from("ticket_types").select("id,event_id,name,description,price_cents,currency,quantity_total,quantity_sold,is_active,show_remaining").eq("event_id",id).order("created_at",{ascending:true})
     ]);
     if(ev.error)throw ev.error;
@@ -195,6 +195,7 @@ export default function TicketEditor(){
                <label className="flex items-start gap-3"><input type="radio" name="table_booking_mode" checked={event.table_booking_mode==="individual_seats"} disabled={modeSaving} onChange={()=>void changeTableBookingMode("individual_seats")} className="mt-1"/> <span><strong className="block">Individual seats at tables</strong><span className="text-sm text-gray-600">Guests choose their seats, and may share a table.</span></span></label>
              </div>
            </fieldset>}
+           {!preview&&event.seating_mode!=="general_admission"&&<div className="mt-4 rounded-lg border bg-white p-4"><label className="block text-sm font-semibold">Seat pricing model<select value={event.pricing_model} disabled={modeSaving} onChange={async e=>{const pricing_model=e.target.value;setModeSaving(true);const {error:saveError}=await supabase.from("events").update({pricing_model}).eq("id",id);if(saveError)setError(saveError.message);else setEvent(old=>old?{...old,pricing_model}:old);setModeSaving(false)}} className="mt-2 w-full rounded-lg border p-3"><option value="admission_plus_seat">Admission + seat surcharge (older events)</option><option value="zone_full_seat">Seat price includes adult admission (zone pricing)</option></select></label>{event.pricing_model==="zone_full_seat"&&<p className="mt-2 text-sm text-gray-600">Adult quantity determines reserved seats; the selected zones determine adult prices. Child admission is $30 per child, with optional full-price reserved seats.</p>}</div>}
            {event.seating_mode!=="general_admission"&&<label className="mt-4 flex items-start gap-3 rounded-lg border border-black/15 bg-[#fff2db] p-4">
              <input type="checkbox" checked={event.adult_seat_required} disabled={modeSaving} onChange={async e=>{
                const value=e.target.checked;setModeSaving(true);setError("");
