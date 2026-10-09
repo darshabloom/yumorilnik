@@ -24,6 +24,7 @@ export default function AdminEventsPage() {
   const [fields, setFields] = useState<Fields>(empty);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -54,6 +55,7 @@ export default function AdminEventsPage() {
   }, [router]);
 
   function edit(item: EventRow) {
+    setShowForm(true);
     setSelectedId(item.id);
     setFields({ slug: item.slug, title: item.title, title_en: item.title_en ?? "",
       description: item.description ?? "", description_en: item.description_en ?? "",
@@ -64,7 +66,8 @@ export default function AdminEventsPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function reset() { setSelectedId(null); setFields(empty); setError(""); setMessage(""); }
+  function reset() { setSelectedId(null); setFields(empty); setError(""); setMessage(""); setShowForm(true); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function backToList() { setShowForm(false); setSelectedId(null); setFields(empty); setError(""); setMessage(""); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function update<K extends keyof Fields>(key: K, value: Fields[K]) {
     setFields(current => ({ ...current, [key]: value }));
   }
@@ -90,6 +93,8 @@ export default function AdminEventsPage() {
         .sort((a, b) => b.event_date.localeCompare(a.event_date)));
       setSelectedId(data.id);
       setMessage(data.is_active ? "Published event saved." : "Draft saved.");
+      setShowForm(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
     setSaving(false);
   }
@@ -105,10 +110,13 @@ export default function AdminEventsPage() {
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <div><p className="text-xs font-bold uppercase tracking-widest text-pink-700">Yumorilnik / Admin</p>
           <h1 className="mt-1 text-3xl font-black">Manage events</h1></div>
-          <button type="button" onClick={reset} className="rounded-lg bg-black px-4 py-3 font-bold text-white">+ New event</button>
+          <button type="button" onClick={reset} className="rounded-lg bg-black px-4 py-3 font-bold text-white">+ Add event</button>
         </div>
 
-        <form onSubmit={save} className="mt-7 space-y-6 rounded-2xl border-2 border-black bg-white p-5 sm:p-8">
+        {message && !showForm && <p role="status" className="mt-5 rounded bg-green-100 p-4 text-green-900">{message}</p>}
+        {error && !showForm && <p role="alert" className="mt-5 rounded bg-red-100 p-4 text-red-900">{error}</p>}
+        {showForm && <form onSubmit={save} className="mt-7 space-y-6 rounded-2xl border-2 border-black bg-white p-5 sm:p-8">
+          <button type="button" onClick={backToList} className="text-sm font-bold underline">← Back to events</button>
           <div><h2 className="text-xl font-black">{selectedId ? "Edit event" : "Create event"}</h2>
           <p className="mt-1 text-sm text-gray-600">Basic details and publishing. Ticketing and seating come next.</p></div>
 
@@ -150,9 +158,9 @@ export default function AdminEventsPage() {
           <button type="submit" disabled={saving} className="w-full rounded-lg bg-black px-5 py-4 font-bold text-white disabled:opacity-50">
             {saving ? "Saving…" : fields.is_active ? "Save and publish" : "Save draft"}
           </button>
-        </form>
+        </form>}
 
-        <section className="mt-8">
+        {!showForm && <section className="mt-8">
           <h2 className="text-2xl font-black">Existing events</h2>
           {events.length === 0 ? <p className="mt-4 text-sm">No events yet. Create your first one above.</p> :
           <div className="mt-4 grid gap-3">
@@ -163,7 +171,7 @@ export default function AdminEventsPage() {
               <button type="button" onClick={() => edit(item)} className="rounded-lg border-2 border-black px-5 py-3 font-bold">Edit</button>
             </article>)}
           </div>}
-        </section>
+        </section>}
       </div>
     </main>
   );
