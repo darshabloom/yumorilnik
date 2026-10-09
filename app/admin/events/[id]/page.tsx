@@ -132,6 +132,19 @@ export default function InlineEventEditor() {
         </div>
       </div>
 
+      {!isPreview && editingImage && <div className="border-b border-black/20 bg-[#fff2db] px-5 py-4 sm:px-10 lg:px-[6vw]">
+        <div className="max-w-xl">
+          <h2 className="mb-2 font-black">Edit event photo</h2>
+          <label htmlFor="event-image-upload" className="block text-sm font-bold">Upload a photo</label>
+          <input id="event-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploading} onChange={uploadImage} className="mt-2 block w-full rounded border bg-white p-3 text-sm"/>
+          <p className="mt-2 text-xs">JPG, PNG, WebP or GIF · up to 10 MB</p>
+          {uploading && <p role="status" className="mt-2 font-semibold">Uploading…</p>}
+          <label className="mt-4 block text-sm font-bold">Or paste an image URL
+            <input type="url" className="mt-2 w-full rounded border bg-white p-3 font-normal" value={event.image_url??""} onChange={e=>change("image_url",e.target.value)}/>
+          </label>
+          <button type="button" onClick={()=>setEditingImage(false)} className="mt-3 text-sm font-bold underline">Close</button>
+        </div>
+      </div>}
       <EventPresentation
         event={{slug:event.slug,title,description,event_date:event.event_date,event_time:event.event_time,location:event.location,image_url:event.image_url}}
         heading={isPreview ? undefined : <input aria-label="Event title" value={title} onChange={e=>change(titleKey,e.target.value)}
@@ -152,16 +165,7 @@ export default function InlineEventEditor() {
         bookingDisabled
       />
       {!isPreview && <div className="w-full space-y-5 bg-white px-5 pb-12 sm:px-10 lg:px-[6vw]">
-        {editingImage && <div className="rounded-lg bg-[#fff2db] p-4">
-          <label htmlFor="event-image-upload" className="block text-sm font-bold">Upload an event image</label>
-          <input id="event-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploading} onChange={uploadImage}
-            className="mt-2 block w-full rounded border bg-white p-3 text-sm"/>
-          <p className="mt-2 text-xs">JPG, PNG, WebP or GIF · maximum 10 MB</p>
-          {uploading && <p role="status" className="mt-2 font-semibold">Uploading image…</p>}
-          <label className="mt-4 block text-sm font-bold">Or use an image URL
-            <input type="url" className="mt-2 w-full rounded border bg-white p-3 font-normal" value={event.image_url??""} onChange={e=>change("image_url",e.target.value)} />
-          </label>
-        </div>}
+
         <label className="flex items-center gap-3 rounded-lg border p-4 font-bold">
           <input type="checkbox" checked={event.is_active} onChange={e=>change("is_active",e.target.checked)} className="h-5 w-5"/> Publish event
         </label>
