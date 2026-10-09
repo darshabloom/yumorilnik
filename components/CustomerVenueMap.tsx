@@ -74,13 +74,14 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
   const rect=e.currentTarget.getBoundingClientRect();
   gesture.current={x:view.x,y:view.y,w:view.w,h:view.h,cx:(p.cx-rect.left)/rect.width,cy:(p.cy-rect.top)/rect.height,distance:p.distance};
   moved.current=pointers.current.size>1;
-  e.currentTarget.setPointerCapture(e.pointerId);
+  if(e.pointerType!=="touch"||expanded)e.currentTarget.setPointerCapture(e.pointerId);
  }
  function move(e:React.PointerEvent<SVGSVGElement>){
   const prev=pointers.current.get(e.pointerId);if(!prev||!gesture.current)return;
   pointers.current.set(e.pointerId,{x:e.clientX,y:e.clientY});
   const p=getGesture();if(!p)return;
   if(downOrigin.current&&Math.hypot(e.clientX-downOrigin.current.x,e.clientY-downOrigin.current.y)>6)moved.current=true;
+  if(e.pointerType==="touch"&&!expanded&&pointers.current.size===1)return;
   const rect=e.currentTarget.getBoundingClientRect(),g=gesture.current;
   const ratio=g.distance&&p.distance?Math.max(1,Math.min(8,baseWidth/g.w*p.distance/g.distance)):baseWidth/g.w;
   const w=baseWidth/ratio,h=baseHeight/ratio;
@@ -103,7 +104,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
  const money=(cents:number)=>new Intl.NumberFormat("en-NZ",{style:"currency",currency:"NZD"}).format(cents/100);
  return <div className="space-y-3">
    <div className="flex flex-wrap items-center justify-between gap-2">
-    <p className="text-sm text-gray-600">{en?"Drag to pan. Pinch or use the buttons to zoom.":"Перемещайте схему пальцем, увеличивайте двумя пальцами или кнопками."}</p>
+    <p className="text-sm text-gray-600">{en?"Swipe to scroll the page. Pinch or use +/− to zoom the seating map.":"Прокручивайте страницу одним пальцем. Увеличивайте схему двумя пальцами или кнопками."}</p>
     <div className="flex items-center gap-1">
       <button type="button" onClick={()=>setExpanded(v=>!v)} className="rounded border border-black/30 bg-white px-3 py-2 text-xs font-bold">{expanded?(en?"Exit full screen":"Свернуть"):(en?"Full screen":"На весь экран")}</button>
       <button type="button" aria-label={en?"Zoom out":"Уменьшить"} onClick={()=>zoomTo(zoom/1.4)} className="h-10 w-10 rounded border border-black/30 bg-white font-bold">−</button>
@@ -118,9 +119,9 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
      </div>)}</div>
    </div>}
    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-   <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#F6F5F1]":"relative h-[65svh] min-h-[420px] overflow-hidden rounded-xl border border-black/15 bg-[#F6F5F1] lg:h-[min(78vh,880px)]"}>
+   <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#F6F5F1]":"relative h-[48svh] min-h-[310px] overflow-hidden rounded-xl border border-black/15 bg-[#F6F5F1] lg:h-[min(78vh,880px)]"}>
     {expanded&&<button type="button" onClick={()=>setExpanded(false)} className="absolute right-3 top-3 z-10 rounded-lg bg-white px-4 py-3 font-bold shadow">{en?"Close ✕":"Закрыть ✕"}</button>}
-    <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet" aria-label={en?"Venue seating plan":"План зала"} role="group" className="block h-full w-full cursor-grab touch-none" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+    <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet" aria-label={en?"Venue seating plan":"План зала"} role="group" className={`block h-full w-full ${expanded?"cursor-grab touch-none":"cursor-pointer touch-pan-y lg:cursor-grab lg:touch-none"}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
       {zones.map(z=><g key={z.id}><polygon points={zonePoints(z).map(p=>p.x+","+p.y).join(" ")} fill={z.color} opacity=".44" stroke={z.color} strokeWidth="3"/><text x={z.x+8} y={z.y+20} fontSize="15" fill="#303030" fontWeight="bold">{z.name}</text></g>)}
       {features.map(f=><g key={f.id}>
        <polyline points={f.points.map(p=>p.x+","+p.y).join(" ")} stroke={f.kind==="entrance"?"#16803b":"#252525"} strokeWidth={f.kind==="entrance"?10:7} strokeDasharray={f.kind==="entrance"?"11 9":undefined} fill="none" strokeLinecap="round" strokeLinejoin="round"/>
