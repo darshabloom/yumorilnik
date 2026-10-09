@@ -14,7 +14,7 @@ export default async function BookEvent({params}:{params:Promise<{slug:string}>}
    .eq("event_id",event.id).eq("is_active",true).order("price_cents",{ascending:false});
  if(ticketError)throw new Error("Unable to load ticket types.");
  const [tableResult,featureResult,mapResult,zoneResult]=await Promise.all([
-   supabaseServer.from("seating_tables").select("id,label,shape,x,y,width,height,rotation_deg,seats_top,seats_bottom,seats_left,seats_right,table_price_cents,seat_price_cents,is_active").eq("event_id",event.id).eq("is_active",true),
+   supabaseServer.from("seating_tables").select("id,label,shape,x,y,width,height,rotation_deg,seats_top,seats_bottom,seats_left,seats_right,table_price_cents,seat_price_cents,price_zone_id,is_active").eq("event_id",event.id).eq("is_active",true),
    supabaseServer.from("seating_features").select("id,event_id,kind,label,points").eq("event_id",event.id),
    supabaseServer.from("event_seating_maps").select("stage_x,stage_y,stage_width,stage_height,stage_rotation").eq("event_id",event.id).maybeSingle(),
    supabaseServer.from("event_price_zones").select("id,event_id,name,price_cents,color,x,y,width,height,sort_order,points").eq("event_id",event.id).order("sort_order")
