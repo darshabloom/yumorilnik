@@ -21,7 +21,9 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const adultTicketCount=tickets.filter(t=>/adult|взросл/i.test(t.name)).reduce((sum,t)=>sum+(quantities[t.id]??0),0);
  const seatsStillNeeded=event.adult_seat_required&&event.seating_mode!=="general_admission"?Math.max(0,adultTicketCount-mapSelections.length):0;
  const seatTotal=!tableBooking?mapSelections.reduce((sum,key)=>sum+(venue?.tables.find(t=>t.id===key.split(":")[0])?.seat_price_cents??0),0):0;
- const missingSeatPrices=!tableBooking&&mapSelections.some(key=>venue?.tables.find(t=>t.id===key.split(":")[0])?.seat_price_cents===null);
+ const missingSeatPrices=!tableBooking&&mapSelections.some(key=>venue?.tables.find(t=>t.id===key.split(":")[0])?.seat_price_cents==null);
+ const seatCount=mapSelections.length;
+ const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&seatCount>count;
  const tableTotal=tableBooking?mapSelections.reduce((sum,key)=>sum+(venue?.tables.find(t=>t.id===key)?.table_price_cents??0),0):0;
  const total=ticketTotal+(tableBooking?tableTotal:seatTotal);
  const currency=tickets[0]?.currency?.toUpperCase()||"NZD";
@@ -60,6 +62,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
          })}</div>}
        </section>
        <section aria-labelledby="seating-title" className="min-w-0 space-y-4">
+         {seatOverage&&<p role="status" className="rounded-lg border border-orange-300 bg-orange-50 px-4 py-3 text-sm">Выбрано мест больше, чем билетов. Уменьшите количество мест или добавьте билеты.</p>}
          {event.adult_seat_required&&event.seating_mode!=="general_admission"&&<p className="rounded-lg border border-[#f5a047] bg-[#fff2db] px-4 py-3 text-sm font-semibold">{seatsStillNeeded>0?`Для взрослых необходимо выбрать ещё ${seatsStillNeeded} мест(а).`:"Для каждого взрослого билета требуется отдельное место. Места для детей — по желанию."}</p>}
          <h2 id="seating-title" className="text-xl font-bold">{event.seating_mode==="general_admission"?"Вход без закреплённых мест":event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?"Места за столами":"Бронирование столов"):"Рассадка"}</h2>
          {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage} mode={seatingMode} selectedKeys={mapSelections} onToggle={toggleMapSelection}/>:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
