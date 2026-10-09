@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import CustomerVenueMap,{type PublicTable,type PublicStage} from "@/components/CustomerVenueMap";
 import type {VenueFeature} from "@/components/VenueLines";
 
@@ -14,6 +15,8 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [quantities,setQuantities]=useState<Record<string,number>>({});
  const [mapSelections,setMapSelections]=useState<string[]>([]);
  const [review,setReview]=useState(false);
+ const language=useSiteLanguage();
+ const en=language==="en";
  const tableBooking=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
  const seatingMode=tableBooking?"whole_table":"individual_seats";
  function toggleMapSelection(key:string){setMapSelections(old=>old.includes(key)?old.filter(item=>item!==key):[...old,key]);setReview(false);}
@@ -30,7 +33,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const pricingIncomplete=missingSeatPrices||invalidTablePrices;
  const selections=mapSelections.map(key=>{
   const table=venue?.tables.find(t=>t.id===(tableBooking?key:key.split(":")[0]));
-  return {key,label:table?.label??"Стол",seat:tableBooking?null:key.split(":")[1],cost:tableBooking?table?.table_price_cents:table?.seat_price_cents};
+  return {key,label:table?.label??(en?"Table":"Стол"),seat:tableBooking?null:key.split(":")[1],cost:tableBooking?table?.table_price_cents:table?.seat_price_cents};
  });
  const tableTotal=tableBooking?mapSelections.reduce((sum,key)=>sum+(venue?.tables.find(t=>t.id===key)?.table_price_cents??0),0):0;
  const total=ticketTotal+(tableBooking?tableTotal:seatTotal);
@@ -46,20 +49,20 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
      {(event.booking_image_url||event.image_url)?<img src={event.booking_image_url||event.image_url||""} alt="" className="h-32 w-full sm:h-44 lg:h-48" style={{objectFit:event.booking_image_fit==="contain"?"contain":"cover",objectPosition:`${event.booking_image_position_x??50}% ${event.booking_image_position_y??50}%`}}/>:<div className="h-40 w-full bg-[#f5a047]/30"/>}
    </div>
    <div className="mx-auto w-full max-w-[1600px] px-3 py-5 sm:px-6 sm:py-7 lg:px-10">
-     <Link href={`/events/${event.slug}`} className="text-sm font-bold underline">← Вернуться к мероприятию</Link>
+     <Link href={`/events/${event.slug}`} className="text-sm font-bold underline">{en?"← Back to event":"← Вернуться к мероприятию"}</Link>
      <h1 className="mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl">{event.title}</h1>
-     {review?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8" aria-label="Проверка заказа">
-       <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">Проверьте ваш выбор</h2><button type="button" onClick={()=>setReview(false)} className="text-sm font-semibold underline">← Изменить</button></div>
-       <div><h3 className="mb-2 font-semibold">Входные билеты</h3>{tickets.filter(t=>(quantities[t.id]??0)>0).map(t=><div key={t.id} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{t.name} × {quantities[t.id]}</span><span>{format.format(t.price_cents*(quantities[t.id]??0)/100)}</span></div>)}</div>
-       {event.seating_mode!=="general_admission"&&<div><h3 className="mb-2 font-semibold">{tableBooking?"Выбранные столы":"Выбранные места"}</h3>{selections.length===0?<p className="text-sm text-gray-600">Места не выбраны</p>:selections.map(s=><div key={s.key} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{s.label}{s.seat?` · место ${s.seat}`:""}</span><span>{s.cost==null?"Цена не указана":format.format(s.cost/100)}</span></div>)}</div>}
-       <div className="space-y-1 border-t border-black/20 pt-4"><div className="flex justify-between text-sm"><span>Билеты</span><span>{format.format(ticketTotal/100)}</span></div><div className="flex justify-between text-sm"><span>Места</span><span>{pricingIncomplete?"Цена уточняется":format.format((tableBooking?tableTotal:seatTotal)/100)}</span></div><div className="flex justify-between pt-2 text-lg font-bold"><span>Итого</span><span>{pricingIncomplete?"Цена уточняется":format.format(total/100)}</span></div></div>
-       {pricingIncomplete&&<p role="status" className="rounded-lg border border-orange-300 bg-orange-50 p-4 text-sm">Для некоторых выбранных мест цена ещё не установлена организатором. Итоговая сумма будет известна после настройки цен.</p>}
-       <p className="rounded-lg bg-[#fff2db] p-4 text-sm">Это предварительный расчёт. Места не забронированы. Оплата и подтверждение заказа пока недоступны.</p>
-       <button type="button" onClick={()=>setReview(false)} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">Изменить выбор</button>
+     {review?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8" aria-label={en?"Order review":"Проверка заказа"}>
+       <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Review your selection":"Проверьте ваш выбор"}</h2><button type="button" onClick={()=>setReview(false)} className="text-sm font-semibold underline">{en?"← Edit":"← Изменить"}</button></div>
+       <div><h3 className="mb-2 font-semibold">{en?"Admission tickets":"Входные билеты"}</h3>{tickets.filter(t=>(quantities[t.id]??0)>0).map(t=><div key={t.id} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{t.name} × {quantities[t.id]}</span><span>{format.format(t.price_cents*(quantities[t.id]??0)/100)}</span></div>)}</div>
+       {event.seating_mode!=="general_admission"&&<div><h3 className="mb-2 font-semibold">{tableBooking?(en?"Selected tables":"Выбранные столы"):(en?"Selected seats":"Выбранные места")}</h3>{selections.length===0?<p className="text-sm text-gray-600">{en?"No seats selected":"Места не выбраны"}</p>:selections.map(s=><div key={s.key} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{s.label}{s.seat?` · ${en?"seat":"место"} ${s.seat}`:""}</span><span>{s.cost==null?(en?"Price not set":"Цена не указана"):format.format(s.cost/100)}</span></div>)}</div>}
+       <div className="space-y-1 border-t border-black/20 pt-4"><div className="flex justify-between text-sm"><span>{en?"Tickets":"Билеты"}</span><span>{format.format(ticketTotal/100)}</span></div><div className="flex justify-between text-sm"><span>{en?"Seats":"Места"}</span><span>{pricingIncomplete?(en?"Price pending":"Цена уточняется"):format.format((tableBooking?tableTotal:seatTotal)/100)}</span></div><div className="flex justify-between pt-2 text-lg font-bold"><span>{en?"Total":"Итого"}</span><span>{pricingIncomplete?(en?"Price pending":"Цена уточняется"):format.format(total/100)}</span></div></div>
+       {pricingIncomplete&&<p role="status" className="rounded-lg border border-orange-300 bg-orange-50 p-4 text-sm">{en?"Some selected seats have not been priced by the organiser. The total will be available when prices are set.":"Для некоторых выбранных мест цена ещё не установлена организатором. Итоговая сумма будет известна после настройки цен."}</p>}
+       <p className="rounded-lg bg-[#fff2db] p-4 text-sm">{en?"This is a preview only. Seats have not been reserved. Payment and order confirmation are not available yet.":"Это предварительный расчёт. Места не забронированы. Оплата и подтверждение заказа пока недоступны."}</p>
+       <button type="button" onClick={()=>setReview(false)} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Edit selection":"Изменить выбор"}</button>
      </section>:<div className="mt-6 flex flex-col gap-8">
        <section aria-labelledby="tickets-title" className="space-y-3">
-         <h2 id="tickets-title" className="text-xl font-bold">Билеты</h2>
-         {tickets.length===0?<p className="rounded-xl border border-black/15 bg-white p-5">Билеты пока не добавлены.</p>:<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{tickets.map(ticket=>{
+         <h2 id="tickets-title" className="text-xl font-bold">{en?"Tickets":"Билеты"}</h2>
+         {tickets.length===0?<p className="rounded-xl border border-black/15 bg-white p-5">{en?"No tickets have been added yet.":"Билеты пока не добавлены."}</p>:<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{tickets.map(ticket=>{
             const quantity=quantities[ticket.id]??0;
             const remaining=Math.max(0,(ticket.quantity_total??0)-(ticket.quantity_sold??0));
             return <div key={ticket.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-black/15 bg-white px-4 py-3">
@@ -67,35 +70,35 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
                 <h3 className="text-base font-semibold">{ticket.name}</h3>
                 {ticket.description&&<p className="mt-1 text-sm text-gray-600">{ticket.description}</p>}
                 <p className="mt-1 font-semibold">{format.format(ticket.price_cents/100)}</p>
-                {remaining===0?<p className="text-sm text-red-700">Нет в наличии</p>:ticket.show_remaining&&<p className="mt-1 text-xs text-gray-600">Осталось билетов: {remaining}</p>}
+                {remaining===0?<p className="text-sm text-red-700">{en?"Sold out":"Нет в наличии"}</p>:ticket.show_remaining&&<p className="mt-1 text-xs text-gray-600">{en?"Tickets remaining: ":"Осталось билетов: "}{remaining}</p>}
               </div>
-              <div className="flex items-center gap-2" aria-label={`Количество: ${ticket.name}`}>
-                <button type="button" aria-label={`Уменьшить количество: ${ticket.name}`} disabled={quantity===0} onClick={()=>adjust(ticket,-1)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/40 text-xl disabled:opacity-30">−</button>
+              <div className="flex items-center gap-2" aria-label={`${en?"Quantity":"Количество"}: ${ticket.name}`}>
+                <button type="button" aria-label={`${en?"Decrease quantity":"Уменьшить количество"}: ${ticket.name}`} disabled={quantity===0} onClick={()=>adjust(ticket,-1)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/40 text-xl disabled:opacity-30">−</button>
                 <output className="w-5 text-center text-lg font-bold">{quantity}</output>
-                <button type="button" aria-label={`Увеличить количество: ${ticket.name}`} disabled={quantity>=Math.min(max,remaining)} onClick={()=>adjust(ticket,1)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-black text-2xl disabled:opacity-30">+</button>
+                <button type="button" aria-label={`${en?"Increase quantity":"Увеличить количество"}: ${ticket.name}`} disabled={quantity>=Math.min(max,remaining)} onClick={()=>adjust(ticket,1)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-black text-2xl disabled:opacity-30">+</button>
               </div>
             </div>;
          })}</div>}
        </section>
        <section aria-labelledby="seating-title" className="min-w-0 space-y-4">
-         {seatOverage&&<p role="status" className="rounded-lg border border-orange-300 bg-orange-50 px-4 py-3 text-sm">Выбрано мест больше, чем билетов. Уменьшите количество мест или добавьте билеты.</p>}
-         {event.adult_seat_required&&event.seating_mode!=="general_admission"&&<p className="rounded-lg border border-[#f5a047] bg-[#fff2db] px-4 py-3 text-sm font-semibold">{seatsStillNeeded>0?`Для взрослых необходимо выбрать ещё ${seatsStillNeeded} мест(а).`:"Для каждого взрослого билета требуется отдельное место. Места для детей — по желанию."}</p>}
-         <h2 id="seating-title" className="text-xl font-bold">{event.seating_mode==="general_admission"?"Вход без закреплённых мест":event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?"Места за столами":"Бронирование столов"):"Рассадка"}</h2>
+         {seatOverage&&<p role="status" className="rounded-lg border border-orange-300 bg-orange-50 px-4 py-3 text-sm">{en?"More seats than tickets selected. Remove seats or add tickets.":"Выбрано мест больше, чем билетов. Уменьшите количество мест или добавьте билеты."}</p>}
+         {event.adult_seat_required&&event.seating_mode!=="general_admission"&&<p className="rounded-lg border border-[#f5a047] bg-[#fff2db] px-4 py-3 text-sm font-semibold">{seatsStillNeeded>0?(en?`Select ${seatsStillNeeded} more seat(s) for adults.`:`Для взрослых необходимо выбрать ещё ${seatsStillNeeded} мест(а).`):(en?"Each adult ticket requires a reserved seat. Children’s seats are optional.":"Для каждого взрослого билета требуется отдельное место. Места для детей — по желанию.")}</p>}
+         <h2 id="seating-title" className="text-xl font-bold">{event.seating_mode==="general_admission"?(en?"General admission":"Вход без закреплённых мест"):event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?(en?"Seats at tables":"Места за столами"):(en?"Whole-table booking":"Бронирование столов")):(en?"Seating":"Рассадка")}</h2>
          {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage} mode={seatingMode} selectedKeys={mapSelections} onToggle={toggleMapSelection}/>:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
-            <div className="flex h-12 w-40 items-center justify-center rounded-lg bg-[#f5a047]/50 text-sm font-bold">Сцена</div>
+            <div className="flex h-12 w-40 items-center justify-center rounded-lg bg-[#f5a047]/50 text-sm font-bold">{en?"Stage":"Сцена"}</div>
             <div className="grid grid-cols-3 gap-6 opacity-35" aria-hidden="true">
               {Array.from({length:9},(_,i)=><div key={i} className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-black/50 bg-[#fff2db]">○</div>)}
             </div>
-            <p className="max-w-sm font-semibold">{event.seating_mode==="general_admission"?"Выбор мест не требуется":event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?"Выбор мест за столами скоро появится":"Выбор целых столов скоро появится"):"План зала скоро появится"}</p>
-            <p className="max-w-sm text-sm text-gray-600">Схема выше — только иллюстрация, а не настоящая рассадка. Выбор конкретных мест пока недоступен.</p>
+            <p className="max-w-sm font-semibold">{event.seating_mode==="general_admission"?(en?"No reserved seat needed":"Выбор мест не требуется"):event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?(en?"Seat selection will be available soon":"Выбор мест за столами скоро появится"):(en?"Table selection will be available soon":"Выбор целых столов скоро появится")):(en?"Venue map coming soon":"План зала скоро появится")}</p>
+            <p className="max-w-sm text-sm text-gray-600">{en?"This is an illustration, not the real seating plan. Seat selection is not available yet.":"Схема выше — только иллюстрация, а не настоящая рассадка. Выбор конкретных мест пока недоступен."}</p>
          </div>}
        </section>
      </div>}
    </div>
    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/20 bg-white px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] sm:px-8">
      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-       <div><p className="text-xs font-semibold text-gray-600">{tableBooking?`${mapSelections.length} стол(ов) выбрано · предварительно`: `${count} билет(ов)`} {event.seating_mode==="general_admission"?" · Свободная посадка":!tableBooking?` · ${mapSelections.length} мест выбрано · предварительно`:""}</p><p className="text-sm text-gray-600">Билеты: {format.format(ticketTotal/100)} · Места: {missingSeatPrices?"Цена не указана":format.format((tableBooking?tableTotal:seatTotal)/100)}</p><p className="text-2xl font-black">{missingSeatPrices?"—":format.format(total/100)}</p><p className="text-[11px] text-gray-600">Не является бронированием</p></div>
-       <button type="button" disabled={review||!canReview} onClick={()=>{setReview(true);window.scrollTo({top:0,behavior:"smooth"});}} title={!canReview?"Выберите билеты и необходимые места":undefined} className="min-h-12 rounded-lg bg-black px-5 py-3 font-bold text-white disabled:opacity-45">{review?"Предпросмотр заказа":"Проверить выбор →"}</button>
+       <div><p className="text-xs font-semibold text-gray-600">{tableBooking?`${mapSelections.length} ${en?"tables selected · preview":"стол(ов) выбрано · предварительно"}`: `${count} ${en?"tickets":"билет(ов)"}`} {event.seating_mode==="general_admission"?(en?" · General admission":" · Свободная посадка"):!tableBooking?` · ${mapSelections.length} ${en?"seats selected · preview":"мест выбрано · предварительно"}`:""}</p><p className="text-sm text-gray-600">{en?"Tickets":"Билеты"}: {format.format(ticketTotal/100)} · {en?"Seats":"Места"}: {pricingIncomplete?(en?"Price pending":"Цена не указана"):format.format((tableBooking?tableTotal:seatTotal)/100)}</p><p className="text-2xl font-black">{pricingIncomplete?"—":format.format(total/100)}</p><p className="text-[11px] text-gray-600">{en?"Not a reservation":"Не является бронированием"}</p></div>
+       <button type="button" disabled={review||!canReview} onClick={()=>{setReview(true);window.scrollTo({top:0,behavior:"smooth"});}} title={!canReview?(en?"Choose tickets and required seats":"Выберите билеты и необходимые места"):undefined} className="min-h-12 rounded-lg bg-black px-5 py-3 font-bold text-white disabled:opacity-45">{review?(en?"Order preview":"Предпросмотр заказа"):(en?"Review selection →":"Проверить выбор →")}</button>
      </div>
    </div>
  </main>;
