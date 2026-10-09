@@ -384,6 +384,10 @@ export default function SeatingBuilder(){
        </div>
        <h3 className="mt-5 font-bold">Seats around table · {seats(current)}</h3>
        <div className="mt-2 grid grid-cols-2 gap-3">{([{field:"seats_top",label:"Top"},{field:"seats_bottom",label:"Bottom"},{field:"seats_left",label:"Left"},{field:"seats_right",label:"Right"}] as const).map(o=><label key={o.field} className="text-sm font-semibold">{o.label}<input type="number" min="0" max="30" value={current[o.field]} onChange={e=>mutate(current.id,{[o.field]:Math.max(0,Math.min(30,Number(e.target.value)||0))})} className="mt-1 w-full rounded border p-2"/></label>)}</div>
+       <label className="mt-5 block font-bold">Seat surcharge (NZD)
+         <input type="number" min="0" step="0.01" placeholder="Not set" value={current.seat_price_cents===null?"":(current.seat_price_cents/100).toFixed(2)} onChange={e=>mutate(current.id,{seat_price_cents:e.target.value===""?null:Math.max(0,Math.round(Number(e.target.value)*100))})} className="mt-1 w-full rounded border p-3"/>
+       </label>
+       <p className="mt-1 text-xs text-gray-600">Per reserved seat, in addition to admission. Autosaves.</p>
        <label className="mt-5 block font-bold">Whole-table price (NZD)<input type="number" min="0" step=".01" placeholder="Not set" value={current.table_price_cents===null?"":(current.table_price_cents/100).toFixed(2)} onChange={e=>mutate(current.id,{table_price_cents:e.target.value===""?null:Math.max(0,Math.round(Number(e.target.value)*100))})} className="mt-1 w-full rounded border p-3"/></label>
        <p className="mt-1 text-xs text-gray-600">{whole?"This is the complete price for the table, not per person.":"Saved for whole-table mode only. Individual-seat bookings use ticket prices."}</p>
        <label className="mt-4 flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={current.is_active} onChange={e=>mutate(current.id,{is_active:e.target.checked})}/>Table active</label>
