@@ -5,9 +5,9 @@ import Link from "next/link";
 
 export type BookingTicket = {
  id:string; name:string; description:string|null; price_cents:number;
- currency:string; quantity_total:number|null; quantity_sold:number|null;
+ currency:string; quantity_total:number|null; quantity_sold:number|null;show_remaining?:boolean;
 };
-export type BookingEvent = { slug:string;title:string;image_url:string|null;banner_fit?:string|null };
+export type BookingEvent = { slug:string;title:string;image_url:string|null;banner_fit?:string|null;seating_mode?:string|null };
 export default function BookingExperience({event,tickets}:{event:BookingEvent;tickets:BookingTicket[]}) {
  const [quantities,setQuantities]=useState<Record<string,number>>({});
  const count=tickets.reduce((total,t)=>total+(quantities[t.id]??0),0);
@@ -37,7 +37,7 @@ export default function BookingExperience({event,tickets}:{event:BookingEvent;ti
                 <h3 className="text-lg font-bold">{ticket.name}</h3>
                 {ticket.description&&<p className="mt-1 text-sm text-gray-600">{ticket.description}</p>}
                 <p className="mt-1 font-semibold">{format.format(ticket.price_cents/100)}</p>
-                {remaining===0&&<p className="text-sm text-red-700">Нет в наличии</p>}
+                {remaining===0?<p className="text-sm text-red-700">Нет в наличии</p>:ticket.show_remaining&&<p className="mt-1 text-xs text-gray-600">Осталось билетов: {remaining}</p>}
               </div>
               <div className="flex items-center gap-3" aria-label={`Количество: ${ticket.name}`}>
                 <button type="button" aria-label={`Уменьшить количество: ${ticket.name}`} disabled={quantity===0} onClick={()=>adjust(ticket,-1)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-black text-2xl disabled:opacity-30">−</button>
@@ -48,13 +48,13 @@ export default function BookingExperience({event,tickets}:{event:BookingEvent;ti
          })}
        </section>
        <section aria-labelledby="seating-title" className="space-y-4">
-         <h2 id="seating-title" className="text-2xl font-black">Рассадка</h2>
+         <h2 id="seating-title" className="text-2xl font-black">{event.seating_mode==="general_admission"?"Вход без закреплённых мест":event.seating_mode==="tables"?"Бронирование столов":"Рассадка"}</h2>
          <div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
             <div className="flex h-12 w-40 items-center justify-center rounded-lg bg-[#f5a047]/50 text-sm font-bold">Сцена</div>
             <div className="grid grid-cols-3 gap-6 opacity-35" aria-hidden="true">
               {Array.from({length:9},(_,i)=><div key={i} className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-black/50 bg-[#fff2db]">○</div>)}
             </div>
-            <p className="max-w-sm font-semibold">План зала скоро появится</p>
+            <p className="max-w-sm font-semibold">{event.seating_mode==="general_admission"?"Выбор мест не требуется":event.seating_mode==="tables"?"План столов скоро появится":"План зала скоро появится"}</p>
             <p className="max-w-sm text-sm text-gray-600">Схема выше — только иллюстрация, а не настоящая рассадка. Выбор конкретных мест пока недоступен.</p>
          </div>
        </section>
@@ -62,7 +62,7 @@ export default function BookingExperience({event,tickets}:{event:BookingEvent;ti
    </div>
    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/20 bg-white px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] sm:px-8">
      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-       <div><p className="text-xs font-semibold text-gray-600">{count} {count===1?"билет":"билетов"} · 0 из {count} мест выбрано</p><p className="text-2xl font-black">{format.format(total/100)}</p></div>
+       <div><p className="text-xs font-semibold text-gray-600">{count} {count===1?"билет":"билетов"} {event.seating_mode==="general_admission"?" · Свободная посадка":` · 0 из ${count} мест выбрано`}</p><p className="text-2xl font-black">{format.format(total/100)}</p></div>
        <button type="button" disabled title="Продажа и выбор мест станут доступны после настройки зала и оплаты" className="min-h-12 rounded-lg bg-black px-5 py-3 font-bold text-white opacity-45">Продолжить →</button>
      </div>
    </div>
