@@ -12,7 +12,7 @@ type Props = { event:EventPageData; editable?:boolean; heading?:ReactNode; descr
 export default function EventPresentation({event,editable=false,heading,description,dateAndPlace,bannerControl,imageControl,bookingHref,bookingAction,bookingDisabled=false}:Props){
  const banner=event.image_url;
  const detail=event.detail_image_url;
- return <article className="w-full overflow-hidden bg-[#fffaf1] text-black">
+ return <article className="w-full bg-[#fffaf1] text-black">
    <div className="relative bg-[#1b1714]">
      {banner?<img src={banner} alt="" style={{objectFit:event.banner_fit==="contain"?"contain":"cover",objectPosition:`${event.banner_position_x??50}% ${event.banner_position_y??50}%`}} className="h-[45vh] min-h-64 w-full sm:h-[58vh] lg:h-[68vh]"/>:
      <div className="flex h-[45vh] min-h-64 items-center justify-center bg-[#f5a047]/40 text-sm sm:h-[58vh] lg:h-[68vh]">Event banner image</div>}
@@ -28,7 +28,7 @@ export default function EventPresentation({event,editable=false,heading,descript
          <h2 className="mb-3 text-xl font-black">О мероприятии</h2>
          {description??<p className="whitespace-pre-wrap leading-7">{event.description||"Описание скоро появится."}</p>}
        </section>
-       <div className="relative overflow-hidden rounded-lg bg-[#f5a047]/20">
+       <div className="relative rounded-lg bg-[#f5a047]/20">
          {detail?<img src={detail} alt="" style={{objectFit:event.detail_fit==="contain"?"contain":"cover",objectPosition:`${event.detail_position_x??50}% ${event.detail_position_y??50}%`}} className="aspect-[4/5] w-full bg-black"/>:
           <div className="flex aspect-[4/5] items-center justify-center px-4 text-center text-sm text-gray-600">Event photograph</div>}
          {imageControl&&<div className="absolute bottom-3 right-3">{imageControl}</div>}
