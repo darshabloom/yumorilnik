@@ -2,13 +2,15 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import CustomerVenueMap,{type PublicTable,type PublicStage} from "@/components/CustomerVenueMap";
+import type {VenueFeature} from "@/components/VenueLines";
 
 export type BookingTicket = {
  id:string; name:string; description:string|null; price_cents:number;
  currency:string; quantity_total:number|null; quantity_sold:number|null;show_remaining?:boolean;
 };
 export type BookingEvent = { slug:string;title:string;image_url:string|null;banner_fit?:string|null;seating_mode?:string|null;table_booking_mode?:string|null };
-export default function BookingExperience({event,tickets}:{event:BookingEvent;tickets:BookingTicket[]}) {
+export default function BookingExperience({event,tickets,venue}:{event:BookingEvent;tickets:BookingTicket[];venue?:{tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null}}) {
  const [quantities,setQuantities]=useState<Record<string,number>>({});
  const count=tickets.reduce((total,t)=>total+(quantities[t.id]??0),0);
  const total=tickets.reduce((sum,t)=>sum+t.price_cents*(quantities[t.id]??0),0);
@@ -49,14 +51,14 @@ export default function BookingExperience({event,tickets}:{event:BookingEvent;ti
        </section>
        <section aria-labelledby="seating-title" className="space-y-4">
          <h2 id="seating-title" className="text-2xl font-black">{event.seating_mode==="general_admission"?"Вход без закреплённых мест":event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?"Места за столами":"Бронирование столов"):"Рассадка"}</h2>
-         <div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
+         {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage}/>:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
             <div className="flex h-12 w-40 items-center justify-center rounded-lg bg-[#f5a047]/50 text-sm font-bold">Сцена</div>
             <div className="grid grid-cols-3 gap-6 opacity-35" aria-hidden="true">
               {Array.from({length:9},(_,i)=><div key={i} className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-black/50 bg-[#fff2db]">○</div>)}
             </div>
             <p className="max-w-sm font-semibold">{event.seating_mode==="general_admission"?"Выбор мест не требуется":event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?"Выбор мест за столами скоро появится":"Выбор целых столов скоро появится"):"План зала скоро появится"}</p>
             <p className="max-w-sm text-sm text-gray-600">Схема выше — только иллюстрация, а не настоящая рассадка. Выбор конкретных мест пока недоступен.</p>
-         </div>
+         </div>}
        </section>
      </div>
    </div>
