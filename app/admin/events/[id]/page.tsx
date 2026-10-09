@@ -24,7 +24,7 @@ export default function InlineEventEditor() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
-  const [editingImage, setEditingImage] = useState(false);
+  const [editingImage, setEditingImage] = useState<"banner"|"detail"|null>(null);
   const [uploading, setUploading] = useState(false);
   const [editingWhen, setEditingWhen] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
@@ -81,7 +81,7 @@ export default function InlineEventEditor() {
       const { data } = supabase.storage.from("event-images").getPublicUrl(path);
       change("image_url", data.publicUrl);
       setStatus("Image uploaded. Save changes to publish it.");
-      setEditingImage(false);
+      setEditingImage(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Image upload failed.");
     } finally { setUploading(false); }
@@ -157,8 +157,8 @@ export default function InlineEventEditor() {
           <label className="block text-xs font-bold">Time<input type="time" value={event.event_time.slice(0,5)} onChange={e=>change("event_time",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
           <label className="block text-xs font-bold">Venue<input value={event.location??""} onChange={e=>change("location",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
         </div>}
-        bannerControl={!isPreview?<div className="relative">{editingImage&&imageEditor}<button type="button" onClick={()=>setEditingImage(!editingImage)} aria-expanded={editingImage} className="rounded bg-white px-4 py-3 text-sm font-bold shadow">Change image</button></div>:undefined}
-        imageControl={!isPreview?<button type="button" onClick={()=>{setEditingImage(true);window.scrollTo({top:0,behavior:"smooth"});}} className="rounded bg-white px-3 py-2 text-sm font-bold shadow">Edit photo ↑</button>:undefined}
+        bannerControl={!isPreview?<div className="relative">{editingImage==="banner"&&imageEditor}<button type="button" onClick={()=>setEditingImage(editingImage==="banner"?null:"banner")} aria-expanded={editingImage==="banner"} className="rounded bg-white px-4 py-3 text-sm font-bold shadow">Change image</button></div>:undefined}
+        imageControl={!isPreview?<div className="relative">{editingImage==="detail"&&imageEditor}<button type="button" onClick={()=>setEditingImage(editingImage==="detail"?null:"detail")} aria-expanded={editingImage==="detail"} className="rounded bg-white px-3 py-2 text-sm font-bold shadow">Edit photo</button></div>:undefined}
         bookingAction={()=>{}}
         bookingDisabled
       />
