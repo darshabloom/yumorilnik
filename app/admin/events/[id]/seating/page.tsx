@@ -21,6 +21,7 @@ export default function SeatingBuilder(){
  const [event,setEvent]=useState<EventItem|null>(null);
  const [tables,setTables]=useState<TableItem[]>([]);
  const [background,setBackground]=useState<string|null>(null);
+ const [showFloorPhoto,setShowFloorPhoto]=useState(true);
  const [features,setFeatures]=useState<VenueFeature[]>([]);
  const [traceMode,setTraceMode]=useState<"wall"|"entrance"|null>(null);
  const [draftPoints,setDraftPoints]=useState<Point[]>([]);
@@ -319,6 +320,7 @@ export default function SeatingBuilder(){
 </div></details>
    <div className="mt-3 hidden flex-wrap items-center gap-2 rounded-xl border border-black/15 bg-white p-3 lg:flex">
      <span className="mr-2 text-sm font-black">Room layout</span>
+     {background&&<button type="button" onClick={()=>setShowFloorPhoto(v=>!v)} aria-pressed={!showFloorPhoto} className="rounded-lg border border-black px-4 py-2 text-sm font-bold">{showFloorPhoto?"Hide photo":"Show photo"}</button>}
      <button type="button" onClick={()=>{setTraceMode(traceMode==="wall"?null:"wall");setDraftPoints([]);setFraming(false);panDrag.current=null;}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="wall"?"bg-black text-white":""}`}>Trace walls</button>
      <button type="button" onClick={()=>{setTraceMode(traceMode==="entrance"?null:"entrance");setDraftPoints([]);setFraming(false);panDrag.current=null;}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="entrance"?"bg-black text-white":""}`}>Mark entrance</button>
      {traceMode&&<><button type="button" disabled={featureSaving||draftPoints.length<2} onClick={()=>void finishFeature()} className="rounded-lg bg-black px-4 py-2 text-sm font-bold text-white disabled:opacity-40">Finish & save</button>
@@ -331,7 +333,7 @@ export default function SeatingBuilder(){
    <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
     <div className="overflow-x-auto rounded-xl border border-black/20 bg-white p-2">
      <div ref={stage} className="pointer-events-none relative w-full min-w-[320px] overflow-hidden rounded-lg bg-[#fff2db] lg:pointer-events-auto" style={{aspectRatio:W+"/"+H,touchAction:framing?"none":"pan-y"}} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={()=>{panDrag.current=null}} onPointerCancel={()=>{panDrag.current=null}}>
-       {background&&<div className="pointer-events-none absolute inset-0 overflow-hidden"><img src={background} alt="Uploaded venue floor plan" className="absolute h-full w-full object-contain" style={{transform:`scale(${zoom})`,objectPosition:`${panX}% ${panY}%`,transformOrigin:`${panX}% ${panY}%`}}/></div>}
+       {background&&showFloorPhoto&&<div className="pointer-events-none absolute inset-0 overflow-hidden"><img src={background} alt="Uploaded venue floor plan" className="absolute h-full w-full object-contain" style={{transform:`scale(${zoom})`,objectPosition:`${panX}% ${panY}%`,transformOrigin:`${panX}% ${panY}%`}}/></div>}
        <VenueLines features={features} editing={!!traceMode} onPointMove={moveFeaturePoint} onPick={setFeatureSelected} onPointPick={(fid,index)=>setSelectedPoint({id:fid,index})}/>
        {traceMode&&<svg viewBox="0 0 1000 700" preserveAspectRatio="none" className="absolute inset-0 z-[11] h-full w-full cursor-crosshair" onClick={e=>{if(e.detail>1)return;const point=coord(e);setDraftPoints(old=>[...old,point])}} onDoubleClick={e=>{e.preventDefault();void finishFeature()}}>
           {draftPoints.length>0&&<polyline points={draftPoints.map(p=>p.x+","+p.y).join(" ")} fill="none" stroke="#db2777" strokeWidth="5" strokeDasharray="10 6"/>}
