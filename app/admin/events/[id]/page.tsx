@@ -117,9 +117,11 @@ export default function InlineEventEditor() {
 
   const imageEditor = <div className="absolute bottom-full right-0 z-30 mb-2 w-[min(90vw,340px)] rounded-xl border border-black/20 bg-white p-4 text-left shadow-2xl" onClick={e=>e.stopPropagation()}>
     <div className="mb-3 flex items-center justify-between gap-2"><strong className="text-base">Event image</strong><button type="button" onClick={()=>setEditingImage(false)} aria-label="Close image editor" className="rounded px-2 py-1 text-lg">×</button></div>
-    <label htmlFor="event-image-upload" className="text-sm font-semibold">Upload from device</label>
-    <input id="event-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploading} onChange={uploadImage} className="mt-2 block w-full text-sm"/>
-    <p className="mt-1 text-xs text-gray-500">JPG, PNG, WebP or GIF · up to 10 MB</p>
+    <label htmlFor="event-image-upload" className={`flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-black bg-[#fff2db] px-4 py-3 text-sm font-bold transition-colors hover:bg-[#f5a047]/35 focus-within:ring-2 focus-within:ring-pink-600 ${uploading?"pointer-events-none opacity-50":""}`}>
+      <span aria-hidden="true">↑</span> {uploading ? "Uploading image…" : "Choose image from device"}
+      <input id="event-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploading} onChange={uploadImage} className="sr-only"/>
+    </label>
+    <p className="mt-2 text-center text-xs text-gray-500">JPG, PNG, WebP or GIF · up to 10 MB</p>
     <label className="mt-3 block text-sm font-semibold">Or use image URL<input type="url" className="mt-1 w-full rounded border p-2 font-normal" value={event?.image_url??""} onChange={e=>change("image_url",e.target.value)}/></label>
     {uploading&&<p role="status" className="mt-2 text-sm">Uploading…</p>}
     {error&&<p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
