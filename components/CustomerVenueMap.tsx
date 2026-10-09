@@ -3,7 +3,7 @@
 import {useEffect,useRef,useState} from "react";
 import type {VenueFeature} from "@/components/VenueLines";
 
-export type PublicTable={id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;is_active:boolean};
+export type PublicTable={id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;is_active:boolean};
 export type PublicStage={stage_x:number;stage_y:number;stage_width:number;stage_height:number;stage_rotation:number};
 type Seat={key:string;label:string;tableId:string;x:number;y:number};
 type Mode="whole_table"|"individual_seats";
@@ -133,6 +133,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
    {selected&&<div className="rounded-lg border border-black/15 bg-white p-4" aria-live="polite">
     <strong>{selected.label}</strong>
     <p className="text-sm">{seatPositions(selected).length} мест {mode==="whole_table"&&selected.table_price_cents!==null?" · Весь стол: "+money(selected.table_price_cents):""}</p>
+    {mode==="individual_seats"&&<p className="mt-1 text-sm font-semibold">Доплата за место: {selected.seat_price_cents===null?"Цена не указана":money(selected.seat_price_cents)}</p>}
     <p className="mt-1 text-xs text-gray-600">{mode==="whole_table"?"Нажмите на стол для предварительного выбора.":"Нажмите на отдельное место для предварительного выбора."} Это не бронь.</p>
     {mode==="individual_seats"&&<div className="mt-3"><p className="mb-2 text-sm font-semibold">Выберите место за этим столом:</p><div className="flex flex-wrap gap-2">{selectedSeats.map(seat=><button key={seat.key} type="button" onClick={()=>onToggle?.(seat.key)} className={`min-h-11 min-w-11 rounded-lg border px-3 font-bold ${selectedKeys.includes(seat.key)?"border-pink-600 bg-pink-100":"border-black/25 bg-white"}`}>{seat.label}</button>)}</div></div>}
    </div>}
