@@ -21,6 +21,12 @@ export default function SeatingBuilder(){
  const [tables,setTables]=useState<TableItem[]>([]);
  const [background,setBackground]=useState<string|null>(null);
  const [uploading,setUploading]=useState(false);
+ const [zoom,setZoom]=useState(1);
+ const [panX,setPanX]=useState(50);
+ const [panY,setPanY]=useState(50);
+ const [framing,setFraming]=useState(false);
+ const [framingSaving,setFramingSaving]=useState(false);
+ const panDrag=useRef<{px:number;py:number;x:number;y:number}|null>(null);
  const [selected,setSelected]=useState<string|null>(null);
  const [loading,setLoading]=useState(true);
  const [saving,setSaving]=useState(false);
@@ -33,14 +39,33 @@ export default function SeatingBuilder(){
    const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace("/admin/login");return;}
    const {data:admin}=await supabase.from("admin_users").select("role").eq("user_id",user.id).maybeSingle();
    if(!admin){router.replace("/admin/login");return;}
-   const [e,t,m]=await Promise.all([supabase.from("events").select("id,title,seating_mode,table_booking_mode").eq("id",id).single(),supabase.from("seating_tables").select("*").eq("event_id",id).order("created_at"),supabase.from("event_seating_maps").select("background_image_url").eq("event_id",id).maybeSingle()]);
+   const [e,t,m]=await Promise.all([supabase.from("events").select("id,title,seating_mode,table_booking_mode").eq("id",id).single(),supabase.from("seating_tables").select("*").eq("event_id",id).order("created_at"),supabase.from("event_seating_maps").select("background_image_url,background_zoom,background_x,background_y").eq("event_id",id).maybeSingle()]);
    if(e.error)throw e.error;if(t.error)throw t.error;if(m.error)throw m.error;
-   if(mounted){setEvent(e.data as EventItem);setTables((t.data??[]) as TableItem[]);setBackground(m.data?.background_image_url??null)}
+   if(mounted){setEvent(e.data as EventItem);setTables((t.data??[]) as TableItem[]);setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50))}
   }catch(ex){if(mounted)setError(ex instanceof Error?ex.message:"Unable to load seating map")}
   finally{if(mounted)setLoading(false)}
  })();return()=>{mounted=false}},[id,router]);
  const current=tables.find(t=>t.id===selected);
  function mutate(id:string,patch:Partial<TableItem>){setTables(old=>old.map(t=>t.id===id?{...t,...patch}:t));setMessage("Unsaved changes")}
+ async function saveFraming(z=zoom,x=panX,y=panY){
+  setFramingSaving(true);setError("");
+  const {error:e}=await supabase.from("event_seating_maps").update({background_zoom:z,background_x:x,background_y:y,updated_at:new Date().toISOString()}).eq("event_id",id);
+  if(e)setError(e.message);else setMessage("Floor plan framing saved.");
+  setFramingSaving(false);
+ }
+ function startPan(e:React.PointerEvent<HTMLDivElement>){
+  if(!framing || !background)return;
+  e.preventDefault();
+  panDrag.current={px:e.clientX,py:e.clientY,x:panX,y:panY};
+  e.currentTarget.setPointerCapture(e.pointerId);
+ }
+ function movePan(e:React.PointerEvent<HTMLDivElement>){
+  if(!panDrag.current||!stage.current)return;
+  const rect=stage.current.getBoundingClientRect();
+  const x=Math.max(0,Math.min(100,panDrag.current.x+(e.clientX-panDrag.current.px)/rect.width*100));
+  const y=Math.max(0,Math.min(100,panDrag.current.y+(e.clientY-panDrag.current.py)/rect.height*100));
+  setPanX(Math.round(x));setPanY(Math.round(y));setMessage("Background position not saved");
+ }
  async function uploadFloorPlan(file:File|undefined){
   if(!file)return;
   if(!["image/jpeg","image/png","image/webp"].includes(file.type)){setError("Upload a JPG, PNG or WebP image.");return;}
@@ -52,9 +77,9 @@ export default function SeatingBuilder(){
     const {error:uploadError}=await supabase.storage.from("event-images").upload(key,file,{upsert:false,contentType:file.type});
     if(uploadError)throw uploadError;
     const {data}=supabase.storage.from("event-images").getPublicUrl(key);
-    const {error:dbError}=await supabase.from("event_seating_maps").upsert({event_id:id,background_image_url:data.publicUrl,canvas_width:W,canvas_height:H,updated_at:new Date().toISOString()},{onConflict:"event_id"});
+    const {error:dbError}=await supabase.from("event_seating_maps").upsert({event_id:id,background_image_url:data.publicUrl,background_zoom:1,background_x:50,background_y:50,canvas_width:W,canvas_height:H,updated_at:new Date().toISOString()},{onConflict:"event_id"});
     if(dbError)throw dbError;
-    setBackground(data.publicUrl);setMessage("Floor plan uploaded and saved.");
+    setBackground(data.publicUrl);setZoom(1);setPanX(50);setPanY(50);setMessage("Floor plan uploaded and saved.");
   }catch(e){setError(e instanceof Error?e.message:"Upload failed");}
   finally{setUploading(false);}
  }
@@ -112,14 +137,29 @@ export default function SeatingBuilder(){
      {background&&<button type="button" onClick={()=>void clearFloorPlan()} className="text-sm font-bold underline">Remove background</button>}
      <span className="text-xs text-gray-600">JPG, PNG, WebP · up to 10 MB. Tables remain editable above the image.</span>
    </div>
+   {background&&<div className="mt-4 rounded-xl border border-black/15 bg-white p-4">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div><h2 className="font-black">Adjust floor plan</h2><p className="text-sm text-gray-600">Zoom and move the image behind the tables. Table positions are unchanged.</p></div>
+      <button type="button" onClick={()=>setFraming(!framing)} className={`rounded-lg border px-4 py-2 text-sm font-bold ${framing?"bg-black text-white":"bg-white"}`}>{framing?"Finish moving image":"Move image on canvas"}</button>
+    </div>
+    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <label className="text-sm font-semibold">Zoom · {Math.round(zoom*100)}%<input className="mt-2 w-full" type="range" min=".5" max="5" step=".05" value={zoom} onChange={e=>setZoom(Number(e.target.value))}/></label>
+      <label className="text-sm font-semibold">Move left/right · {panX}%<input className="mt-2 w-full" type="range" min="0" max="100" value={panX} onChange={e=>setPanX(Number(e.target.value))}/></label>
+      <label className="text-sm font-semibold">Move up/down · {panY}%<input className="mt-2 w-full" type="range" min="0" max="100" value={panY} onChange={e=>setPanY(Number(e.target.value))}/></label>
+    </div>
+    <div className="mt-3 flex gap-2">
+      <button type="button" onClick={()=>{setZoom(1);setPanX(50);setPanY(50);setMessage("Background framing reset; save to keep changes.");}} className="rounded-lg border px-4 py-2 text-sm font-bold">Reset framing</button>
+      <button type="button" disabled={framingSaving} onClick={()=>void saveFraming()} className="rounded-lg bg-black px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{framingSaving?"Saving…":"Save image framing"}</button>
+    </div>
+   </div>}
    {error&&<p role="alert" className="mt-4 rounded bg-red-100 p-3 text-red-800">{error}</p>}
    {message&&<p role="status" className="mt-3 text-sm font-semibold">{message}</p>}
    <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
     <div className="overflow-x-auto rounded-xl border border-black/20 bg-white p-2">
-     <div ref={stage} className="relative w-full min-w-[420px] overflow-hidden rounded-lg bg-[#fff2db]" style={{aspectRatio:W+"/"+H,touchAction:"pan-y"}}>
-       {background&&<img src={background} alt="Uploaded venue floor plan" className="pointer-events-none absolute inset-0 h-full w-full object-contain" />}
+     <div ref={stage} className="relative w-full min-w-[420px] overflow-hidden rounded-lg bg-[#fff2db]" style={{aspectRatio:W+"/"+H,touchAction:framing?"none":"pan-y"}} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={()=>{panDrag.current=null}} onPointerCancel={()=>{panDrag.current=null}}>
+       {background&&<div className="pointer-events-none absolute inset-0 overflow-hidden"><img src={background} alt="Uploaded venue floor plan" className="absolute h-full w-full object-contain" style={{transform:`scale(${zoom})`,objectPosition:`${panX}% ${panY}%`,transformOrigin:`${panX}% ${panY}%`}}/></div>}
        <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-lg bg-[#f5a047] px-10 py-2 text-sm font-bold">Stage</div>
-       {tables.filter(t=>t.is_active).map(t=><button key={t.id} type="button" onPointerDown={e=>pointerDown(e,t)} onPointerMove={pointerMove} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}}
+       {!framing&&tables.filter(t=>t.is_active).map(t=><button key={t.id} type="button" onPointerDown={e=>pointerDown(e,t)} onPointerMove={pointerMove} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}}
         className={`absolute select-none touch-none rounded-lg border-2 text-sm font-bold shadow ${selected===t.id?"border-pink-600 bg-[#ffd7e8]":"border-black/50 bg-white"}`}
         style={{left:t.x/W*100+"%",top:t.y/H*100+"%",width:t.width/W*100+"%",height:t.height/H*100+"%",transform:`rotate(${t.rotation_deg}deg)`}}>
          {t.label}<SeatMarkers t={t}/>
