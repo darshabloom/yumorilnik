@@ -10,7 +10,7 @@ type EventRecord = {
   id: string; slug: string; title: string; title_en: string | null;
   description: string | null; description_en: string | null;
   event_date: string; event_time: string; location: string | null;
-  image_url: string | null; is_active: boolean;
+  image_url: string | null; detail_image_url:string|null; banner_fit:string; banner_position_x:number; banner_position_y:number; detail_fit:string; detail_position_x:number; detail_position_y:number; is_active: boolean;
 };
 type Ticket = { id: string; name: string; price_cents: number; currency: string; quantity_total: number };
 
@@ -39,7 +39,7 @@ export default function InlineEventEditor() {
         const { data: admin, error: adminError } = await supabase.from("admin_users").select("role").eq("user_id", user.id).maybeSingle();
         if (adminError || !admin) { router.replace("/admin/login"); return; }
         const { data, error: loadError } = await supabase.from("events")
-          .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,is_active")
+          .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,detail_image_url,banner_fit,banner_position_x,banner_position_y,detail_fit,detail_position_x,detail_position_y,is_active")
           .eq("id", id).single();
         if (loadError) throw loadError;
         const { data: types } = await supabase.from("ticket_types")
@@ -61,7 +61,7 @@ export default function InlineEventEditor() {
     setStatus("");
   }
 
-  async function uploadImage(e: ChangeEvent<HTMLInputElement>) {
+  async function uploadImage(e: ChangeEvent<HTMLInputElement>, target: "banner"|"detail") {
     const file = e.target.files?.[0];
     if (!file || !event) return;
     e.target.value = "";
@@ -79,7 +79,7 @@ export default function InlineEventEditor() {
         .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
       if (uploadError) throw uploadError;
       const { data } = supabase.storage.from("event-images").getPublicUrl(path);
-      change("image_url", data.publicUrl);
+      change(target==="banner"?"image_url":"detail_image_url", data.publicUrl);
       setStatus("Image uploaded. Save changes to publish it.");
       setEditingImage(null);
     } catch (err) {
@@ -94,12 +94,14 @@ export default function InlineEventEditor() {
       title: event.title.trim(), title_en: event.title_en?.trim() || null,
       description: event.description?.trim() || null, description_en: event.description_en?.trim() || null,
       event_date: event.event_date, event_time: event.event_time,
-      location: event.location?.trim() || null, image_url: event.image_url?.trim() || null,
+      location: event.location?.trim() || null, image_url: event.image_url?.trim() || null, detail_image_url: event.detail_image_url?.trim() || null,
+      banner_fit:event.banner_fit,banner_position_x:event.banner_position_x,banner_position_y:event.banner_position_y,
+      detail_fit:event.detail_fit,detail_position_x:event.detail_position_x,detail_position_y:event.detail_position_y,
       is_active: event.is_active, updated_at: new Date().toISOString(),
     };
     const { data, error: saveError } = await supabase.from("events")
       .update(payload).eq("id", event.id)
-      .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,is_active").single();
+      .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,detail_image_url,banner_fit,banner_position_x,banner_position_y,detail_fit,detail_position_x,detail_position_y,is_active").single();
     if (saveError) setError(saveError.message);
     else if (data) {
       setEvent(data as EventRecord);
@@ -115,14 +117,36 @@ export default function InlineEventEditor() {
   const title = event?.[titleKey] ?? "";
   const description = event?.[descKey] ?? "";
 
-  const imageEditor = <div className="absolute bottom-full right-0 z-30 mb-2 w-[min(90vw,340px)] rounded-xl border border-black/20 bg-white p-4 text-left shadow-2xl" onClick={e=>e.stopPropagation()}>
-    <div className="mb-3 flex items-center justify-between gap-2"><strong className="text-base">Event image</strong><button type="button" onClick={()=>setEditingImage(false)} aria-label="Close image editor" className="rounded px-2 py-1 text-lg">×</button></div>
+  const imageEditor = (target:"banner"|"detail") => <div className="absolute bottom-full right-0 z-30 mb-2 w-[min(90vw,340px)] rounded-xl border border-black/20 bg-white p-4 text-left shadow-2xl" onClick={e=>e.stopPropagation()}>
+    <div className="mb-3 flex items-center justify-between gap-2"><strong className="text-base">{target==="banner"?"Banner image":"Secondary image"}</strong><button type="button" onClick={()=>setEditingImage(null)} aria-label="Close image editor" className="rounded px-2 py-1 text-lg">×</button></div>
     <label htmlFor="event-image-upload" className={`flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-black bg-[#fff2db] px-4 py-3 text-sm font-bold transition-colors hover:bg-[#f5a047]/35 focus-within:ring-2 focus-within:ring-pink-600 ${uploading?"pointer-events-none opacity-50":""}`}>
       <span aria-hidden="true">↑</span> {uploading ? "Uploading image…" : "Choose image from device"}
-      <input id="event-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploading} onChange={uploadImage} className="sr-only"/>
+      <input id="event-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploading} onChange={e=>uploadImage(e,target)} className="sr-only"/>
     </label>
     <p className="mt-2 text-center text-xs text-gray-500">JPG, PNG, WebP or GIF · up to 10 MB</p>
-    <label className="mt-3 block text-sm font-semibold">Or use image URL<input type="url" className="mt-1 w-full rounded border p-2 font-normal" value={event?.image_url??""} onChange={e=>change("image_url",e.target.value)}/></label>
+    <label className="mt-3 block text-sm font-semibold">Or use image URL<input type="url" className="mt-1 w-full rounded border p-2 font-normal" value={target==="banner"?(event?.image_url??""):(event?.detail_image_url??"")} onChange={e=>change(target==="banner"?"image_url":"detail_image_url",e.target.value)}/></label>
+    <div className="mt-4 border-t pt-3">
+      <p className="mb-2 text-sm font-semibold">Image display</p>
+      <div className="flex gap-2">
+        {(["cover","contain"] as const).map(fit=><button key={fit} type="button"
+          onClick={()=>change(target==="banner"?"banner_fit":"detail_fit",fit)}
+          className={`rounded border px-3 py-2 text-xs font-bold ${(target==="banner"?event?.banner_fit:event?.detail_fit)===fit?"bg-black text-white":"bg-white"}`}>
+          {fit==="cover"?"Fill frame (crop)":"Fit entire image"}
+        </button>)}
+      </div>
+      <p className="mt-3 text-xs text-gray-600">Move the image within its frame</p>
+      {(["x","y"] as const).map(axis=>{
+        const field = target==="banner"?(axis==="x"?"banner_position_x":"banner_position_y"):(axis==="x"?"detail_position_x":"detail_position_y");
+        return <label key={axis} className="mt-2 flex items-center gap-3 text-xs font-bold">{axis==="x"?"Horizontal":"Vertical"}
+          <input aria-label={axis==="x"?"Horizontal image position":"Vertical image position"} type="range" min="0" max="100" step="1"
+            className="min-w-0 flex-1" value={event?.[field]??50} onChange={e=>change(field,Number(e.target.value))}/>
+        </label>;
+      })}
+      <button type="button" onClick={()=>{
+        change(target==="banner"?"banner_position_x":"detail_position_x",50);
+        change(target==="banner"?"banner_position_y":"detail_position_y",50);
+      }} className="mt-3 text-xs font-bold underline">Centre image</button>
+    </div>
     {uploading&&<p role="status" className="mt-2 text-sm">Uploading…</p>}
     {error&&<p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
     {status&&<p role="status" className="mt-2 text-sm text-green-700">{status}</p>}
@@ -146,7 +170,7 @@ export default function InlineEventEditor() {
       </div>
 
       <EventPresentation
-        event={{slug:event.slug,title,description,event_date:event.event_date,event_time:event.event_time,location:event.location,image_url:event.image_url}}
+        event={{slug:event.slug,title,description,event_date:event.event_date,event_time:event.event_time,location:event.location,image_url:event.image_url,detail_image_url:event.detail_image_url,banner_fit:event.banner_fit,banner_position_x:event.banner_position_x,banner_position_y:event.banner_position_y,detail_fit:event.detail_fit,detail_position_x:event.detail_position_x,detail_position_y:event.detail_position_y}}
         heading={isPreview ? undefined : <input aria-label="Event title" value={title} onChange={e=>change(titleKey,e.target.value)}
           placeholder={language==="ru"?"Название мероприятия":"Event title"}
           className="w-full rounded-md bg-transparent text-3xl font-black outline-none hover:bg-black/5 focus:bg-white focus:ring-2 focus:ring-pink-600 sm:text-5xl"/>}
@@ -159,7 +183,7 @@ export default function InlineEventEditor() {
           <label className="block text-xs font-bold">Time<input type="time" value={event.event_time.slice(0,5)} onChange={e=>change("event_time",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
           <label className="block text-xs font-bold">Venue<input value={event.location??""} onChange={e=>change("location",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
         </div>}
-        bannerControl={!isPreview?<div className="relative">{editingImage==="banner"&&imageEditor}<button type="button" onClick={()=>setEditingImage(editingImage==="banner"?null:"banner")} aria-expanded={editingImage==="banner"} className="rounded bg-white px-4 py-3 text-sm font-bold shadow">Change image</button></div>:undefined}
+        bannerControl={!isPreview?<div className="relative">{editingImage==="banner"&&imageEditor("banner")}<button type="button" onClick={()=>setEditingImage(editingImage==="banner"?null:"banner")} aria-expanded={editingImage==="banner"} className="rounded bg-white px-4 py-3 text-sm font-bold shadow">Change image</button></div>:undefined}
         imageControl={!isPreview?<div className="relative">{editingImage==="detail"&&imageEditor}<button type="button" onClick={()=>setEditingImage(editingImage==="detail"?null:"detail")} aria-expanded={editingImage==="detail"} className="rounded bg-white px-3 py-2 text-sm font-bold shadow">Edit photo</button></div>:undefined}
         bookingAction={()=>{}}
         bookingDisabled
