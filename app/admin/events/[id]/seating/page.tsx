@@ -25,6 +25,7 @@ export default function SeatingBuilder(){
  const [traceMode,setTraceMode]=useState<"wall"|"entrance"|null>(null);
  const [draftPoints,setDraftPoints]=useState<Point[]>([]);
  const [featureSelected,setFeatureSelected]=useState<string|null>(null);
+ const [selectedPoint,setSelectedPoint]=useState<{id:string;index:number}|null>(null);
  const [featureSaving,setFeatureSaving]=useState(false);
  const featureTimers=useRef<Record<string,ReturnType<typeof setTimeout>>>({});
  const [stageItem,setStageItem]=useState({x:440,y:18,width:130,height:42,rotation:0});
@@ -196,11 +197,23 @@ export default function SeatingBuilder(){
  }
  const featuresRef=useRef<VenueFeature[]>(features);
  featuresRef.current=features;
+ async function deletePoint(){
+   if(!selectedPoint)return;
+   const feature=featuresRef.current.find(f=>f.id===selectedPoint.id);
+   if(!feature)return;
+   if(feature.points.length<=2){setError("A wall or entrance needs at least two points. Delete the whole feature instead.");return;}
+   const points=feature.points.filter((_,i)=>i!==selectedPoint.index);
+   setError("");setMessage("Saving point deletion…");
+   if(featureTimers.current[feature.id])clearTimeout(featureTimers.current[feature.id]);
+   const {error:e}=await supabase.from("seating_features").update({points,updated_at:new Date().toISOString()}).eq("id",feature.id).eq("event_id",id);
+   if(e){setError(e.message);setMessage("Not saved");return;}
+   setFeatures(old=>old.map(f=>f.id===feature.id?{...f,points}:f));setSelectedPoint(null);setMessage("Point deleted and saved.");
+ }
  async function deleteFeature(){
    if(!featureSelected)return;
    const {error:e}=await supabase.from("seating_features").delete().eq("id",featureSelected).eq("event_id",id);
    if(e){setError(e.message);return;}
-   setFeatures(old=>old.filter(item=>item.id!==featureSelected));setFeatureSelected(null);setMessage("Feature deleted.");
+   setFeatures(old=>old.filter(item=>item.id!==featureSelected));setFeatureSelected(null);setSelectedPoint(null);setMessage("Feature deleted.");
  }
  async function add(){
   const n=tables.length+1;
@@ -319,27 +332,31 @@ export default function SeatingBuilder(){
     <div className="overflow-x-auto rounded-xl border border-black/20 bg-white p-2">
      <div ref={stage} className="pointer-events-none relative w-full min-w-[320px] overflow-hidden rounded-lg bg-[#fff2db] lg:pointer-events-auto" style={{aspectRatio:W+"/"+H,touchAction:framing?"none":"pan-y"}} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={()=>{panDrag.current=null}} onPointerCancel={()=>{panDrag.current=null}}>
        {background&&<div className="pointer-events-none absolute inset-0 overflow-hidden"><img src={background} alt="Uploaded venue floor plan" className="absolute h-full w-full object-contain" style={{transform:`scale(${zoom})`,objectPosition:`${panX}% ${panY}%`,transformOrigin:`${panX}% ${panY}%`}}/></div>}
-       <VenueLines features={features} editing={!!traceMode} onPointMove={moveFeaturePoint} onPick={setFeatureSelected}/>
+       <VenueLines features={features} editing={!!traceMode} onPointMove={moveFeaturePoint} onPick={setFeatureSelected} onPointPick={(fid,index)=>setSelectedPoint({id:fid,index})}/>
        {traceMode&&<svg viewBox="0 0 1000 700" preserveAspectRatio="none" className="absolute inset-0 z-[11] h-full w-full cursor-crosshair" onClick={e=>{if(e.detail>1)return;const point=coord(e);setDraftPoints(old=>[...old,point])}} onDoubleClick={e=>{e.preventDefault();void finishFeature()}}>
           {draftPoints.length>0&&<polyline points={draftPoints.map(p=>p.x+","+p.y).join(" ")} fill="none" stroke="#db2777" strokeWidth="5" strokeDasharray="10 6"/>}
           {draftPoints.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="8" fill="#db2777" stroke="white" strokeWidth="3"/>)}
         </svg>}
        {!framing&&!traceMode&&<button type="button" onPointerDown={beginStageDrag} onPointerMove={moveStageDrag} onPointerUp={()=>{stageDrag.current=null}} onPointerCancel={()=>{stageDrag.current=null}} onClick={()=>{setEditingStage(true);setSelected(null)}} className={`absolute z-10 flex touch-none select-none items-center justify-center rounded-lg border-2 border-black/25 bg-[#f5a047] text-sm font-bold ${editingStage?"ring-2 ring-pink-600":""}`} style={{left:stageItem.x/W*100+"%",top:stageItem.y/H*100+"%",width:stageItem.width/W*100+"%",height:stageItem.height/H*100+"%",transform:`rotate(${stageItem.rotation}deg)`}}>Stage</button>}
-       {!framing&&!traceMode&&tables.filter(t=>t.is_active).map(t=><div key={t.id} className="absolute" style={{left:t.x/W*100+"%",top:t.y/H*100+"%",width:t.width/W*100+"%",height:t.height/H*100+"%",transform:`rotate(${t.rotation_deg}deg)`}}><button type="button" onPointerDown={e=>pointerDown(e,t)} onPointerMove={pointerMove} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}}
+       {!framing&&tables.filter(t=>t.is_active).map(t=><div key={t.id} className={traceMode?"pointer-events-none absolute opacity-75":"absolute"} style={{left:t.x/W*100+"%",top:t.y/H*100+"%",width:t.width/W*100+"%",height:t.height/H*100+"%",transform:`rotate(${t.rotation_deg}deg)`}}><button type="button" onPointerDown={e=>pointerDown(e,t)} onPointerMove={pointerMove} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}}
         className={`absolute select-none touch-none rounded-lg border-2 text-sm font-bold shadow ${selected===t.id?"border-pink-600 bg-[#ffd7e8]":"border-black/50 bg-white"}`}
         style={{width:"100%",height:"100%"}}>
          {t.label}<SeatMarkers t={t}/>
        </button>
-       {selected===t.id&&<button type="button" aria-label={"Rotate "+t.label} title="Drag to rotate" onPointerDown={e=>rotateDown(e,t)} onPointerMove={rotateMove} onPointerUp={()=>{rotating.current=null}} onPointerCancel={()=>{rotating.current=null}} className="absolute -top-10 left-1/2 z-20 flex h-8 w-8 -translate-x-1/2 touch-none items-center justify-center rounded-full border-2 border-pink-600 bg-white text-lg font-black shadow">⟳</button>}
-       {selected===t.id&&<button type="button" aria-label={"Resize "+t.label} title="Drag to resize table" onPointerDown={e=>resizeDown(e,t)} onPointerMove={resizeMove} onPointerUp={()=>{resize.current=null}} onPointerCancel={()=>{resize.current=null}} className="absolute -bottom-3 -right-3 z-20 flex h-7 w-7 touch-none items-center justify-center rounded-md border-2 border-pink-600 bg-white text-sm font-black shadow">↘</button>}
+       {!traceMode&&selected===t.id&&<button type="button" aria-label={"Rotate "+t.label} title="Drag to rotate" onPointerDown={e=>rotateDown(e,t)} onPointerMove={rotateMove} onPointerUp={()=>{rotating.current=null}} onPointerCancel={()=>{rotating.current=null}} className="absolute -top-10 left-1/2 z-20 flex h-8 w-8 -translate-x-1/2 touch-none items-center justify-center rounded-full border-2 border-pink-600 bg-white text-lg font-black shadow">⟳</button>}
+       {!traceMode&&selected===t.id&&<button type="button" aria-label={"Resize "+t.label} title="Drag to resize table" onPointerDown={e=>resizeDown(e,t)} onPointerMove={resizeMove} onPointerUp={()=>{resize.current=null}} onPointerCancel={()=>{resize.current=null}} className="absolute -bottom-3 -right-3 z-20 flex h-7 w-7 touch-none items-center justify-center rounded-md border-2 border-pink-600 bg-white text-sm font-black shadow">↘</button>}
        </div>)}
      </div>
     </div>
     <aside className="hidden rounded-xl border border-black/20 bg-white p-4 lg:sticky lg:block lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
      {traceMode?<><h2 className="text-xl font-black">Tracing walls</h2><p className="mt-2 text-sm">Click along walls to create connected segments. Double-click or Finish to save. Drag circular points to make corrections.</p>
        <h3 className="mt-5 font-bold">Saved features</h3>
-       {features.map(f=><button key={f.id} type="button" onClick={()=>setFeatureSelected(f.id)} className={`mt-2 block w-full rounded border p-2 text-left text-sm ${featureSelected===f.id?"border-pink-600 bg-pink-50":""}`}>{f.kind==="wall"?"Wall":"Entrance"} · {f.points.length} points</button>)}
-       {featureSelected&&<button type="button" onClick={()=>void deleteFeature()} className="mt-3 font-bold text-red-700 underline">Delete selected</button>}
+       {features.map(f=><button key={f.id} type="button" onClick={()=>{setFeatureSelected(f.id);setSelectedPoint(null)}} className={`mt-2 block w-full rounded border p-2 text-left text-sm ${featureSelected===f.id?"border-pink-600 bg-pink-50":""}`}>{f.kind==="wall"?"Wall":"Entrance"} · {f.points.length} points</button>)}
+       {selectedPoint&&featureSelected===selectedPoint.id&&<div className="mt-3 rounded-lg border border-pink-300 bg-pink-50 p-3">
+         <p className="text-sm font-semibold">Selected point {selectedPoint.index+1}</p>
+         <button type="button" onClick={()=>void deletePoint()} className="mt-2 rounded border border-red-700 px-3 py-2 text-sm font-bold text-red-700">Delete this point</button>
+       </div>}
+       {featureSelected&&<button type="button" onClick={()=>void deleteFeature()} className="mt-3 font-bold text-red-700 underline">Delete entire wall / entrance</button>}
      </>:editingStage?<><h2 className="text-xl font-black">Edit stage</h2><p className="mt-2 text-sm text-gray-600">Drag the stage into place or adjust its size and rotation here.</p>
        <div className="mt-4 grid grid-cols-2 gap-3">
          {([{key:"width",label:"Width",min:60,max:400},{key:"height",label:"Height",min:25,max:220},{key:"rotation",label:"Rotation °",min:-180,max:180}] as const).map(f=><label key={f.key} className="text-sm font-bold">{f.label}<input type="number" className="mt-1 w-full rounded border p-2" min={f.min} max={f.max} value={stageItem[f.key]} onChange={e=>setStageItem(old=>({...old,[f.key]:Math.max(f.min,Math.min(f.max,Number(e.target.value)||0))}))}/></label>)}
