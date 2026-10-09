@@ -1,122 +1,170 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type EventRecord = {
- id:string;slug:string;title:string;title_en:string|null;description:string|null;description_en:string|null;
- event_date:string;event_time:string;location:string|null;image_url:string|null;is_active:boolean;
+  id: string; slug: string; title: string; title_en: string | null;
+  description: string | null; description_en: string | null;
+  event_date: string; event_time: string; location: string | null;
+  image_url: string | null; is_active: boolean;
 };
-type Ticket = {id:string;name:string;price_cents:number;currency:string;quantity_total:number;quantity_sold:number};
-type Section = "details"|"images"|"tickets"|"seating";
-const sections: {id:Section;label:string}[] = [{id:"details",label:"Details"},{id:"images",label:"Images"},{id:"tickets",label:"Tickets"},{id:"seating",label:"Seating"}];
+type Ticket = { id: string; name: string; price_cents: number; currency: string; quantity_total: number };
 
-export default function EventWorkspace() {
- const params=useParams<{id:string}>();
- const router=useRouter();
- const [event,setEvent]=useState<EventRecord|null>(null);
- const [tickets,setTickets]=useState<Ticket[]>([]);
- const [section,setSection]=useState<Section>("details");
- const [mode,setMode]=useState<"edit"|"preview">("preview");
- const [busy,setBusy]=useState(true);
- const [saving,setSaving]=useState(false);
- const [message,setMessage]=useState("");
- const [error,setError]=useState("");
- const [authorised,setAuthorised]=useState(false);
+export default function InlineEventEditor() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const [event, setEvent] = useState<EventRecord | null>(null);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [language, setLanguage] = useState<"ru" | "en">("ru");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [editingImage, setEditingImage] = useState(false);
+  const [editingWhen, setEditingWhen] = useState(false);
+  const [isPreview, setIsPreview] = useState(false);
+  const savedVersion = useRef<EventRecord | null>(null);
 
- useEffect(()=>{
-  let active=true;
-  async function load(){
-   try {
-    const {data:{user},error:authError}=await supabase.auth.getUser();
-    if(authError||!user){router.replace("/admin/login");return;}
-    const {data:membership,error:roleError}=await supabase.from("admin_users").select("role").eq("user_id",user.id).maybeSingle();
-    if(roleError||!membership){router.replace("/admin/login");return;}
-    const {data,error:dbError}=await supabase.from("events").select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,is_active").eq("id",params.id).single();
-    if(dbError)throw dbError;
-    const {data:ticketRows,error:ticketError}=await supabase.from("ticket_types").select("id,name,price_cents,currency,quantity_total,quantity_sold").eq("event_id",params.id);
-    if(active){setAuthorised(true);setEvent(data as EventRecord);if(!ticketError)setTickets((ticketRows??[]) as Ticket[]);}
-   }catch(e){if(active)setError(e instanceof Error?e.message:"Unable to load event.");}
-   finally{if(active)setBusy(false);}
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) { router.replace("/admin/login"); return; }
+        const { data: admin, error: adminError } = await supabase.from("admin_users").select("role").eq("user_id", user.id).maybeSingle();
+        if (adminError || !admin) { router.replace("/admin/login"); return; }
+        const { data, error: loadError } = await supabase.from("events")
+          .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,is_active")
+          .eq("id", id).single();
+        if (loadError) throw loadError;
+        const { data: types } = await supabase.from("ticket_types")
+          .select("id,name,price_cents,currency,quantity_total").eq("event_id", id);
+        if (mounted) {
+          setEvent(data as EventRecord);
+          savedVersion.current = data as EventRecord;
+          setTickets((types ?? []) as Ticket[]);
+        }
+      } catch (e) { if (mounted) setError(e instanceof Error ? e.message : "Unable to load event."); }
+      finally { if (mounted) setLoading(false); }
+    }
+    void load();
+    return () => { mounted = false; };
+  }, [id, router]);
+
+  function change<K extends keyof EventRecord>(field: K, value: EventRecord[K]) {
+    setEvent(previous => previous ? { ...previous, [field]: value } : previous);
+    setStatus("");
   }
-  void load();
-  return ()=>{active=false;};
- },[params.id,router]);
 
- function setField<K extends keyof EventRecord>(field:K,value:EventRecord[K]){
-  setEvent(current=>current?{...current,[field]:value}:current);
-  setMessage("");
- }
- async function save(){
-  if(!event)return;
-  if(!event.title.trim()||!event.event_date||!event.event_time){setError("Title, date and time are required.");return;}
-  setSaving(true);setError("");setMessage("");
-  const {error:saveError}=await supabase.from("events").update({
-   title:event.title.trim(),title_en:event.title_en?.trim()||null,
-   description:event.description?.trim()||null,description_en:event.description_en?.trim()||null,
-   event_date:event.event_date,event_time:event.event_time,location:event.location?.trim()||null,
-   image_url:event.image_url?.trim()||null,is_active:event.is_active,updated_at:new Date().toISOString()
-  }).eq("id",event.id);
-  if(saveError)setError(saveError.message);else setMessage("Changes saved.");
-  setSaving(false);
- }
+  async function save() {
+    if (!event || !event.title.trim()) { setError("A Russian title is required."); return; }
+    setSaving(true); setError(""); setStatus("");
+    const payload = {
+      title: event.title.trim(), title_en: event.title_en?.trim() || null,
+      description: event.description?.trim() || null, description_en: event.description_en?.trim() || null,
+      event_date: event.event_date, event_time: event.event_time,
+      location: event.location?.trim() || null, image_url: event.image_url?.trim() || null,
+      is_active: event.is_active, updated_at: new Date().toISOString(),
+    };
+    const { data, error: saveError } = await supabase.from("events")
+      .update(payload).eq("id", event.id)
+      .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,is_active").single();
+    if (saveError) setError(saveError.message);
+    else if (data) {
+      setEvent(data as EventRecord);
+      savedVersion.current = data as EventRecord;
+      setStatus("Changes saved.");
+    }
+    setSaving(false);
+  }
 
- if(busy)return <main className="min-h-[70vh] bg-[#fff2db] p-6" role="status">Loading event workspace…</main>;
- if(!authorised||!event)return <main className="min-h-[70vh] bg-[#fff2db] p-6" role="alert">{error||"Access unavailable"}</main>;
- const preview=<div className="overflow-hidden rounded-2xl border border-black/20 bg-white">
-  {event.image_url?<img src={event.image_url} alt="" className="aspect-[16/9] w-full object-cover"/>:
-    <div className="flex aspect-[16/9] items-center justify-center bg-[#f5a047]/25 px-4 text-center text-sm text-gray-600">Event image preview · Add a photo in Images</div>}
-  <div className="space-y-4 p-5 sm:p-7">
-   <p className="text-xs font-bold uppercase tracking-widest text-pink-700">Юморильник · Афиша</p>
-   <h2 className="text-3xl font-black">{event.title||"Название мероприятия"}</h2>
-   <p className="text-sm font-semibold">{event.event_date||"Дата"} · {event.event_time.slice(0,5)} · {event.location||"Место проведения"}</p>
-   <p className="whitespace-pre-wrap text-sm leading-relaxed">{event.description||"Описание мероприятия появится здесь."}</p>
-   <div className="rounded-xl bg-[#fff2db] p-4">
-    <h3 className="font-black">Билеты</h3>
-    {tickets.length? tickets.map(t=><p key={t.id} className="mt-2 text-sm">{t.name} · {new Intl.NumberFormat("en-NZ",{style:"currency",currency:t.currency.toUpperCase()}).format(t.price_cents/100)}</p>):
-    <p className="mt-2 text-sm text-gray-600">Ticket types will appear here when added.</p>}
-    <p className="mt-3 text-xs text-gray-500">Customer preview · Purchasing disabled</p>
-   </div>
-  </div>
- </div>;
- const fieldClass="mt-1 w-full rounded-lg border border-black/40 bg-white px-3 py-3 text-base";
- const editor=<div className="rounded-2xl border border-black/20 bg-white p-4 sm:p-6">
-  <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
-   {sections.map(s=><button key={s.id} type="button" onClick={()=>setSection(s.id)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold ${section===s.id?"bg-black text-white":"bg-gray-100 text-black"}`}>{s.label}</button>)}
-  </div>
-  {section==="details"&&<div className="space-y-4">
-   <label className="block text-sm font-semibold">Russian title<input className={fieldClass} value={event.title} onChange={e=>setField("title",e.target.value)}/></label>
-   <label className="block text-sm font-semibold">English title<input className={fieldClass} value={event.title_en??""} onChange={e=>setField("title_en",e.target.value)}/></label>
-   <label className="block text-sm font-semibold">Russian description<textarea rows={6} className={fieldClass} value={event.description??""} onChange={e=>setField("description",e.target.value)}/></label>
-   <label className="block text-sm font-semibold">English description<textarea rows={5} className={fieldClass} value={event.description_en??""} onChange={e=>setField("description_en",e.target.value)}/></label>
-   <div className="grid gap-3 sm:grid-cols-2">
-    <label className="block text-sm font-semibold">Date<input type="date" className={fieldClass} value={event.event_date} onChange={e=>setField("event_date",e.target.value)}/></label>
-    <label className="block text-sm font-semibold">Time<input type="time" className={fieldClass} value={event.event_time.slice(0,5)} onChange={e=>setField("event_time",e.target.value)}/></label>
-   </div>
-   <label className="block text-sm font-semibold">Venue<input className={fieldClass} value={event.location??""} onChange={e=>setField("location",e.target.value)}/></label>
-   <label className="flex items-center gap-3 rounded-lg bg-[#fff2db] p-3 text-sm font-bold"><input type="checkbox" checked={event.is_active} onChange={e=>setField("is_active",e.target.checked)} className="h-5 w-5"/> Published</label>
-  </div>}
-  {section==="images"&&<div className="space-y-3"><h3 className="text-lg font-black">Event image</h3><p className="text-sm text-gray-600">Paste an image URL for now. Image uploads and multiple gallery images are the next implementation step.</p><label className="block text-sm font-semibold">Image URL<input type="url" className={fieldClass} value={event.image_url??""} onChange={e=>setField("image_url",e.target.value)} placeholder="https://…"/></label></div>}
-  {section==="tickets"&&<div className="space-y-3"><h3 className="text-lg font-black">Ticket types</h3>{tickets.length?tickets.map(t=><p key={t.id} className="rounded-lg bg-gray-100 p-3 text-sm">{t.name} · {t.price_cents/100} {t.currency.toUpperCase()} · {t.quantity_sold}/{t.quantity_total} sold</p>):<p className="text-sm">No ticket types yet.</p>}<p className="text-sm text-gray-600">Ticket creation and editing will be enabled in the next milestone.</p></div>}
-  {section==="seating"&&<div className="space-y-2"><h3 className="text-lg font-black">Seating</h3><p className="text-sm text-gray-600">Seat allocation and the New Year's seating map will be connected here in a later milestone.</p></div>}
-  {error&&<p role="alert" className="mt-4 rounded bg-red-100 p-3 text-sm text-red-900">{error}</p>}
-  {message&&<p role="status" className="mt-4 rounded bg-green-100 p-3 text-sm text-green-900">{message}</p>}
-  <button type="button" disabled={saving} onClick={save} className="mt-6 w-full rounded-lg bg-black px-5 py-4 font-bold text-white disabled:opacity-50">{saving?"Saving…":"Save changes"}</button>
- </div>;
+  const editable = isPreview ? "" : "rounded-md outline-none transition-colors hover:bg-black/5 focus:bg-white focus:ring-2 focus:ring-pink-600";
+  const titleKey = language === "ru" ? "title" : "title_en";
+  const descKey = language === "ru" ? "description" : "description_en";
+  const title = event?.[titleKey] ?? "";
+  const description = event?.[descKey] ?? "";
 
- return <main className="min-h-[80vh] bg-[#fff2db] px-4 py-7 text-black sm:px-8">
-  <div className="mx-auto max-w-7xl">
-   <Link href="/admin/events" className="text-sm font-bold underline">← All events</Link>
-   <div className="mt-5 flex flex-wrap items-start justify-between gap-3">
-    <div><p className="text-xs font-bold uppercase tracking-widest text-pink-700">Event workspace</p><h1 className="mt-1 text-2xl font-black sm:text-3xl">{event.title}</h1><p className="mt-1 text-sm">{event.is_active?"Published":"Draft"} · {event.slug}</p></div>
-    <div className="flex rounded-lg border border-black p-1 lg:hidden"><button className={`rounded px-4 py-2 text-sm font-bold ${mode==="preview"?"bg-black text-white":""}`} onClick={()=>setMode("preview")}>Preview</button><button className={`rounded px-4 py-2 text-sm font-bold ${mode==="edit"?"bg-black text-white":""}`} onClick={()=>setMode("edit")}>Edit</button></div>
-   </div>
-   <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)] lg:items-start">
-    <div className={mode==="edit"?"block":"hidden lg:block"}>{editor}</div>
-    <div className={mode==="preview"?"block":"hidden lg:block"}><p className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-600">Customer preview (Russian)</p>{preview}</div>
-   </div>
-  </div>
- </main>;
+  if (loading) return <main className="min-h-[75vh] bg-[#fff2db] p-6" role="status">Loading event…</main>;
+  if (!event) return <main className="min-h-[75vh] bg-[#fff2db] p-6" role="alert">{error || "Event unavailable."}</main>;
+
+  return (
+    <main className="min-h-screen bg-[#fff2db] text-black">
+      <div className="sticky top-0 z-20 border-b border-black/20 bg-[#fff2db]/95 px-4 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
+          <Link href="/admin/events" className="text-sm font-bold underline">← All events</Link>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-white px-3 py-2 text-xs font-bold">{event.is_active ? "Published" : "Draft"}</span>
+            <button type="button" onClick={() => setLanguage(language === "ru" ? "en" : "ru")} className="rounded-lg border border-black px-3 py-2 text-sm font-bold">{language.toUpperCase()} ▾</button>
+            <button type="button" onClick={() => setIsPreview(!isPreview)} className="rounded-lg border border-black px-3 py-2 text-sm font-bold">{isPreview ? "Edit" : "Preview"}</button>
+            <button type="button" disabled={saving} onClick={save} className="rounded-lg bg-black px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{saving ? "Saving…" : "Save"}</button>
+          </div>
+        </div>
+      </div>
+
+      <article className="mx-auto max-w-5xl bg-white">
+        <div className="group relative overflow-hidden bg-[#1b1714]">
+          {event.image_url
+            ? <img src={event.image_url} alt="" className="aspect-[16/9] w-full object-cover" />
+            : <div className="flex aspect-[16/9] items-center justify-center bg-[#f5a047]/30 px-4 text-center text-sm text-gray-600">Add an event photograph</div>}
+          {!isPreview && <button type="button" onClick={() => setEditingImage(!editingImage)} className="absolute bottom-4 right-4 rounded-lg bg-white px-4 py-3 text-sm font-bold shadow">✎ Change image</button>}
+        </div>
+        {!isPreview && editingImage && <div className="border-b bg-[#fff2db] p-4">
+          <label htmlFor="image-url" className="text-sm font-bold">Event image URL</label>
+          <input id="image-url" type="url" value={event.image_url ?? ""} onChange={e => change("image_url", e.target.value)} className="mt-2 w-full rounded-lg border border-black bg-white px-3 py-3" placeholder="https://…" />
+          <p className="mt-2 text-xs text-gray-600">Direct image upload and galleries are coming next.</p>
+        </div>}
+
+        <div className="space-y-7 px-5 py-8 sm:px-10 sm:py-12">
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-[0.15em] text-pink-700">Юморильник · Афиша</p>
+            {isPreview ? <h1 className="text-3xl font-black sm:text-5xl">{title || "Event title"}</h1> :
+              <input aria-label={language === "ru" ? "Russian event title" : "English event title"} value={title}
+                onChange={e => change(titleKey, e.target.value)} placeholder={language === "ru" ? "Название мероприятия" : "Event title"}
+                className={`w-full min-w-0 bg-transparent text-3xl font-black sm:text-5xl ${editable}`} />}
+            {!isPreview && <p className="text-xs text-gray-500">Tap the title to edit it directly.</p>}
+          </div>
+
+          <div className="rounded-xl bg-[#fff2db] p-4">
+            {isPreview ? <p className="font-semibold">{event.event_date} · {event.event_time.slice(0,5)} · {event.location || "Venue TBC"}</p> :
+              <button type="button" onClick={() => setEditingWhen(!editingWhen)} className="text-left font-bold underline decoration-dotted underline-offset-4">📅 {event.event_date} · {event.event_time.slice(0,5)} · {event.location || "Add venue"} ✎</button>}
+            {!isPreview && editingWhen && <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <label className="text-sm font-bold">Date<input type="date" value={event.event_date} onChange={e=>change("event_date",e.target.value)} className="mt-1 w-full rounded-lg border p-3"/></label>
+              <label className="text-sm font-bold">Time<input type="time" value={event.event_time.slice(0,5)} onChange={e=>change("event_time",e.target.value)} className="mt-1 w-full rounded-lg border p-3"/></label>
+              <label className="text-sm font-bold">Venue<input value={event.location??""} onChange={e=>change("location",e.target.value)} className="mt-1 w-full rounded-lg border p-3"/></label>
+            </div>}
+          </div>
+
+          <section className="space-y-3">
+            <h2 className="text-xl font-black">{language === "ru" ? "О событии" : "About the event"}</h2>
+            {isPreview ? <p className="whitespace-pre-wrap leading-relaxed">{description || "Event description"}</p> :
+              <textarea aria-label={language === "ru" ? "Russian description" : "English description"} rows={Math.max(5, description.split("\n").length + 2)}
+                value={description} onChange={e=>change(descKey,e.target.value)} placeholder={language === "ru" ? "Нажмите, чтобы написать описание…" : "Tap to write a description…"}
+                className={`w-full resize-y bg-transparent p-2 leading-relaxed ${editable}`} />}
+          </section>
+
+          <section className="rounded-2xl border border-black/20 bg-[#fff2db] p-5">
+            <h2 className="text-2xl font-black">{language === "ru" ? "Билеты" : "Tickets"}</h2>
+            {tickets.length ? tickets.map(ticket => <div key={ticket.id} className="mt-3 flex justify-between gap-4 border-t border-black/10 pt-3">
+              <span className="font-semibold">{ticket.name}</span>
+              <span>{new Intl.NumberFormat("en-NZ",{style:"currency",currency:ticket.currency.toUpperCase()}).format(ticket.price_cents/100)}</span>
+            </div>) : <p className="mt-3 text-sm text-gray-600">Ticket types will appear here.</p>}
+            {!isPreview && <p className="mt-4 text-xs font-semibold text-gray-600">+ Add/edit ticket types — next milestone</p>}
+          </section>
+          {!isPreview && <label className="flex items-center gap-3 rounded-lg border border-black/20 p-4 font-bold">
+            <input type="checkbox" checked={event.is_active} onChange={e=>change("is_active",e.target.checked)} className="h-5 w-5"/>
+            Publish event
+          </label>}
+          {error && <p role="alert" className="rounded bg-red-100 p-3 text-sm text-red-900">{error}</p>}
+          {status && <p role="status" className="rounded bg-green-100 p-3 text-sm text-green-900">{status}</p>}
+          {!isPreview && <div className="flex flex-wrap gap-3">
+            <button type="button" disabled={saving} onClick={save} className="rounded-lg bg-black px-6 py-4 font-bold text-white disabled:opacity-50">Save changes</button>
+            <button type="button" onClick={()=>{if(savedVersion.current){setEvent({...savedVersion.current});setStatus("Unsaved edits discarded.");setError("");}}} className="rounded-lg border border-black px-6 py-4 font-bold">Discard unsaved edits</button>
+          </div>}
+        </div>
+      </article>
+    </main>
+  );
 }
