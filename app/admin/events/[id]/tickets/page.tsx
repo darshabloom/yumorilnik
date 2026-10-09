@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-type Event = {id:string;slug:string;title:string;image_url:string|null;seating_mode:string;table_booking_mode:string};
+type Event = {id:string;slug:string;title:string;image_url:string|null;booking_image_url:string|null;booking_image_fit:string;booking_image_position_x:number;booking_image_position_y:number;seating_mode:string;table_booking_mode:string};
 type Ticket = {id:string;event_id:string;name:string;description:string|null;price_cents:number;currency:string;quantity_total:number;quantity_sold:number;is_active:boolean;show_remaining:boolean};
 type Form = {name:string;description:string;price:string;quantity:string;active:boolean;showRemaining:boolean};
 const empty:Form={name:"",description:"",price:"",quantity:"100",active:true,showRemaining:false};
@@ -24,6 +24,9 @@ export default function TicketEditor(){
  const [saving,setSaving]=useState(false);
  const [preview,setPreview]=useState(false);
  const [modeSaving,setModeSaving]=useState(false);
+ const [imageOpen,setImageOpen]=useState(false);
+ const [imageUploading,setImageUploading]=useState(false);
+ const [imageSaving,setImageSaving]=useState(false);
 
  useEffect(()=>{
   let active=true;
@@ -34,7 +37,7 @@ export default function TicketEditor(){
     const {data:admin,error:roleError}=await supabase.from("admin_users").select("role").eq("user_id",user.id).maybeSingle();
     if(roleError||!admin){router.replace("/admin/login");return;}
     const [ev,ts]=await Promise.all([
-      supabase.from("events").select("id,slug,title,image_url,seating_mode,table_booking_mode").eq("id",id).single(),
+      supabase.from("events").select("id,slug,title,image_url,booking_image_url,booking_image_fit,booking_image_position_x,booking_image_position_y,seating_mode,table_booking_mode").eq("id",id).single(),
       supabase.from("ticket_types").select("id,event_id,name,description,price_cents,currency,quantity_total,quantity_sold,is_active,show_remaining").eq("event_id",id).order("created_at",{ascending:true})
     ]);
     if(ev.error)throw ev.error;
@@ -69,6 +72,34 @@ export default function TicketEditor(){
     setEditing(null);setNotice("Ticket type saved.");
   }catch(e){setError(e instanceof Error?e.message:"Saving failed.");}
   finally{setSaving(false);}
+ }
+ async function setBannerSettings(patch:Partial<Event>){
+   if(!event)return;
+   const previous=event;
+   setEvent({...event,...patch});
+   setImageSaving(true);setError("");
+   const {error:e}=await supabase.from("events").update(patch).eq("id",event.id);
+   if(e){setEvent(previous);setError("Image settings not saved: "+e.message);}
+   else setNotice("Booking banner saved.");
+   setImageSaving(false);
+ }
+ async function uploadBookingImage(file:File|undefined){
+   if(!file||!event)return;
+   if(!["image/jpeg","image/png","image/webp","image/gif"].includes(file.type)){setError("Use JPG, PNG, WebP or GIF.");return;}
+   if(file.size>10*1024*1024){setError("Image must be under 10 MB.");return;}
+   setImageUploading(true);setError("");
+   try{
+     const ext=file.type==="image/jpeg"?"jpg":file.type==="image/png"?"png":file.type==="image/webp"?"webp":"gif";
+     const key=`${event.id}/booking-${crypto.randomUUID()}.${ext}`;
+     const {error:uploadError}=await supabase.storage.from("event-images").upload(key,file,{upsert:false,contentType:file.type});
+     if(uploadError)throw uploadError;
+     const {data}=supabase.storage.from("event-images").getPublicUrl(key);
+     const {error:saveError}=await supabase.from("events").update({booking_image_url:data.publicUrl}).eq("id",event.id);
+     if(saveError)throw saveError;
+     setEvent({...event,booking_image_url:data.publicUrl});
+     setNotice("Booking image uploaded and saved.");setImageOpen(false);
+   }catch(e){setError(e instanceof Error?e.message:"Upload failed");}
+   finally{setImageUploading(false);}
  }
  async function changeTableBookingMode(mode:"whole_table"|"individual_seats"){
   if(!event)return;
@@ -105,7 +136,26 @@ export default function TicketEditor(){
       <button onClick={()=>setPreview(!preview)} className="rounded-lg border border-black px-3 py-2 text-sm font-bold">{preview?"Edit":"Preview"}</button>
     </div>
    </div>
-   {event.image_url?<img src={event.image_url} alt="" className="h-36 w-full object-cover sm:h-60"/>:<div className="h-36 bg-[#f5a047]/25"/>}
+   <div className="relative bg-[#fffaf1]">
+     {(event.booking_image_url||event.image_url)?<img src={event.booking_image_url||event.image_url||""} alt="" className="h-36 w-full sm:h-48" style={{objectFit:event.booking_image_fit==="contain"?"contain":"cover",objectPosition:`${event.booking_image_position_x}% ${event.booking_image_position_y}%`}}/>:<div className="h-36 bg-[#f5a047]/25 sm:h-48"/>}
+     {!preview&&<button type="button" onClick={()=>setImageOpen(v=>!v)} className="absolute bottom-3 right-3 rounded-lg border border-black/20 bg-white px-4 py-2 text-sm font-bold shadow">Change image</button>}
+     {imageOpen&&!preview&&<div className="absolute bottom-14 right-3 z-40 w-[min(390px,calc(100vw-24px))] space-y-3 rounded-xl border border-black/15 bg-white p-4 shadow-xl">
+       <div className="flex items-center justify-between"><h2 className="font-bold">Booking page image</h2><button type="button" aria-label="Close image settings" onClick={()=>setImageOpen(false)}>✕</button></div>
+       <label className="block cursor-pointer rounded-lg border-2 border-dashed border-black/30 bg-[#fff2db] p-4 text-center text-sm font-bold">
+         {imageUploading?"Uploading…":"Upload image from device"}
+         <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={imageUploading} className="sr-only" onChange={e=>{void uploadBookingImage(e.target.files?.[0]);e.target.value="";}}/>
+       </label>
+       <p className="text-xs text-gray-600">JPG, PNG, WebP or GIF · max 10 MB</p>
+       <div className="flex gap-2">
+         <button type="button" onClick={()=>void setBannerSettings({booking_image_fit:"cover"})} className={`flex-1 rounded border px-3 py-2 text-sm font-bold ${event.booking_image_fit==="cover"?"bg-black text-white":""}`}>Fill / crop</button>
+         <button type="button" onClick={()=>void setBannerSettings({booking_image_fit:"contain"})} className={`flex-1 rounded border px-3 py-2 text-sm font-bold ${event.booking_image_fit==="contain"?"bg-black text-white":""}`}>Fit entire image</button>
+       </div>
+       <label className="block text-sm font-semibold">Move horizontally · {event.booking_image_position_x}%<input type="range" min="0" max="100" value={event.booking_image_position_x} onChange={e=>setEvent(old=>old?{...old,booking_image_position_x:Number(e.target.value)}:old)} onPointerUp={()=>void setBannerSettings({booking_image_position_x:event.booking_image_position_x})} onKeyUp={()=>void setBannerSettings({booking_image_position_x:event.booking_image_position_x})} className="w-full"/></label>
+       <label className="block text-sm font-semibold">Move vertically · {event.booking_image_position_y}%<input type="range" min="0" max="100" value={event.booking_image_position_y} onChange={e=>setEvent(old=>old?{...old,booking_image_position_y:Number(e.target.value)}:old)} onPointerUp={()=>void setBannerSettings({booking_image_position_y:event.booking_image_position_y})} onKeyUp={()=>void setBannerSettings({booking_image_position_y:event.booking_image_position_y})} className="w-full"/></label>
+       {imageSaving&&<p role="status" className="text-xs">Saving…</p>}
+       <button type="button" className="text-sm font-semibold underline" onClick={()=>void setBannerSettings({booking_image_url:null})}>Use main event image</button>
+     </div>}
+   </div>
    <div className="px-5 py-8 sm:px-10 lg:px-[6vw]">
      <h1 className="text-3xl font-black sm:text-5xl">{event.title}</h1>
      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
