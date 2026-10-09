@@ -218,8 +218,7 @@ export default function InlineEventEditor() {
         </div>}
         bannerControl={!isPreview?<div className="relative">{editingImage==="banner"&&imageEditor("banner")}<button type="button" onClick={()=>setEditingImage(editingImage==="banner"?null:"banner")} aria-expanded={editingImage==="banner"} className="rounded bg-white px-4 py-3 text-sm font-bold shadow">Change image</button></div>:undefined}
         imageControl={!isPreview?<div className="relative">{editingImage==="detail"&&imageEditor("detail")}<button type="button" onClick={()=>setEditingImage(editingImage==="detail"?null:"detail")} aria-expanded={editingImage==="detail"} className="rounded bg-white px-3 py-2 text-sm font-bold shadow">Edit photo</button></div>:undefined}
-        bookingAction={()=>{}}
-        bookingDisabled
+        bookingAction={()=>router.push(`/admin/events/${event.id}/tickets`)}
       />
       {!isPreview && <div className="w-full space-y-5 bg-white px-5 pb-12 sm:px-10 lg:px-[6vw]">
 
