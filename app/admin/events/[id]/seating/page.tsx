@@ -43,6 +43,8 @@ export default function SeatingBuilder(){
  const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const flushing=useRef(false);
  const latest=useRef<TableItem[]>([]);
+ const framingSaved=useRef("");
+ const stageSaved=useRef("");
  useEffect(()=>{let mounted=true;(async()=>{
   try{
    const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace("/admin/login");return;}
@@ -50,10 +52,33 @@ export default function SeatingBuilder(){
    if(!admin){router.replace("/admin/login");return;}
    const [e,t,m]=await Promise.all([supabase.from("events").select("id,title,seating_mode,table_booking_mode").eq("id",id).single(),supabase.from("seating_tables").select("*").eq("event_id",id).order("created_at"),supabase.from("event_seating_maps").select("background_image_url,background_zoom,background_x,background_y,stage_x,stage_y,stage_width,stage_height,stage_rotation").eq("event_id",id).maybeSingle()]);
    if(e.error)throw e.error;if(t.error)throw t.error;if(m.error)throw m.error;
-   if(mounted){setEvent(e.data as EventItem);setTables((t.data??[]) as TableItem[]);latest.current=(t.data??[]) as TableItem[];setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50));setStageItem({x:Number(m.data?.stage_x??440),y:Number(m.data?.stage_y??18),width:Number(m.data?.stage_width??130),height:Number(m.data?.stage_height??42),rotation:Number(m.data?.stage_rotation??0)})}
+   if(mounted){setEvent(e.data as EventItem);setTables((t.data??[]) as TableItem[]);latest.current=(t.data??[]) as TableItem[];setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50));setStageItem({x:Number(m.data?.stage_x??440),y:Number(m.data?.stage_y??18),width:Number(m.data?.stage_width??130),height:Number(m.data?.stage_height??42),rotation:Number(m.data?.stage_rotation??0)});stageSaved.current=JSON.stringify([Number(m.data?.stage_x??440),Number(m.data?.stage_y??18),Number(m.data?.stage_width??130),Number(m.data?.stage_height??42),Number(m.data?.stage_rotation??0)]);framingSaved.current=JSON.stringify([Number(m.data?.background_zoom??1),Number(m.data?.background_x??50),Number(m.data?.background_y??50)])}
   }catch(ex){if(mounted)setError(ex instanceof Error?ex.message:"Unable to load seating map")}
   finally{if(mounted)setLoading(false)}
  })();return()=>{mounted=false}},[id,router]);
+ useEffect(()=>{
+  if(loading)return;
+  const key=JSON.stringify([stageItem.x,stageItem.y,stageItem.width,stageItem.height,stageItem.rotation]);
+  if(key===stageSaved.current)return;
+  setMessage("Saving stage…");
+  const timer=setTimeout(async()=>{
+   const {error:e}=await supabase.from("event_seating_maps").upsert({event_id:id,stage_x:stageItem.x,stage_y:stageItem.y,stage_width:stageItem.width,stage_height:stageItem.height,stage_rotation:stageItem.rotation,updated_at:new Date().toISOString()},{onConflict:"event_id"});
+   if(e){setError("Stage autosave failed: "+e.message);setMessage("Not saved");}
+   else{stageSaved.current=key;setMessage("Stage saved");}
+  },1100);
+  return()=>clearTimeout(timer);
+ },[stageItem,loading,id]);
+ useEffect(()=>{
+  if(loading||!background)return;
+  const key=JSON.stringify([zoom,panX,panY]);
+  if(key===framingSaved.current)return;
+  const timer=setTimeout(async()=>{
+   const {error:e}=await supabase.from("event_seating_maps").update({background_zoom:zoom,background_x:panX,background_y:panY,updated_at:new Date().toISOString()}).eq("event_id",id);
+   if(e){setError("Background autosave failed: "+e.message);setMessage("Not saved");}
+   else{framingSaved.current=key;setMessage("Floor plan saved");}
+  },1100);
+  return()=>clearTimeout(timer);
+ },[zoom,panX,panY,background,loading,id]);
  const current=tables.find(t=>t.id===selected);
  function mutate(id:string,patch:Partial<TableItem>){
   const next=latest.current.map(t=>t.id===id?{...t,...patch}:t);
@@ -131,7 +156,7 @@ export default function SeatingBuilder(){
     const {data}=supabase.storage.from("event-images").getPublicUrl(key);
     const {error:dbError}=await supabase.from("event_seating_maps").upsert({event_id:id,background_image_url:data.publicUrl,background_zoom:1,background_x:50,background_y:50,canvas_width:W,canvas_height:H,updated_at:new Date().toISOString()},{onConflict:"event_id"});
     if(dbError)throw dbError;
-    setBackground(data.publicUrl);setZoom(1);setPanX(50);setPanY(50);setMessage("Floor plan uploaded and saved.");
+    setBackground(data.publicUrl);setZoom(1);setPanX(50);setPanY(50);framingSaved.current=JSON.stringify([1,50,50]);setMessage("Floor plan uploaded and saved.");
   }catch(e){setError(e instanceof Error?e.message:"Upload failed");}
   finally{setUploading(false);}
  }
