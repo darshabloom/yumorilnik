@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 type Role = "owner" | "admin";
 type Access = { email: string; role: Role } | null;
 const tiles = [
-  { title: "Events", detail: "Create events, update dates and ticket types", icon: "📅" },
+  { title: "Events", detail: "Create events, update dates and ticket types", icon: "📅", href: "/admin/events" },
   { title: "Bookings", detail: "Find guests and review ticket sales", icon: "🎟️" },
   { title: "Check-in", detail: "Scan tickets at the venue", icon: "✅" },
   { title: "Website content", detail: "Update images, homepage and videos", icon: "✏️" },
@@ -66,7 +66,7 @@ export default function AdminHome() {
               <span aria-hidden="true" className="text-3xl">{tile.icon}</span>
               <h2 className="mt-3 text-xl font-black">{tile.title}</h2>
               <p className="mt-2 text-sm text-gray-700">{tile.detail}</p>
-              <span className="mt-5 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold">Coming next</span>
+              {tile.href ? <Link href={tile.href} className="mt-5 inline-block rounded-lg bg-black px-4 py-3 text-sm font-bold text-white">Manage events →</Link> : <span className="mt-5 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold">Coming next</span>}
             </article>
           ))}
         </section>
