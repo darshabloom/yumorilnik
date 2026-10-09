@@ -98,7 +98,7 @@ export default function InlineEventEditor() {
   async function save() {
     if (saveInProgress.current) return;
     const snapshot = latestEvent.current;
-    if (!snapshot || !snapshot.title.trim() || !snapshot.event_date || !snapshot.event_time) {
+    if (!snapshot || !snapshot.title.trim() || !snapshot.event_date || !snapshot.event_time || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(snapshot.slug)) {
       setStatus("Unsaved changes");
       return;
     }
@@ -109,6 +109,7 @@ export default function InlineEventEditor() {
     saveInProgress.current = true;
     setSaving(true); setError(""); setStatus("Saving…");
     const payload = {
+      slug: snapshot.slug.trim().toLowerCase(),
       title: snapshot.title.trim(), title_en: snapshot.title_en?.trim() || null,
       description: snapshot.description?.trim() || null, description_en: snapshot.description_en?.trim() || null,
       event_date: snapshot.event_date, event_time: snapshot.event_time,
@@ -202,6 +203,14 @@ export default function InlineEventEditor() {
         </div>
       </div>
 
+      {!isPreview&&<div className="mx-auto max-w-6xl px-4 pt-4">
+        <label htmlFor="event-url-slug" className="block text-sm font-bold">Event URL</label>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <span className="text-sm text-gray-600">/events/</span>
+          <input id="event-url-slug" type="text" value={event.slug} onChange={e=>change("slug",e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,""))} className="min-w-0 flex-1 rounded-lg border border-black/30 bg-white px-3 py-2 text-sm" spellCheck={false} aria-describedby="slug-help"/>
+        </div>
+        <p id="slug-help" className="mt-1 text-xs text-gray-600">Use letters, numbers and hyphens. Changes save automatically. Changing this URL will break previously shared links.</p>
+      </div>}
       <EventPresentation
         event={{slug:event.slug,title,description,event_date:event.event_date,event_time:event.event_time,location:event.location,image_url:event.image_url,detail_image_url:event.detail_image_url,banner_fit:event.banner_fit,banner_position_x:event.banner_position_x,banner_position_y:event.banner_position_y,detail_fit:event.detail_fit,detail_position_x:event.detail_position_x,detail_position_y:event.detail_position_y}}
         heading={isPreview ? undefined : <textarea aria-label="Event title" value={title} onChange={e=>change(titleKey,e.target.value.replace(/\n/g," "))}
