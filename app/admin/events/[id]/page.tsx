@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import EventPresentation from "@/components/EventPresentation";
 
 type EventRecord = {
   id: string; slug: string; title: string; title_en: string | null;
@@ -104,67 +105,36 @@ export default function InlineEventEditor() {
         </div>
       </div>
 
-      <article className="mx-auto max-w-5xl bg-white">
-        <div className="group relative overflow-hidden bg-[#1b1714]">
-          {event.image_url
-            ? <img src={event.image_url} alt="" className="aspect-[16/9] w-full object-cover" />
-            : <div className="flex aspect-[16/9] items-center justify-center bg-[#f5a047]/30 px-4 text-center text-sm text-gray-600">Add an event photograph</div>}
-          {!isPreview && <button type="button" onClick={() => setEditingImage(!editingImage)} className="absolute bottom-4 right-4 rounded-lg bg-white px-4 py-3 text-sm font-bold shadow">✎ Change image</button>}
-        </div>
-        {!isPreview && editingImage && <div className="border-b bg-[#fff2db] p-4">
-          <label htmlFor="image-url" className="text-sm font-bold">Event image URL</label>
-          <input id="image-url" type="url" value={event.image_url ?? ""} onChange={e => change("image_url", e.target.value)} className="mt-2 w-full rounded-lg border border-black bg-white px-3 py-3" placeholder="https://…" />
-          <p className="mt-2 text-xs text-gray-600">Direct image upload and galleries are coming next.</p>
+      <EventPresentation
+        event={{slug:event.slug,title,description,event_date:event.event_date,event_time:event.event_time,location:event.location,image_url:event.image_url}}
+        heading={isPreview ? undefined : <input aria-label="Event title" value={title} onChange={e=>change(titleKey,e.target.value)}
+          placeholder={language==="ru"?"Название мероприятия":"Event title"}
+          className="w-full rounded-md bg-transparent text-3xl font-black outline-none hover:bg-black/5 focus:bg-white focus:ring-2 focus:ring-pink-600 sm:text-5xl"/>}
+        description={isPreview ? undefined : <textarea aria-label="Event description" rows={Math.max(8,description.split("\n").length+3)}
+          value={description} onChange={e=>change(descKey,e.target.value)}
+          placeholder="Click to write a description"
+          className="w-full resize-y rounded-md bg-transparent p-2 leading-7 outline-none hover:bg-black/5 focus:bg-white focus:ring-2 focus:ring-pink-600"/>}
+        dateAndPlace={isPreview ? undefined : <div className="space-y-2">
+          <label className="block text-xs font-bold">Date<input type="date" value={event.event_date} onChange={e=>change("event_date",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
+          <label className="block text-xs font-bold">Time<input type="time" value={event.event_time.slice(0,5)} onChange={e=>change("event_time",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
+          <label className="block text-xs font-bold">Venue<input value={event.location??""} onChange={e=>change("location",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
         </div>}
-
-        <div className="space-y-7 px-5 py-8 sm:px-10 sm:py-12">
-          <div className="space-y-3">
-            <p className="text-xs font-bold uppercase tracking-[0.15em] text-pink-700">Юморильник · Афиша</p>
-            {isPreview ? <h1 className="text-3xl font-black sm:text-5xl">{title || "Event title"}</h1> :
-              <input aria-label={language === "ru" ? "Russian event title" : "English event title"} value={title}
-                onChange={e => change(titleKey, e.target.value)} placeholder={language === "ru" ? "Название мероприятия" : "Event title"}
-                className={`w-full min-w-0 bg-transparent text-3xl font-black sm:text-5xl ${editable}`} />}
-            {!isPreview && <p className="text-xs text-gray-500">Tap the title to edit it directly.</p>}
-          </div>
-
-          <div className="rounded-xl bg-[#fff2db] p-4">
-            {isPreview ? <p className="font-semibold">{event.event_date} · {event.event_time.slice(0,5)} · {event.location || "Venue TBC"}</p> :
-              <button type="button" onClick={() => setEditingWhen(!editingWhen)} className="text-left font-bold underline decoration-dotted underline-offset-4">📅 {event.event_date} · {event.event_time.slice(0,5)} · {event.location || "Add venue"} ✎</button>}
-            {!isPreview && editingWhen && <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <label className="text-sm font-bold">Date<input type="date" value={event.event_date} onChange={e=>change("event_date",e.target.value)} className="mt-1 w-full rounded-lg border p-3"/></label>
-              <label className="text-sm font-bold">Time<input type="time" value={event.event_time.slice(0,5)} onChange={e=>change("event_time",e.target.value)} className="mt-1 w-full rounded-lg border p-3"/></label>
-              <label className="text-sm font-bold">Venue<input value={event.location??""} onChange={e=>change("location",e.target.value)} className="mt-1 w-full rounded-lg border p-3"/></label>
-            </div>}
-          </div>
-
-          <section className="space-y-3">
-            <h2 className="text-xl font-black">{language === "ru" ? "О событии" : "About the event"}</h2>
-            {isPreview ? <p className="whitespace-pre-wrap leading-relaxed">{description || "Event description"}</p> :
-              <textarea aria-label={language === "ru" ? "Russian description" : "English description"} rows={Math.max(5, description.split("\n").length + 2)}
-                value={description} onChange={e=>change(descKey,e.target.value)} placeholder={language === "ru" ? "Нажмите, чтобы написать описание…" : "Tap to write a description…"}
-                className={`w-full resize-y bg-transparent p-2 leading-relaxed ${editable}`} />}
-          </section>
-
-          <section className="rounded-2xl border border-black/20 bg-[#fff2db] p-5">
-            <h2 className="text-2xl font-black">{language === "ru" ? "Билеты" : "Tickets"}</h2>
-            {tickets.length ? tickets.map(ticket => <div key={ticket.id} className="mt-3 flex justify-between gap-4 border-t border-black/10 pt-3">
-              <span className="font-semibold">{ticket.name}</span>
-              <span>{new Intl.NumberFormat("en-NZ",{style:"currency",currency:ticket.currency.toUpperCase()}).format(ticket.price_cents/100)}</span>
-            </div>) : <p className="mt-3 text-sm text-gray-600">Ticket types will appear here.</p>}
-            {!isPreview && <p className="mt-4 text-xs font-semibold text-gray-600">+ Add/edit ticket types — next milestone</p>}
-          </section>
-          {!isPreview && <label className="flex items-center gap-3 rounded-lg border border-black/20 p-4 font-bold">
-            <input type="checkbox" checked={event.is_active} onChange={e=>change("is_active",e.target.checked)} className="h-5 w-5"/>
-            Publish event
-          </label>}
-          {error && <p role="alert" className="rounded bg-red-100 p-3 text-sm text-red-900">{error}</p>}
-          {status && <p role="status" className="rounded bg-green-100 p-3 text-sm text-green-900">{status}</p>}
-          {!isPreview && <div className="flex flex-wrap gap-3">
-            <button type="button" disabled={saving} onClick={save} className="rounded-lg bg-black px-6 py-4 font-bold text-white disabled:opacity-50">Save changes</button>
-            <button type="button" onClick={()=>{if(savedVersion.current){setEvent({...savedVersion.current});setStatus("Unsaved edits discarded.");setError("");}}} className="rounded-lg border border-black px-6 py-4 font-bold">Discard unsaved edits</button>
-          </div>}
-        </div>
-      </article>
+        bannerControl={!isPreview?<button type="button" onClick={()=>setEditingImage(!editingImage)} className="rounded bg-white px-4 py-3 text-sm font-bold">Change image</button>:undefined}
+        imageControl={!isPreview?<button type="button" onClick={()=>setEditingImage(!editingImage)} className="rounded bg-white px-3 py-2 text-sm font-bold">Edit photo</button>:undefined}
+        bookingAction={()=>router.push(`/admin/events/${event.id}/tickets`)}
+      />
+      {!isPreview && <div className="mx-auto max-w-5xl space-y-5 bg-white px-5 pb-12 sm:px-10">
+        {editingImage && <label className="block rounded-lg bg-[#fff2db] p-4 text-sm font-bold">Image URL
+          <input type="url" className="mt-2 w-full rounded border bg-white p-3 font-normal" value={event.image_url??""} onChange={e=>change("image_url",e.target.value)}/>
+        </label>}
+        <label className="flex items-center gap-3 rounded-lg border p-4 font-bold">
+          <input type="checkbox" checked={event.is_active} onChange={e=>change("is_active",e.target.checked)} className="h-5 w-5"/> Publish event
+        </label>
+        {error && <p role="alert" className="rounded bg-red-100 p-3 text-red-900">{error}</p>}
+        {status && <p role="status" className="rounded bg-green-100 p-3 text-green-900">{status}</p>}
+        <button disabled={saving} onClick={save} className="rounded-lg bg-black px-6 py-4 font-bold text-white">Save changes</button>
+        <button type="button" onClick={()=>{if(savedVersion.current){setEvent({...savedVersion.current});setStatus("Unsaved edits discarded.");}}} className="ml-3 rounded-lg border px-5 py-4 font-bold">Discard edits</button>
+      </div>}
     </main>
   );
 }
