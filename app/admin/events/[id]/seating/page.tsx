@@ -20,6 +20,9 @@ export default function SeatingBuilder(){
  const [event,setEvent]=useState<EventItem|null>(null);
  const [tables,setTables]=useState<TableItem[]>([]);
  const [background,setBackground]=useState<string|null>(null);
+ const [stageItem,setStageItem]=useState({x:440,y:18,width:130,height:42,rotation:0});
+ const [editingStage,setEditingStage]=useState(false);
+ const stageDrag=useRef<{px:number;py:number;x:number;y:number}|null>(null);
  const [uploading,setUploading]=useState(false);
  const [zoom,setZoom]=useState(1);
  const [panX,setPanX]=useState(50);
@@ -39,14 +42,35 @@ export default function SeatingBuilder(){
    const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace("/admin/login");return;}
    const {data:admin}=await supabase.from("admin_users").select("role").eq("user_id",user.id).maybeSingle();
    if(!admin){router.replace("/admin/login");return;}
-   const [e,t,m]=await Promise.all([supabase.from("events").select("id,title,seating_mode,table_booking_mode").eq("id",id).single(),supabase.from("seating_tables").select("*").eq("event_id",id).order("created_at"),supabase.from("event_seating_maps").select("background_image_url,background_zoom,background_x,background_y").eq("event_id",id).maybeSingle()]);
+   const [e,t,m]=await Promise.all([supabase.from("events").select("id,title,seating_mode,table_booking_mode").eq("id",id).single(),supabase.from("seating_tables").select("*").eq("event_id",id).order("created_at"),supabase.from("event_seating_maps").select("background_image_url,background_zoom,background_x,background_y,stage_x,stage_y,stage_width,stage_height,stage_rotation").eq("event_id",id).maybeSingle()]);
    if(e.error)throw e.error;if(t.error)throw t.error;if(m.error)throw m.error;
-   if(mounted){setEvent(e.data as EventItem);setTables((t.data??[]) as TableItem[]);setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50))}
+   if(mounted){setEvent(e.data as EventItem);setTables((t.data??[]) as TableItem[]);setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50));setStageItem({x:Number(m.data?.stage_x??440),y:Number(m.data?.stage_y??18),width:Number(m.data?.stage_width??130),height:Number(m.data?.stage_height??42),rotation:Number(m.data?.stage_rotation??0)})}
   }catch(ex){if(mounted)setError(ex instanceof Error?ex.message:"Unable to load seating map")}
   finally{if(mounted)setLoading(false)}
  })();return()=>{mounted=false}},[id,router]);
  const current=tables.find(t=>t.id===selected);
  function mutate(id:string,patch:Partial<TableItem>){setTables(old=>old.map(t=>t.id===id?{...t,...patch}:t));setMessage("Unsaved changes")}
+ async function saveStage(){
+  setSaving(true);setError("");
+  const {error:e}=await supabase.from("event_seating_maps").upsert({event_id:id,stage_x:stageItem.x,stage_y:stageItem.y,stage_width:stageItem.width,stage_height:stageItem.height,stage_rotation:stageItem.rotation,updated_at:new Date().toISOString()},{onConflict:"event_id"});
+  if(e)setError(e.message);else setMessage("Stage position saved.");
+  setSaving(false);
+ }
+ function beginStageDrag(e:React.PointerEvent<HTMLButtonElement>){
+  if(e.button!==0)return;
+  e.preventDefault();e.stopPropagation();
+  setEditingStage(true);setSelected(null);
+  const scale=stage.current?.getBoundingClientRect().width/W||1;
+  stageDrag.current={px:e.clientX/scale,py:e.clientY/scale,x:stageItem.x,y:stageItem.y};
+  e.currentTarget.setPointerCapture(e.pointerId);
+ }
+ function moveStageDrag(e:React.PointerEvent<HTMLButtonElement>){
+  if(!stageDrag.current)return;
+  const scale=stage.current?.getBoundingClientRect().width/W||1;
+  const d=stageDrag.current;
+  setStageItem(old=>({...old,x:Math.round(Math.max(0,Math.min(W-old.width,d.x+e.clientX/scale-d.px))),y:Math.round(Math.max(0,Math.min(H-old.height,d.y+e.clientY/scale-d.py)))}));
+  setMessage("Stage position not saved");
+ }
  async function saveFraming(z=zoom,x=panX,y=panY){
   setFramingSaving(true);setError("");
   const {error:e}=await supabase.from("event_seating_maps").update({background_zoom:z,background_x:x,background_y:y,updated_at:new Date().toISOString()}).eq("event_id",id);
@@ -110,6 +134,7 @@ export default function SeatingBuilder(){
   setTables(old=>old.filter(t=>t.id!==current.id));setSelected(null);setMessage("Table removed");
  }
  function pointerDown(e:React.PointerEvent<HTMLButtonElement>,t:TableItem){
+  setEditingStage(false);
   if(e.button!==0)return;
   e.preventDefault();setSelected(t.id);
   const scale=stage.current?.getBoundingClientRect().width/W||1;
@@ -128,7 +153,7 @@ export default function SeatingBuilder(){
   <div className="mx-auto max-w-7xl">
    <Link href={`/admin/events/${id}/tickets`} className="text-sm font-bold underline">← Tickets</Link>
    <div className="mt-4 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-pink-700">Seating layout</p><h1 className="text-3xl font-black">{event.title}</h1></div><div className="flex gap-2"><button onClick={()=>void add()} disabled={saving} className="rounded-lg bg-black px-4 py-3 font-bold text-white">+ Add table</button><button onClick={()=>void save()} disabled={saving} className="rounded-lg border border-black px-4 py-3 font-bold">{saving?"Saving…":"Save layout"}</button></div></div>
-   <p className="mt-3 text-sm text-gray-600">Drag a table to position it. Select a table to edit its size, seats, rotation and price. Pricing is per entire table in whole-table mode.</p>
+   <p className="mt-3 text-sm text-gray-600">Drag the stage to its actual location. Drag a table to position it. Select a table to edit its size, seats, rotation and price. Pricing is per entire table in whole-table mode.</p>
    <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-black/15 bg-white p-3">
      <label className="cursor-pointer rounded-lg border-2 border-dashed border-black bg-[#fff2db] px-4 py-3 text-sm font-bold">
        {uploading?"Uploading…":background?"Replace floor plan":"Upload floor plan"}
@@ -158,7 +183,7 @@ export default function SeatingBuilder(){
     <div className="overflow-x-auto rounded-xl border border-black/20 bg-white p-2">
      <div ref={stage} className="relative w-full min-w-[420px] overflow-hidden rounded-lg bg-[#fff2db]" style={{aspectRatio:W+"/"+H,touchAction:framing?"none":"pan-y"}} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={()=>{panDrag.current=null}} onPointerCancel={()=>{panDrag.current=null}}>
        {background&&<div className="pointer-events-none absolute inset-0 overflow-hidden"><img src={background} alt="Uploaded venue floor plan" className="absolute h-full w-full object-contain" style={{transform:`scale(${zoom})`,objectPosition:`${panX}% ${panY}%`,transformOrigin:`${panX}% ${panY}%`}}/></div>}
-       <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-lg bg-[#f5a047] px-10 py-2 text-sm font-bold">Stage</div>
+       {!framing&&<button type="button" onPointerDown={beginStageDrag} onPointerMove={moveStageDrag} onPointerUp={()=>{stageDrag.current=null}} onPointerCancel={()=>{stageDrag.current=null}} onClick={()=>{setEditingStage(true);setSelected(null)}} className={`absolute z-10 flex touch-none select-none items-center justify-center rounded-lg border-2 border-black/25 bg-[#f5a047] text-sm font-bold ${editingStage?"ring-2 ring-pink-600":""}`} style={{left:stageItem.x/W*100+"%",top:stageItem.y/H*100+"%",width:stageItem.width/W*100+"%",height:stageItem.height/H*100+"%",transform:`rotate(${stageItem.rotation}deg)`}}>Stage</button>}
        {!framing&&tables.filter(t=>t.is_active).map(t=><button key={t.id} type="button" onPointerDown={e=>pointerDown(e,t)} onPointerMove={pointerMove} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}}
         className={`absolute select-none touch-none rounded-lg border-2 text-sm font-bold shadow ${selected===t.id?"border-pink-600 bg-[#ffd7e8]":"border-black/50 bg-white"}`}
         style={{left:t.x/W*100+"%",top:t.y/H*100+"%",width:t.width/W*100+"%",height:t.height/H*100+"%",transform:`rotate(${t.rotation_deg}deg)`}}>
@@ -167,7 +192,14 @@ export default function SeatingBuilder(){
      </div>
     </div>
     <aside className="rounded-xl border border-black/20 bg-white p-4">
-     {current?<><h2 className="text-xl font-black">Edit {current.label}</h2>
+     {editingStage?<><h2 className="text-xl font-black">Edit stage</h2><p className="mt-2 text-sm text-gray-600">Drag the stage into place or adjust its size and rotation here.</p>
+       <div className="mt-4 grid grid-cols-2 gap-3">
+         {([{key:"width",label:"Width",min:60,max:400},{key:"height",label:"Height",min:25,max:220},{key:"rotation",label:"Rotation °",min:-180,max:180}] as const).map(f=><label key={f.key} className="text-sm font-bold">{f.label}<input type="number" className="mt-1 w-full rounded border p-2" min={f.min} max={f.max} value={stageItem[f.key]} onChange={e=>setStageItem(old=>({...old,[f.key]:Math.max(f.min,Math.min(f.max,Number(e.target.value)||0))}))}/></label>)}
+       </div>
+       <label className="mt-4 block text-sm font-bold">Turn stage · {stageItem.rotation}°<input type="range" min="-180" max="180" step="5" className="mt-2 w-full" value={stageItem.rotation} onChange={e=>setStageItem(old=>({...old,rotation:Number(e.target.value)}))}/></label>
+       <div className="mt-3 flex gap-2"><button onClick={()=>setStageItem(old=>({...old,rotation:old.rotation-15< -180?165:old.rotation-15}))} className="rounded border px-3 py-2">↶ 15°</button><button onClick={()=>setStageItem(old=>({...old,rotation:old.rotation+15>180?-165:old.rotation+15}))} className="rounded border px-3 py-2">↷ 15°</button></div>
+       <button onClick={()=>void saveStage()} disabled={saving} className="mt-5 w-full rounded-lg bg-black px-4 py-3 font-bold text-white">Save stage position</button>
+     </>:current?<><h2 className="text-xl font-black">Edit {current.label}</h2>
        <label className="mt-4 block text-sm font-bold">Table name<input className="mt-1 w-full rounded border p-2" value={current.label} onChange={e=>mutate(current.id,{label:e.target.value})}/></label>
        <div className="mt-3 grid grid-cols-2 gap-3">{([{field:"width",label:"Width",min:80,max:340},{field:"height",label:"Height",min:45,max:240},{field:"rotation_deg",label:"Rotation °",min:-180,max:180} ] as const).map(o=><label key={o.field} className="text-sm font-bold">{o.label}<input type="number" min={o.min} max={o.max} value={current[o.field]} onChange={e=>mutate(current.id,{[o.field]:Math.max(o.min,Math.min(o.max,Number(e.target.value)||0))})} className="mt-1 w-full rounded border p-2"/></label>)}</div>
        <div className="mt-4"><label className="block text-sm font-bold">Turn table · {current.rotation_deg}°<input aria-label="Rotate table" className="mt-2 w-full" type="range" min="-180" max="180" step="5" value={current.rotation_deg} onChange={e=>mutate(current.id,{rotation_deg:Number(e.target.value)})}/></label>
