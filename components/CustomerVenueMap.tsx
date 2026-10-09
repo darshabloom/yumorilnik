@@ -1,6 +1,6 @@
 "use client";
 
-import {useRef,useState} from "react";
+import {useEffect,useRef,useState} from "react";
 import type {VenueFeature} from "@/components/VenueLines";
 
 export type PublicTable={id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;is_active:boolean};
@@ -21,6 +21,9 @@ function seatPositions(table:PublicTable):Seat[]{
 }
 export default function CustomerVenueMap({tables,features,stage,mode="whole_table",selectedKeys=[],onToggle}:{tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null;mode?:Mode;selectedKeys?:string[];onToggle?:(key:string)=>void}){
  const [view,setView]=useState({x:0,y:0,w:WIDTH,h:HEIGHT});
+ const [baseWidth,setBaseWidth]=useState(WIDTH);
+ const [expanded,setExpanded]=useState(false);
+ const wrapper=useRef<HTMLDivElement|null>(null);
  const [focused,setFocused]=useState<string|null>(null);
  const svgRef=useRef<SVGSVGElement|null>(null);
  const pointers=useRef(new Map<number,{x:number;y:number}>());
@@ -29,10 +32,21 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
  const tap=useRef<{key:string;tableId:string}|null>(null);
  const downOrigin=useRef<{x:number;y:number}|null>(null);
  const selected=tables.find(t=>t.id===focused);
- const zoom=WIDTH/view.w;
+ const selectedSeats=selected?seatPositions(selected):[];
+ const zoom=baseWidth/view.w;
+ useEffect(()=>{
+   const element=wrapper.current;if(!element)return;
+   const measure=()=>{
+     const ratio=element.clientWidth/Math.max(1,element.clientHeight);
+     const baseW=Math.min(WIDTH,HEIGHT*ratio),baseH=baseW/ratio;
+     setBaseWidth(baseW);
+     setView(clamp((WIDTH-baseW)/2,(HEIGHT-baseH)/2,baseW,baseH));
+   };
+   const observer=new ResizeObserver(measure);observer.observe(element);measure();return()=>observer.disconnect();
+ },[expanded]);
  function clamp(x:number,y:number,w:number,h:number){return {x:Math.max(0,Math.min(WIDTH-w,x)),y:Math.max(0,Math.min(HEIGHT-h,y)),w,h};}
  function zoomTo(next:number){
-  const scale=Math.max(1,Math.min(4,next)),w=WIDTH/scale,h=HEIGHT/scale;
+  const scale=Math.max(1,Math.min(8,next)),w=baseWidth/scale,h=w/(wrapper.current?.clientWidth/Math.max(1,wrapper.current.clientHeight)||WIDTH/HEIGHT);
   setView(v=>clamp(v.x+(v.w-w)/2,v.y+(v.h-h)/2,w,h));
  }
  function getGesture(){
@@ -61,8 +75,8 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
   const p=getGesture();if(!p)return;
   if(downOrigin.current&&Math.hypot(e.clientX-downOrigin.current.x,e.clientY-downOrigin.current.y)>6)moved.current=true;
   const rect=e.currentTarget.getBoundingClientRect(),g=gesture.current;
-  const ratio=g.distance&&p.distance?Math.max(1,Math.min(4,WIDTH/g.w*p.distance/g.distance)):WIDTH/g.w;
-  const w=WIDTH/ratio,h=HEIGHT/ratio;
+  const ratio=g.distance&&p.distance?Math.max(1,Math.min(8,baseWidth/g.w*p.distance/g.distance)):baseWidth/g.w;
+  const w=baseWidth/ratio,h=w/(rect.width/rect.height);
   const cx=(p.cx-rect.left)/rect.width,cy=(p.cy-rect.top)/rect.height;
   const x=g.x+g.cx*g.w-cx*w,y=g.y+g.cy*g.h-cy*h;
   setView(clamp(x,y,w,h));
@@ -84,13 +98,15 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
    <div className="flex flex-wrap items-center justify-between gap-2">
     <p className="text-sm text-gray-600">Перемещайте схему пальцем, увеличивайте двумя пальцами или кнопками.</p>
     <div className="flex items-center gap-1">
+      <button type="button" onClick={()=>setExpanded(v=>!v)} className="rounded border border-black/30 bg-white px-3 py-2 text-xs font-bold">{expanded?"Свернуть":"На весь экран"}</button>
       <button type="button" aria-label="Уменьшить" onClick={()=>zoomTo(zoom/1.4)} className="h-10 w-10 rounded border border-black/30 bg-white font-bold">−</button>
       <button type="button" onClick={()=>zoomTo(1)} className="rounded border border-black/30 bg-white px-3 py-2 text-xs font-bold">{Math.round(zoom*100)}%</button>
       <button type="button" aria-label="Увеличить" onClick={()=>zoomTo(zoom*1.4)} className="h-10 w-10 rounded border border-black/30 bg-white font-bold">+</button>
     </div>
    </div>
-   <div className="overflow-hidden rounded-xl border border-black/15 bg-[#fff2db]">
-    <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet" aria-label="План зала" role="group" className="block aspect-[10/7] w-full cursor-grab touch-none" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+   <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#fff2db]":"relative h-[65svh] min-h-[420px] overflow-hidden rounded-xl border border-black/15 bg-[#fff2db] lg:h-[min(78vh,880px)]"}>
+    {expanded&&<button type="button" onClick={()=>setExpanded(false)} className="absolute right-3 top-3 z-10 rounded-lg bg-white px-4 py-3 font-bold shadow">Закрыть ✕</button>}
+    <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="none" aria-label="План зала" role="group" className="block h-full w-full cursor-grab touch-none" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
       {features.map(f=><g key={f.id}>
        <polyline points={f.points.map(p=>p.x+","+p.y).join(" ")} stroke={f.kind==="entrance"?"#16803b":"#252525"} strokeWidth={f.kind==="entrance"?10:7} strokeDasharray={f.kind==="entrance"?"11 9":undefined} fill="none" strokeLinecap="round" strokeLinejoin="round"/>
        {f.label&&f.points[0]&&<text x={f.points[0].x+12} y={f.points[0].y-15} fontSize="18" fill="#16803b">{f.label}</text>}
@@ -114,6 +130,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
     <strong>{selected.label}</strong>
     <p className="text-sm">{seatPositions(selected).length} мест {mode==="whole_table"&&selected.table_price_cents!==null?" · Весь стол: "+money(selected.table_price_cents):""}</p>
     <p className="mt-1 text-xs text-gray-600">{mode==="whole_table"?"Нажмите на стол для предварительного выбора.":"Нажмите на отдельное место для предварительного выбора."} Это не бронь.</p>
+    {mode==="individual_seats"&&<div className="mt-3"><p className="mb-2 text-sm font-semibold">Выберите место за этим столом:</p><div className="flex flex-wrap gap-2">{selectedSeats.map(seat=><button key={seat.key} type="button" onClick={()=>onToggle?.(seat.key)} className={`min-h-11 min-w-11 rounded-lg border px-3 font-bold ${selectedKeys.includes(seat.key)?"border-pink-600 bg-pink-100":"border-black/25 bg-white"}`}>{seat.label}</button>)}</div></div>}
    </div>}
  </div>;
 }
