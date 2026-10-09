@@ -5,6 +5,7 @@ import {useParams,useRouter} from "next/navigation";
 import {supabase} from "@/lib/supabaseClient";
 import {VenueLines, type VenueFeature, type Point} from "@/components/VenueLines";
 import CustomerVenueMap from "@/components/CustomerVenueMap";
+import {type PriceZone} from "@/lib/priceZones";
 
 type TableItem={id:string;event_id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;is_active:boolean;shape:string};
 type EventItem={id:string;title:string;seating_mode:string;table_booking_mode:string};
@@ -24,6 +25,11 @@ export default function SeatingBuilder(){
  const [background,setBackground]=useState<string|null>(null);
  const [showFloorPhoto,setShowFloorPhoto]=useState(true);
  const [features,setFeatures]=useState<VenueFeature[]>([]);
+ const [zones,setZones]=useState<PriceZone[]>([]);
+ const [editingZones,setEditingZones]=useState(false);
+ const [activeZone,setActiveZone]=useState<string|null>(null);
+ const [zoneSaving,setZoneSaving]=useState(false);
+ const zoneDrag=useRef<{id:string;x:number;y:number;px:number;py:number}|null>(null);
  const [traceMode,setTraceMode]=useState<"wall"|"entrance"|null>(null);
  const [draftPoints,setDraftPoints]=useState<Point[]>([]);
  const [featureSelected,setFeatureSelected]=useState<string|null>(null);
@@ -62,7 +68,9 @@ export default function SeatingBuilder(){
    if(!admin){router.replace("/admin/login");return;}
    const [e,t,m,v]=await Promise.all([supabase.from("events").select("id,title,seating_mode,table_booking_mode").eq("id",id).single(),supabase.from("seating_tables").select("*").eq("event_id",id).order("created_at"),supabase.from("event_seating_maps").select("background_image_url,background_zoom,background_x,background_y,stage_x,stage_y,stage_width,stage_height,stage_rotation").eq("event_id",id).maybeSingle(),supabase.from("seating_features").select("id,event_id,kind,label,points").eq("event_id",id).order("created_at")]);
    if(e.error)throw e.error;if(t.error)throw t.error;if(m.error)throw m.error;if(v.error)throw v.error;
-   if(mounted){setEvent(e.data as EventItem);setFeatures((v.data??[]) as VenueFeature[]);setTables((t.data??[]) as TableItem[]);latest.current=(t.data??[]) as TableItem[];setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50));setStageItem({x:Number(m.data?.stage_x??440),y:Number(m.data?.stage_y??18),width:Number(m.data?.stage_width??130),height:Number(m.data?.stage_height??42),rotation:Number(m.data?.stage_rotation??0)});stageSaved.current=JSON.stringify([Number(m.data?.stage_x??440),Number(m.data?.stage_y??18),Number(m.data?.stage_width??130),Number(m.data?.stage_height??42),Number(m.data?.stage_rotation??0)]);framingSaved.current=JSON.stringify([Number(m.data?.background_zoom??1),Number(m.data?.background_x??50),Number(m.data?.background_y??50)])}
+   const z=await supabase.from("event_price_zones").select("*").eq("event_id",id).order("sort_order");
+   if(z.error)throw z.error;
+   if(mounted){setZones((z.data??[]) as PriceZone[]);setEvent(e.data as EventItem);setFeatures((v.data??[]) as VenueFeature[]);setTables((t.data??[]) as TableItem[]);latest.current=(t.data??[]) as TableItem[];setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50));setStageItem({x:Number(m.data?.stage_x??440),y:Number(m.data?.stage_y??18),width:Number(m.data?.stage_width??130),height:Number(m.data?.stage_height??42),rotation:Number(m.data?.stage_rotation??0)});stageSaved.current=JSON.stringify([Number(m.data?.stage_x??440),Number(m.data?.stage_y??18),Number(m.data?.stage_width??130),Number(m.data?.stage_height??42),Number(m.data?.stage_rotation??0)]);framingSaved.current=JSON.stringify([Number(m.data?.background_zoom??1),Number(m.data?.background_x??50),Number(m.data?.background_y??50)])}
   }catch(ex){if(mounted)setError(ex instanceof Error?ex.message:"Unable to load seating map")}
   finally{if(mounted)setLoading(false)}
  })();return()=>{mounted=false}},[id,router]);
@@ -237,6 +245,28 @@ export default function SeatingBuilder(){
   setMessage(saved+" table surcharge(s) saved. Other tables unchanged.");
   setSaving(false);
  }
+ async function addZone(){
+  const choices=[{name:"Front",price_cents:12000,color:"#eeb5cb",x:200,y:420,width:600,height:230},
+   {name:"Middle",price_cents:10500,color:"#ffd994",x:150,y:230,width:700,height:210},
+   {name:"Back / hidden",price_cents:9000,color:"#b7d8f4",x:60,y:30,width:880,height:200}];
+  const choice=choices.find(z=>!zones.some(old=>old.name===z.name))??{...choices[0],name:"New zone"};
+  setZoneSaving(true);setError("");
+  const {data,error:e}=await supabase.from("event_price_zones").insert({...choice,event_id:id,sort_order:zones.length}).select("*").single();
+  if(e)setError(e.message);else{setZones(old=>[...old,data as PriceZone]);setActiveZone(data.id);setEditingZones(true);}
+  setZoneSaving(false);
+ }
+ async function updateZone(zone:PriceZone,patch:Partial<PriceZone>){
+  const values={...zone,...patch};
+  setZones(old=>old.map(z=>z.id===zone.id?values:z));setZoneSaving(true);
+  const {error:e}=await supabase.from("event_price_zones").update(patch).eq("id",zone.id).eq("event_id",id);
+  if(e)setError("Zone not saved: "+e.message);else setMessage("Price zone saved");
+  setZoneSaving(false);
+ }
+ async function deleteZone(zone:PriceZone){
+  if(!confirm("Delete price zone "+zone.name+"?"))return;
+  const {error:e}=await supabase.from("event_price_zones").delete().eq("id",zone.id).eq("event_id",id);
+  if(e)setError(e.message);else{setZones(old=>old.filter(z=>z.id!==zone.id));setActiveZone(null);}
+ }
  async function add(){
   const n=tables.length+1;
   const source=tables.find(t=>t.id===selected)??tables[tables.length-1];
@@ -345,6 +375,8 @@ export default function SeatingBuilder(){
 </div></details>
    <div className="mt-3 hidden flex-wrap items-center gap-2 rounded-xl border border-black/15 bg-white p-3 lg:flex">
      <span className="mr-2 text-sm font-black">Room layout</span>
+     <button type="button" onClick={()=>setEditingZones(v=>!v)} className="rounded-lg border border-black px-4 py-2 text-sm font-bold">{editingZones?"Finish price zones":"Edit price zones"}</button>
+     <button type="button" disabled={zoneSaving} onClick={()=>void addZone()} className="rounded-lg border border-black px-4 py-2 text-sm font-bold">+ Price zone</button>
      {background&&<button type="button" onClick={()=>setShowFloorPhoto(v=>!v)} aria-pressed={!showFloorPhoto} className="rounded-lg border border-black px-4 py-2 text-sm font-bold">{showFloorPhoto?"Hide photo":"Show photo"}</button>}
      <button type="button" onClick={()=>{setTraceMode(traceMode==="wall"?null:"wall");setDraftPoints([]);setFraming(false);panDrag.current=null;}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="wall"?"bg-black text-white":""}`}>Trace walls</button>
      <button type="button" onClick={()=>{setTraceMode(traceMode==="entrance"?null:"entrance");setDraftPoints([]);setFraming(false);panDrag.current=null;}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="entrance"?"bg-black text-white":""}`}>Mark entrance</button>
@@ -359,6 +391,9 @@ export default function SeatingBuilder(){
     <div className="overflow-x-auto rounded-xl border border-black/20 bg-white p-2">
      <div ref={stage} className="pointer-events-none relative w-full min-w-[320px] overflow-hidden rounded-lg bg-[#fff2db] lg:pointer-events-auto" style={{aspectRatio:W+"/"+H,touchAction:framing?"none":"pan-y"}} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={()=>{panDrag.current=null}} onPointerCancel={()=>{panDrag.current=null}}>
        {background&&showFloorPhoto&&<div className="pointer-events-none absolute inset-0 overflow-hidden"><img src={background} alt="Uploaded venue floor plan" className="absolute h-full w-full object-contain" style={{transform:`scale(${zoom})`,objectPosition:`${panX}% ${panY}%`,transformOrigin:`${panX}% ${panY}%`}}/></div>}
+       {zones.map(z=><div key={z.id} role={editingZones?"button":undefined} tabIndex={editingZones?0:undefined} onClick={()=>editingZones&&setActiveZone(z.id)} onPointerDown={e=>{if(!editingZones)return;e.stopPropagation();setActiveZone(z.id);zoneDrag.current={id:z.id,px:e.clientX,py:e.clientY,x:z.x,y:z.y};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{const d=zoneDrag.current;if(!editingZones||!d||d.id!==z.id)return;const scale=stage.current?.getBoundingClientRect().width/W||1;const nx=Math.max(0,Math.min(W-z.width,Math.round(d.x+(e.clientX-d.px)/scale))),ny=Math.max(0,Math.min(H-z.height,Math.round(d.y+(e.clientY-d.py)/scale)));setZones(old=>old.map(a=>a.id===z.id?{...a,x:nx,y:ny}:a));}} onPointerUp={e=>{const d=zoneDrag.current;if(d&&d.id===z.id){zoneDrag.current=null;void updateZone(z,{x:Math.max(0,Math.min(W-z.width,Math.round(d.x+(e.clientX-d.px)/(stage.current?.getBoundingClientRect().width/W||1)))),y:Math.max(0,Math.min(H-z.height,Math.round(d.y+(e.clientY-d.py)/(stage.current?.getBoundingClientRect().width/W||1))))})}}} className={`absolute ${editingZones?"z-[18] cursor-move border-2 border-dashed":"pointer-events-none z-[1] border"} ${activeZone===z.id?"border-black":"border-black/20"}`} style={{left:z.x/W*100+"%",top:z.y/H*100+"%",width:z.width/W*100+"%",height:z.height/H*100+"%",backgroundColor:z.color,opacity:editingZones?.36:.20}}>
+        <span className="block bg-white/80 p-1 text-xs font-bold">{z.name} · ${(z.price_cents/100).toFixed(0)}</span>
+       </div>)}
        <VenueLines features={features} editing={!!traceMode} onPointMove={moveFeaturePoint} onPick={setFeatureSelected} onPointPick={(fid,index)=>setSelectedPoint({id:fid,index})}/>
        {traceMode&&<svg viewBox="0 0 1000 700" preserveAspectRatio="none" className="absolute inset-0 z-[11] h-full w-full cursor-crosshair" onClick={e=>{if(e.detail>1)return;const point=coord(e);setDraftPoints(old=>[...old,point])}} onDoubleClick={e=>{e.preventDefault();void finishFeature()}}>
           {draftPoints.length>0&&<polyline points={draftPoints.map(p=>p.x+","+p.y).join(" ")} fill="none" stroke="#db2777" strokeWidth="5" strokeDasharray="10 6"/>}
@@ -415,6 +450,7 @@ export default function SeatingBuilder(){
        <label className="mt-4 flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={current.is_active} onChange={e=>mutate(current.id,{is_active:e.target.checked})}/>Table active</label>
        <button onClick={()=>void remove()} className="mt-5 text-sm font-bold text-red-700 underline">Remove table</button>
      </>:<><h2 className="text-xl font-black">Tables</h2><p className="mt-2 text-sm">Add a table or select one on the map.</p></>}
+     {editingZones&&<div className="mb-5 rounded-xl bg-[#fff2db] p-3"><h3 className="font-bold">Price areas</h3><p className="my-2 text-xs">Drag the coloured zones on the map, then adjust their size here. Tables inherit the price of the area containing their centre.</p>{zones.map(z=><div key={z.id} className="my-3 space-y-2 rounded-lg border bg-white p-3"><button type="button" onClick={()=>setActiveZone(z.id)} className="font-semibold underline">{z.name} · ${z.price_cents/100}</button><input aria-label="Zone name" className="w-full rounded border p-2" defaultValue={z.name} onBlur={e=>e.target.value!==z.name&&void updateZone(z,{name:e.target.value})}/><label className="block text-xs">Zone price (NZD)<input className="w-full rounded border p-2" type="number" min="0" step=".01" defaultValue={(z.price_cents/100).toFixed(2)} onBlur={e=>void updateZone(z,{price_cents:Math.round(Math.max(0,Number(e.target.value))*100)})}/></label><div className="grid grid-cols-2 gap-2">{(["width","height"] as const).map(field=><label key={field} className="text-xs">{field}<input type="number" className="w-full rounded border p-2" defaultValue={z[field]} min="40" max={field==="width"?1000-z.x:700-z.y} onBlur={e=>void updateZone(z,{[field]:Math.max(40,Math.min(field==="width"?1000-z.x:700-z.y,Number(e.target.value)))})}/></label>)}</div><button type="button" onClick={()=>void deleteZone(z)} className="text-xs text-red-700 underline">Delete zone</button></div>)}</div>}
      <div className="mt-5 border-t pt-4">{tables.map(t=><button key={t.id} onClick={()=>setSelected(t.id)} className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-[#fff2db]">{t.label} · {seats(t)} seats {t.table_price_cents!==null?"· $"+(t.table_price_cents/100).toFixed(2):""}</button>)}</div>
     </aside>
    </div>
