@@ -111,14 +111,14 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
       <button type="button" aria-label={en?"Zoom in":"Увеличить"} onClick={()=>zoomTo(zoom*1.4)} className="h-10 w-10 rounded border border-black/30 bg-white font-bold">+</button>
     </div>
    </div>
-   {zones.length>0&&<div className="sticky top-0 z-30 -mx-1 rounded-lg border border-black/10 bg-white/95 px-2 py-2 shadow-sm backdrop-blur lg:hidden" aria-label={en?"Seat prices":"Стоимость мест"}>
+   {zones.length>0&&<div className="relative z-10 -mx-1 rounded-lg border border-black/10 bg-white/95 px-2 py-2 shadow-sm backdrop-blur lg:hidden" aria-label={en?"Seat prices":"Стоимость мест"}>
      <div className="grid grid-cols-3 gap-1.5">{[...zones].sort((a,b)=>b.price_cents-a.price_cents).map(z=><div key={z.id} className="flex min-w-0 items-center gap-1.5 rounded-md px-1 py-1">
        <span className="h-5 w-5 shrink-0 rounded border border-black/10" style={{backgroundColor:z.color}}/>
        <span className="min-w-0 text-[11px] leading-tight"><span className="block truncate font-semibold">{z.name}</span><strong className="block text-xs">{money(z.price_cents)}</strong></span>
      </div>)}</div>
    </div>}
    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-   <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#F6F5F1]":"relative h-[65svh] min-h-[420px] overflow-hidden rounded-xl border border-black/15 bg-[#fff2db] lg:h-[min(78vh,880px)]"}>
+   <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#F6F5F1]":"relative h-[65svh] min-h-[420px] overflow-hidden rounded-xl border border-black/15 bg-[#F6F5F1] lg:h-[min(78vh,880px)]"}>
     {expanded&&<button type="button" onClick={()=>setExpanded(false)} className="absolute right-3 top-3 z-10 rounded-lg bg-white px-4 py-3 font-bold shadow">{en?"Close ✕":"Закрыть ✕"}</button>}
     <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet" aria-label={en?"Venue seating plan":"План зала"} role="group" className="block h-full w-full cursor-grab touch-none" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
       {zones.map(z=><g key={z.id}><polygon points={zonePoints(z).map(p=>p.x+","+p.y).join(" ")} fill={z.color} opacity=".44" stroke={z.color} strokeWidth="3"/><text x={z.x+8} y={z.y+20} fontSize="15" fill="#303030" fontWeight="bold">{z.name}</text></g>)}
