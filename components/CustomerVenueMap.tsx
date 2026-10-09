@@ -111,10 +111,11 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
       <button type="button" aria-label={en?"Zoom in":"Увеличить"} onClick={()=>zoomTo(zoom*1.4)} className="h-10 w-10 rounded border border-black/30 bg-white font-bold">+</button>
     </div>
    </div>
+   <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
    <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#fff2db]":"relative h-[65svh] min-h-[420px] overflow-hidden rounded-xl border border-black/15 bg-[#fff2db] lg:h-[min(78vh,880px)]"}>
     {expanded&&<button type="button" onClick={()=>setExpanded(false)} className="absolute right-3 top-3 z-10 rounded-lg bg-white px-4 py-3 font-bold shadow">{en?"Close ✕":"Закрыть ✕"}</button>}
     <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet" aria-label={en?"Venue seating plan":"План зала"} role="group" className="block h-full w-full cursor-grab touch-none" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
-      {zones.map(z=><g key={z.id}><polygon points={zonePoints(z).map(p=>p.x+","+p.y).join(" ")} fill={z.color} opacity=".28" stroke={z.color} strokeWidth="3"/><text x={z.x+8} y={z.y+20} fontSize="15" fill="#303030" fontWeight="bold">{z.name} · NZ$ {z.price_cents/100}</text></g>)}
+      {zones.map(z=><g key={z.id}><polygon points={zonePoints(z).map(p=>p.x+","+p.y).join(" ")} fill={z.color} opacity=".28" stroke={z.color} strokeWidth="3"/><text x={z.x+8} y={z.y+20} fontSize="15" fill="#303030" fontWeight="bold">{z.name}</text></g>)}
       {features.map(f=><g key={f.id}>
        <polyline points={f.points.map(p=>p.x+","+p.y).join(" ")} stroke={f.kind==="entrance"?"#16803b":"#252525"} strokeWidth={f.kind==="entrance"?10:7} strokeDasharray={f.kind==="entrance"?"11 9":undefined} fill="none" strokeLinecap="round" strokeLinejoin="round"/>
        {f.label&&f.points[0]&&<text x={f.points[0].x+12} y={f.points[0].y-15} fontSize="18" fill="#16803b">{f.label}</text>}
@@ -133,11 +134,22 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
       </g>)}
     </svg>
    </div>
+   {zones.length>0&&<aside aria-label={en?"Seat price areas":"Ценовые зоны"} className="rounded-xl border border-black/15 bg-white p-4 lg:sticky lg:top-5">
+     <h3 className="text-base font-bold">{en?"Seat price areas":"Цены по зонам"}</h3>
+     <p className="mt-1 text-xs text-gray-600">{en?"Full price per reserved seat":"Полная стоимость одного места"}</p>
+     <div className="mt-4 space-y-3">{[...zones].sort((a,b)=>b.price_cents-a.price_cents).map(z=><div key={z.id} className="flex items-center gap-3">
+       <span className="h-8 w-8 shrink-0 rounded-lg border border-black/10" style={{backgroundColor:z.color}} aria-hidden="true"/>
+       <span className="min-w-0 flex-1"><strong className="block text-sm">{z.name}</strong><span className="text-xs text-gray-600">{en?"per seat":"за место"}</span></span>
+       <strong className="text-base tabular-nums">{money(z.price_cents)}</strong>
+     </div>)}</div>
+     <p className="mt-4 border-t border-black/10 pt-3 text-xs text-gray-600">{en?"Each table has one price, including tables manually assigned to a price area.":"У всех мест за одним столом одна цена, включая столы, назначенные в зону вручную."}</p>
+   </aside>}
+   </div>
    <div className="flex flex-wrap gap-4 text-xs text-gray-600"><span>{en?"◯ Seat":"◯ Место"}</span><span className="text-pink-700">{en?"● Selected":"● Выбрано"}</span><span>{en?"Reservations are not open yet":"Бронирование ещё не открыто"}</span></div>
    {selected&&<div className="rounded-lg border border-black/15 bg-white p-4" aria-live="polite">
     <strong>{selected.label}</strong>
     <p className="text-sm">{seatPositions(selected).length} {en?"seats":"мест"} {mode==="whole_table"&&selected.table_price_cents!==null?(en?" · Whole table: ":" · Весь стол: ")+money(selected.table_price_cents):""}</p>
-    {mode==="individual_seats"&&<p className="mt-1 text-sm font-semibold">{en?"Seat surcharge: ":"Доплата за место: "}{zones.length>0?(zoneForTable(selected,zones)?money(zoneForTable(selected,zones)!.price_cents):(en?"Outside pricing zones":"Вне ценовых зон")):(selected.seat_price_cents==null?(en?"Price not set":"Цена не указана"):money(selected.seat_price_cents))}</p>}
+    {mode==="individual_seats"&&<p className="mt-1 text-sm font-semibold">{zones.length>0?(en?"Seat price: ":"Цена места: "):(en?"Seat surcharge: ":"Доплата за место: ")}{zones.length>0?(zoneForTable(selected,zones)?money(zoneForTable(selected,zones)!.price_cents):(en?"Outside pricing zones":"Вне ценовых зон")):(selected.seat_price_cents==null?(en?"Price not set":"Цена не указана"):money(selected.seat_price_cents))}</p>}
     <p className="mt-1 text-xs text-gray-600">{mode==="whole_table"?(en?"Tap a table to preview your choice.":"Нажмите на стол для предварительного выбора."):(en?"Tap a seat to preview your choice.":"Нажмите на отдельное место для предварительного выбора.")} {en?"This is not a reservation.":"Это не бронь."}</p>
     {mode==="individual_seats"&&<div className="mt-3"><p className="mb-2 text-sm font-semibold">{en?"Choose a seat at this table:":"Выберите место за этим столом:"}</p><div className="flex flex-wrap gap-2">{selectedSeats.map(seat=><button key={seat.key} type="button" onClick={()=>onToggle?.(seat.key)} className={`min-h-11 min-w-11 rounded-lg border px-3 font-bold ${selectedKeys.includes(seat.key)?"border-pink-600 bg-pink-100":"border-black/25 bg-white"}`}>{seat.label}</button>)}</div></div>}
    </div>}
