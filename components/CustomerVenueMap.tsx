@@ -3,6 +3,7 @@
 import {useEffect,useRef,useState} from "react";
 import type {VenueFeature} from "@/components/VenueLines";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
+import {zoneForTable,type PriceZone} from "@/lib/priceZones";
 
 export type PublicTable={id:string;label:string;shape?:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;is_active:boolean};
 export type PublicStage={stage_x:number;stage_y:number;stage_width:number;stage_height:number;stage_rotation:number};
@@ -22,7 +23,7 @@ function seatPositions(table:PublicTable):Seat[]{
  }
  return output;
 }
-export default function CustomerVenueMap({tables,features,stage,mode="whole_table",selectedKeys=[],onToggle}:{tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null;mode?:Mode;selectedKeys?:string[];onToggle?:(key:string)=>void}){
+export default function CustomerVenueMap({tables,features,stage,mode="whole_table",selectedKeys=[],onToggle,zones=[]}:{zones?:PriceZone[];tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null;mode?:Mode;selectedKeys?:string[];onToggle?:(key:string)=>void}){
  const en=useSiteLanguage()==="en";
  const [view,setView]=useState({x:0,y:0,w:WIDTH,h:HEIGHT});
  const [baseWidth,setBaseWidth]=useState(WIDTH);
@@ -113,6 +114,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
    <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#fff2db]":"relative h-[65svh] min-h-[420px] overflow-hidden rounded-xl border border-black/15 bg-[#fff2db] lg:h-[min(78vh,880px)]"}>
     {expanded&&<button type="button" onClick={()=>setExpanded(false)} className="absolute right-3 top-3 z-10 rounded-lg bg-white px-4 py-3 font-bold shadow">{en?"Close ✕":"Закрыть ✕"}</button>}
     <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet" aria-label={en?"Venue seating plan":"План зала"} role="group" className="block h-full w-full cursor-grab touch-none" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+      {zones.map(z=><g key={z.id}><rect x={z.x} y={z.y} width={z.width} height={z.height} fill={z.color} opacity=".28" stroke={z.color} strokeWidth="3"/><text x={z.x+8} y={z.y+20} fontSize="15" fill="#303030" fontWeight="bold">{z.name} · NZ$ {z.price_cents/100}</text></g>)}
       {features.map(f=><g key={f.id}>
        <polyline points={f.points.map(p=>p.x+","+p.y).join(" ")} stroke={f.kind==="entrance"?"#16803b":"#252525"} strokeWidth={f.kind==="entrance"?10:7} strokeDasharray={f.kind==="entrance"?"11 9":undefined} fill="none" strokeLinecap="round" strokeLinejoin="round"/>
        {f.label&&f.points[0]&&<text x={f.points[0].x+12} y={f.points[0].y-15} fontSize="18" fill="#16803b">{f.label}</text>}
@@ -135,7 +137,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
    {selected&&<div className="rounded-lg border border-black/15 bg-white p-4" aria-live="polite">
     <strong>{selected.label}</strong>
     <p className="text-sm">{seatPositions(selected).length} {en?"seats":"мест"} {mode==="whole_table"&&selected.table_price_cents!==null?(en?" · Whole table: ":" · Весь стол: ")+money(selected.table_price_cents):""}</p>
-    {mode==="individual_seats"&&<p className="mt-1 text-sm font-semibold">{en?"Seat surcharge: ":"Доплата за место: "}{selected.seat_price_cents==null?(en?"Price not set":"Цена не указана"):money(selected.seat_price_cents)}</p>}
+    {mode==="individual_seats"&&<p className="mt-1 text-sm font-semibold">{en?"Seat surcharge: ":"Доплата за место: "}{zones.length>0?(zoneForTable(selected,zones)?money(zoneForTable(selected,zones)!.price_cents):(en?"Outside pricing zones":"Вне ценовых зон")):(selected.seat_price_cents==null?(en?"Price not set":"Цена не указана"):money(selected.seat_price_cents))}</p>}
     <p className="mt-1 text-xs text-gray-600">{mode==="whole_table"?(en?"Tap a table to preview your choice.":"Нажмите на стол для предварительного выбора."):(en?"Tap a seat to preview your choice.":"Нажмите на отдельное место для предварительного выбора.")} {en?"This is not a reservation.":"Это не бронь."}</p>
     {mode==="individual_seats"&&<div className="mt-3"><p className="mb-2 text-sm font-semibold">{en?"Choose a seat at this table:":"Выберите место за этим столом:"}</p><div className="flex flex-wrap gap-2">{selectedSeats.map(seat=><button key={seat.key} type="button" onClick={()=>onToggle?.(seat.key)} className={`min-h-11 min-w-11 rounded-lg border px-3 font-bold ${selectedKeys.includes(seat.key)?"border-pink-600 bg-pink-100":"border-black/25 bg-white"}`}>{seat.label}</button>)}</div></div>}
    </div>}
