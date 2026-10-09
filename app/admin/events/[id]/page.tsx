@@ -115,6 +115,17 @@ export default function InlineEventEditor() {
   const title = event?.[titleKey] ?? "";
   const description = event?.[descKey] ?? "";
 
+  const imageEditor = <div className="absolute bottom-full right-0 z-30 mb-2 w-[min(90vw,340px)] rounded-xl border border-black/20 bg-white p-4 text-left shadow-2xl" onClick={e=>e.stopPropagation()}>
+    <div className="mb-3 flex items-center justify-between gap-2"><strong className="text-base">Event image</strong><button type="button" onClick={()=>setEditingImage(false)} aria-label="Close image editor" className="rounded px-2 py-1 text-lg">×</button></div>
+    <label htmlFor="event-image-upload" className="text-sm font-semibold">Upload from device</label>
+    <input id="event-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploading} onChange={uploadImage} className="mt-2 block w-full text-sm"/>
+    <p className="mt-1 text-xs text-gray-500">JPG, PNG, WebP or GIF · up to 10 MB</p>
+    <label className="mt-3 block text-sm font-semibold">Or use image URL<input type="url" className="mt-1 w-full rounded border p-2 font-normal" value={event?.image_url??""} onChange={e=>change("image_url",e.target.value)}/></label>
+    {uploading&&<p role="status" className="mt-2 text-sm">Uploading…</p>}
+    {error&&<p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
+    {status&&<p role="status" className="mt-2 text-sm text-green-700">{status}</p>}
+  </div>;
+
   if (loading) return <main className="min-h-[75vh] bg-[#fff2db] p-6" role="status">Loading event…</main>;
   if (!event) return <main className="min-h-[75vh] bg-[#fff2db] p-6" role="alert">{error || "Event unavailable."}</main>;
 
@@ -132,19 +143,6 @@ export default function InlineEventEditor() {
         </div>
       </div>
 
-      {!isPreview && editingImage && <div className="border-b border-black/20 bg-[#fff2db] px-5 py-4 sm:px-10 lg:px-[6vw]">
-        <div className="max-w-xl">
-          <h2 className="mb-2 font-black">Edit event photo</h2>
-          <label htmlFor="event-image-upload" className="block text-sm font-bold">Upload a photo</label>
-          <input id="event-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploading} onChange={uploadImage} className="mt-2 block w-full rounded border bg-white p-3 text-sm"/>
-          <p className="mt-2 text-xs">JPG, PNG, WebP or GIF · up to 10 MB</p>
-          {uploading && <p role="status" className="mt-2 font-semibold">Uploading…</p>}
-          <label className="mt-4 block text-sm font-bold">Or paste an image URL
-            <input type="url" className="mt-2 w-full rounded border bg-white p-3 font-normal" value={event.image_url??""} onChange={e=>change("image_url",e.target.value)}/>
-          </label>
-          <button type="button" onClick={()=>setEditingImage(false)} className="mt-3 text-sm font-bold underline">Close</button>
-        </div>
-      </div>}
       <EventPresentation
         event={{slug:event.slug,title,description,event_date:event.event_date,event_time:event.event_time,location:event.location,image_url:event.image_url}}
         heading={isPreview ? undefined : <input aria-label="Event title" value={title} onChange={e=>change(titleKey,e.target.value)}
@@ -159,8 +157,8 @@ export default function InlineEventEditor() {
           <label className="block text-xs font-bold">Time<input type="time" value={event.event_time.slice(0,5)} onChange={e=>change("event_time",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
           <label className="block text-xs font-bold">Venue<input value={event.location??""} onChange={e=>change("location",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
         </div>}
-        bannerControl={!isPreview?<button type="button" onClick={()=>setEditingImage(!editingImage)} className="rounded bg-white px-4 py-3 text-sm font-bold">Change image</button>:undefined}
-        imageControl={!isPreview?<button type="button" onClick={()=>setEditingImage(!editingImage)} className="rounded bg-white px-3 py-2 text-sm font-bold">Edit photo</button>:undefined}
+        bannerControl={!isPreview?<div className="relative">{editingImage&&imageEditor}<button type="button" onClick={()=>setEditingImage(!editingImage)} aria-expanded={editingImage} className="rounded bg-white px-4 py-3 text-sm font-bold shadow">Change image</button></div>:undefined}
+        imageControl={!isPreview?<button type="button" onClick={()=>{setEditingImage(true);window.scrollTo({top:0,behavior:"smooth"});}} className="rounded bg-white px-3 py-2 text-sm font-bold shadow">Edit photo ↑</button>:undefined}
         bookingAction={()=>{}}
         bookingDisabled
       />
