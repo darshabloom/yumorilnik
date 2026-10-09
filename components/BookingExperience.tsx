@@ -73,7 +73,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
          </fieldset>;
        })}
        <p className="rounded-lg bg-[#fff2db] p-4 text-sm">{en?"Booking confirmation and guest-data submission are not yet enabled.":"Подтверждение бронирования и отправка данных гостей пока недоступны."}</p>
-       <button type="button" onClick={()=>{setGuestDetails(false);setReview(true)}} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Back to review":"Вернуться к заказу"}</button>
+       <button type="button" onClick={()=>{setStep("review")}} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Back to review":"Вернуться к заказу"}</button>
      </section>:step==="review"?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8" aria-label={en?"Order review":"Проверка заказа"}>
        <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Review your selection":"Проверьте ваш выбор"}</h2><button type="button" onClick={()=>setStep("seats")} className="text-sm font-semibold underline">{en?"← Edit":"← Изменить"}</button></div>
        <div><h3 className="mb-2 font-semibold">{en?"Admission tickets":"Входные билеты"}</h3>{tickets.filter(t=>(quantities[t.id]??0)>0).map(t=><div key={t.id} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{t.name} × {quantities[t.id]}</span><span>{zonePricing&&/adult|взросл/i.test(t.name)?(en?"Included in seat prices":"Включено в стоимость мест"):format.format(t.price_cents*(quantities[t.id]??0)/100)}</span></div>)}</div>
