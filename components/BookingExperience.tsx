@@ -15,11 +15,13 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [quantities,setQuantities]=useState<Record<string,number>>({});
  const [mapSelections,setMapSelections]=useState<string[]>([]);
  const [review,setReview]=useState(false);
+ const [guestDetails,setGuestDetails]=useState(false);
+ const [guestInfo,setGuestInfo]=useState<Record<string,{name:string;email:string;phone:string}>>({});
  const language=useSiteLanguage();
  const en=language==="en";
  const tableBooking=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
  const seatingMode=tableBooking?"whole_table":"individual_seats";
- function toggleMapSelection(key:string){setMapSelections(old=>old.includes(key)?old.filter(item=>item!==key):[...old,key]);setReview(false);}
+ function toggleMapSelection(key:string){setMapSelections(old=>old.includes(key)?old.filter(item=>item!==key):[...old,key]);setReview(false);setGuestDetails(false);}
  const count=tickets.reduce((total,t)=>total+(quantities[t.id]??0),0);
  const ticketTotal=tickets.reduce((sum,t)=>sum+t.price_cents*(quantities[t.id]??0),0);
  const adultTicketCount=tickets.filter(t=>/adult|взросл/i.test(t.name)).reduce((sum,t)=>sum+(quantities[t.id]??0),0);
@@ -42,7 +44,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const max=10;
  function adjust(ticket:BookingTicket,delta:number){
    const available=Math.max(0,(ticket.quantity_total??0)-(ticket.quantity_sold??0));
-   setQuantities(prev=>({...prev,[ticket.id]:Math.max(0,Math.min(max,available,(prev[ticket.id]??0)+delta))}));setReview(false);
+   setQuantities(prev=>({...prev,[ticket.id]:Math.max(0,Math.min(max,available,(prev[ticket.id]??0)+delta))}));setReview(false);setGuestDetails(false);
  }
  return <main className="min-h-screen bg-[#fffaf1] pb-36 text-black">
    <div className="relative bg-[#fffaf1]">
@@ -51,13 +53,28 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    <div className="mx-auto w-full max-w-[1600px] px-3 py-5 sm:px-6 sm:py-7 lg:px-10">
      <Link href={`/events/${event.slug}`} className="text-sm font-bold underline">{en?"← Back to event":"← Вернуться к мероприятию"}</Link>
      <h1 className="mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl">{en&&event.title_en?event.title_en:event.title}</h1>
-     {review?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8" aria-label={en?"Order review":"Проверка заказа"}>
+     {guestDetails?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8">
+       <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Guest details":"Данные гостей"}</h2><button type="button" className="text-sm underline" onClick={()=>{setGuestDetails(false);setReview(true)}}>{en?"← Back to review":"← К заказу"}</button></div>
+       <p className="text-sm text-gray-600">{en?"Enter each adult's name. Email and phone are optional. This is a local preview: nothing is submitted or stored.":"Укажите имя каждого взрослого. Телефон и email необязательны. Это только предварительный просмотр: данные не отправляются и не сохраняются."}</p>
+       {Array.from({length:adultTicketCount},(_,i)=>{
+         const key=String(i),guest=guestInfo[key]??{name:"",email:"",phone:""};
+         const update=(field:"name"|"email"|"phone",value:string)=>setGuestInfo(old=>({...old,[key]:{...(old[key]??{name:"",email:"",phone:""}),[field]:value}}));
+         return <fieldset key={key} className="space-y-3 rounded-xl border border-black/15 p-4"><legend className="px-2 font-semibold">{en?"Adult":"Взрослый"} {i+1}</legend>
+           <label className="block text-sm font-semibold">{en?"Full name":"Имя и фамилия"} *<input autoComplete="off" type="text" value={guest.name} onChange={e=>update("name",e.target.value)} className="mt-1 block w-full rounded-lg border border-black/30 p-3"/></label>
+           <div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-semibold">{en?"Email (optional)":"Email (необязательно)"}<input type="email" value={guest.email} onChange={e=>update("email",e.target.value)} className="mt-1 block w-full rounded-lg border border-black/30 p-3"/></label>
+           <label className="block text-sm font-semibold">{en?"Phone (optional)":"Телефон (необязательно)"}<input type="tel" value={guest.phone} onChange={e=>update("phone",e.target.value)} className="mt-1 block w-full rounded-lg border border-black/30 p-3"/></label></div>
+         </fieldset>;
+       })}
+       <p className="rounded-lg bg-[#fff2db] p-4 text-sm">{en?"Booking confirmation and guest-data submission are not yet enabled.":"Подтверждение бронирования и отправка данных гостей пока недоступны."}</p>
+       <button type="button" onClick={()=>{setGuestDetails(false);setReview(true)}} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Back to review":"Вернуться к заказу"}</button>
+     </section>:{review?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8" aria-label={en?"Order review":"Проверка заказа"}>
        <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Review your selection":"Проверьте ваш выбор"}</h2><button type="button" onClick={()=>setReview(false)} className="text-sm font-semibold underline">{en?"← Edit":"← Изменить"}</button></div>
        <div><h3 className="mb-2 font-semibold">{en?"Admission tickets":"Входные билеты"}</h3>{tickets.filter(t=>(quantities[t.id]??0)>0).map(t=><div key={t.id} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{t.name} × {quantities[t.id]}</span><span>{format.format(t.price_cents*(quantities[t.id]??0)/100)}</span></div>)}</div>
        {event.seating_mode!=="general_admission"&&<div><h3 className="mb-2 font-semibold">{tableBooking?(en?"Selected tables":"Выбранные столы"):(en?"Selected seats":"Выбранные места")}</h3>{selections.length===0?<p className="text-sm text-gray-600">{en?"No seats selected":"Места не выбраны"}</p>:selections.map(s=><div key={s.key} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{s.label}{s.seat?` · ${en?"seat":"место"} ${s.seat}`:""}</span><span>{s.cost==null?(en?"Price not set":"Цена не указана"):format.format(s.cost/100)}</span></div>)}</div>}
        <div className="space-y-1 border-t border-black/20 pt-4"><div className="flex justify-between text-sm"><span>{en?"Tickets":"Билеты"}</span><span>{format.format(ticketTotal/100)}</span></div><div className="flex justify-between text-sm"><span>{en?"Seats":"Места"}</span><span>{pricingIncomplete?(en?"Price pending":"Цена уточняется"):format.format((tableBooking?tableTotal:seatTotal)/100)}</span></div><div className="flex justify-between pt-2 text-lg font-bold"><span>{en?"Total":"Итого"}</span><span>{pricingIncomplete?(en?"Price pending":"Цена уточняется"):format.format(total/100)}</span></div></div>
        {pricingIncomplete&&<p role="status" className="rounded-lg border border-orange-300 bg-orange-50 p-4 text-sm">{en?"Some selected seats have not been priced by the organiser. The total will be available when prices are set.":"Для некоторых выбранных мест цена ещё не установлена организатором. Итоговая сумма будет известна после настройки цен."}</p>}
        <p className="rounded-lg bg-[#fff2db] p-4 text-sm">{en?"This is a preview only. Seats have not been reserved. Payment and order confirmation are not available yet.":"Это предварительный расчёт. Места не забронированы. Оплата и подтверждение заказа пока недоступны."}</p>
+       <button type="button" onClick={()=>{setGuestDetails(true);setReview(false);window.scrollTo({top:0,behavior:"smooth"})}} className="w-full rounded-lg bg-black px-5 py-3 font-semibold text-white">{en?"Enter guest details →":"Указать данные гостей →"}</button>
        <button type="button" onClick={()=>setReview(false)} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Edit selection":"Изменить выбор"}</button>
      </section>:<div className="mt-6 flex flex-col gap-8">
        <section aria-labelledby="tickets-title" className="space-y-3">
@@ -98,7 +115,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/20 bg-white px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] sm:px-8">
      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
        <div><p className="text-xs font-semibold text-gray-600">{tableBooking?`${mapSelections.length} ${en?"tables selected · preview":"стол(ов) выбрано · предварительно"}`: `${count} ${en?"tickets":"билет(ов)"}`} {event.seating_mode==="general_admission"?(en?" · General admission":" · Свободная посадка"):!tableBooking?` · ${mapSelections.length} ${en?"seats selected · preview":"мест выбрано · предварительно"}`:""}</p><p className="text-sm text-gray-600">{en?"Tickets":"Билеты"}: {format.format(ticketTotal/100)} · {en?"Seats":"Места"}: {pricingIncomplete?(en?"Price pending":"Цена не указана"):format.format((tableBooking?tableTotal:seatTotal)/100)}</p><p className="text-2xl font-black">{pricingIncomplete?"—":format.format(total/100)}</p><p className="text-[11px] text-gray-600">{en?"Not a reservation":"Не является бронированием"}</p></div>
-       <button type="button" disabled={review||!canReview} onClick={()=>{setReview(true);window.scrollTo({top:0,behavior:"smooth"});}} title={!canReview?(en?"Choose tickets and required seats":"Выберите билеты и необходимые места"):undefined} className="min-h-12 rounded-lg bg-black px-5 py-3 font-bold text-white disabled:opacity-45">{review?(en?"Order preview":"Предпросмотр заказа"):(en?"Review selection →":"Проверить выбор →")}</button>
+       <button type="button" disabled={review||guestDetails||!canReview} onClick={()=>{setReview(true);window.scrollTo({top:0,behavior:"smooth"});}} title={!canReview?(en?"Choose tickets and required seats":"Выберите билеты и необходимые места"):undefined} className="min-h-12 rounded-lg bg-black px-5 py-3 font-bold text-white disabled:opacity-45">{guestDetails?(en?"Guest details preview":"Данные гостей"):review?(en?"Order preview":"Предпросмотр заказа"):(en?"Review selection →":"Проверить выбор →")}</button>
      </div>
    </div>
  </main>;
