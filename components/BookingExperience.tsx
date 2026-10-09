@@ -12,8 +12,14 @@ export type BookingTicket = {
 export type BookingEvent = { slug:string;title:string;image_url:string|null;banner_fit?:string|null;seating_mode?:string|null;table_booking_mode?:string|null };
 export default function BookingExperience({event,tickets,venue}:{event:BookingEvent;tickets:BookingTicket[];venue?:{tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null}}) {
  const [quantities,setQuantities]=useState<Record<string,number>>({});
+ const [mapSelections,setMapSelections]=useState<string[]>([]);
+ const tableBooking=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
+ const seatingMode=tableBooking?"whole_table":"individual_seats";
+ function toggleMapSelection(key:string){setMapSelections(old=>old.includes(key)?old.filter(item=>item!==key):[...old,key]);}
  const count=tickets.reduce((total,t)=>total+(quantities[t.id]??0),0);
- const total=tickets.reduce((sum,t)=>sum+t.price_cents*(quantities[t.id]??0),0);
+ const ticketTotal=tickets.reduce((sum,t)=>sum+t.price_cents*(quantities[t.id]??0),0);
+ const tableTotal=tableBooking?mapSelections.reduce((sum,key)=>sum+(venue?.tables.find(t=>t.id===key)?.table_price_cents??0),0):0;
+ const total=tableBooking?tableTotal:ticketTotal;
  const currency=tickets[0]?.currency?.toUpperCase()||"NZD";
  const format=useMemo(()=>new Intl.NumberFormat("en-NZ",{style:"currency",currency}),[currency]);
  const max=10;
@@ -51,7 +57,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
        </section>
        <section aria-labelledby="seating-title" className="space-y-4">
          <h2 id="seating-title" className="text-2xl font-black">{event.seating_mode==="general_admission"?"Вход без закреплённых мест":event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?"Места за столами":"Бронирование столов"):"Рассадка"}</h2>
-         {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage}/>:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
+         {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage} mode={seatingMode} selectedKeys={mapSelections} onToggle={toggleMapSelection}/>:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
             <div className="flex h-12 w-40 items-center justify-center rounded-lg bg-[#f5a047]/50 text-sm font-bold">Сцена</div>
             <div className="grid grid-cols-3 gap-6 opacity-35" aria-hidden="true">
               {Array.from({length:9},(_,i)=><div key={i} className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-black/50 bg-[#fff2db]">○</div>)}
@@ -64,7 +70,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    </div>
    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/20 bg-white px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] sm:px-8">
      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-       <div><p className="text-xs font-semibold text-gray-600">{count} {count===1?"билет":"билетов"} {event.seating_mode==="general_admission"?" · Свободная посадка":` · 0 из ${count} мест выбрано`}</p><p className="text-2xl font-black">{format.format(total/100)}</p></div>
+       <div><p className="text-xs font-semibold text-gray-600">{tableBooking?`${mapSelections.length} стол(ов) выбрано · предварительно`: `${count} билет(ов)`} {event.seating_mode==="general_admission"?" · Свободная посадка":!tableBooking?` · ${mapSelections.length} мест выбрано · предварительно`:""}</p><p className="text-2xl font-black">{format.format(total/100)}</p><p className="text-[11px] text-gray-600">Не является бронированием</p></div>
        <button type="button" disabled title="Продажа и выбор мест станут доступны после настройки зала и оплаты" className="min-h-12 rounded-lg bg-black px-5 py-3 font-bold text-white opacity-45">Продолжить →</button>
      </div>
    </div>
