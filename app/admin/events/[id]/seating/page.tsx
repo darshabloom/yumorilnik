@@ -5,9 +5,9 @@ import {useParams,useRouter} from "next/navigation";
 import {supabase} from "@/lib/supabaseClient";
 import {VenueLines, type VenueFeature, type Point} from "@/components/VenueLines";
 import CustomerVenueMap from "@/components/CustomerVenueMap";
-import {type PriceZone,zonePoints,type ZonePoint} from "@/lib/priceZones";
+import {type PriceZone,zonePoints,zoneForTable,type ZonePoint} from "@/lib/priceZones";
 
-type TableItem={id:string;event_id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;is_active:boolean;shape:string};
+type TableItem={id:string;event_id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id:string|null;is_active:boolean;shape:string};
 type EventItem={id:string;title:string;seating_mode:string;table_booking_mode:string};
 const W=1000,H=700;
 function seats(t:TableItem){return t.seats_top+t.seats_bottom+t.seats_left+t.seats_right}
@@ -115,7 +115,7 @@ export default function SeatingBuilder(){
   const work=Object.values(batch);
   if(work.length){setMessage("Saving…");setError("");}
   for(const t of work){
-   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,seat_price_cents:t.seat_price_cents,shape:t.shape,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
+   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,seat_price_cents:t.seat_price_cents,price_zone_id:t.price_zone_id,shape:t.shape,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
    if(e){pending.current[t.id]=pending.current[t.id]??t;setError("Autosave failed: "+e.message);setMessage("Not saved");}
   }
   flushing.current=false;
@@ -265,6 +265,13 @@ export default function SeatingBuilder(){
   if(e)setError("Zone not saved: "+e.message);else setMessage("Price zone saved");
   setZoneSaving(false);
  }
+ async function assignTablePriceZone(table:TableItem,zoneId:string|null){
+  setError("");setMessage("Saving table pricing area…");
+  const {error:e}=await supabase.from("seating_tables").update({price_zone_id:zoneId}).eq("id",table.id).eq("event_id",id);
+  if(e){setError("Could not save table pricing area: "+e.message);return;}
+  setTables(old=>{const next=old.map(t=>t.id===table.id?{...t,price_zone_id:zoneId}:t);latest.current=next;return next;});
+  setMessage(table.label+" pricing area saved");
+ }
  async function deleteZone(zone:PriceZone){
   if(!confirm("Delete price zone "+zone.name+"?"))return;
   const {error:e}=await supabase.from("event_price_zones").delete().eq("id",zone.id).eq("event_id",id);
@@ -275,7 +282,7 @@ export default function SeatingBuilder(){
   const source=tables.find(t=>t.id===selected)??tables[tables.length-1];
   const used=new Set(tables.map(t=>t.label));
   let nextNumber=n;while(used.has("Table "+nextNumber))nextNumber++;
-  const record={event_id:id,label:"Table "+nextNumber,shape:source?.shape??"rectangle",x:source?Math.min(900,source.x+35):130,y:source?Math.min(620,source.y+45):130,width:source?.width??140,height:source?.height??65,rotation_deg:source?.rotation_deg??0,seats_top:source?.seats_top??2,seats_bottom:source?.seats_bottom??2,seats_left:source?.seats_left??1,seats_right:source?.seats_right??1,table_price_cents:source?.table_price_cents??null,seat_price_cents:source?.seat_price_cents??null,is_active:true};
+  const record={event_id:id,label:"Table "+nextNumber,shape:source?.shape??"rectangle",x:source?Math.min(900,source.x+35):130,y:source?Math.min(620,source.y+45):130,width:source?.width??140,height:source?.height??65,rotation_deg:source?.rotation_deg??0,seats_top:source?.seats_top??2,seats_bottom:source?.seats_bottom??2,seats_left:source?.seats_left??1,seats_right:source?.seats_right??1,table_price_cents:source?.table_price_cents??null,seat_price_cents:source?.seat_price_cents??null,price_zone_id:source?.price_zone_id??null,is_active:true};
   setSaving(true);setError("");
   const {data,error:e}=await supabase.from("seating_tables").insert(record).select("*").single();
   if(e)setError(e.message);else{setTables(old=>{const next=[...old,data as TableItem];latest.current=next;return next});setSelected(data.id);setMessage("Table added")}
@@ -466,6 +473,21 @@ export default function SeatingBuilder(){
        <button onClick={()=>void remove()} className="mt-5 text-sm font-bold text-red-700 underline">Remove table</button>
      </>:<><h2 className="text-xl font-black">Tables</h2><p className="mt-2 text-sm">Add a table or select one on the map.</p></>}
      {editingZones&&<div className="mb-5 rounded-xl bg-[#fff2db] p-3"><h3 className="font-bold">Price areas</h3><p className="my-2 text-xs">Click a zone, then drag its pink corner handles to reshape the area. Add or remove corners below. A table inherits the zone containing its centre.</p>{zones.map(z=><div key={z.id} className="my-3 space-y-2 rounded-lg border bg-white p-3"><button type="button" onClick={()=>setActiveZone(z.id)} className="font-semibold underline">{z.name} · ${z.price_cents/100}</button><input aria-label="Zone name" className="w-full rounded border p-2" defaultValue={z.name} onBlur={e=>e.target.value!==z.name&&void updateZone(z,{name:e.target.value})}/><label className="block text-xs">Zone price (NZD)<input className="w-full rounded border p-2" type="number" min="0" step=".01" defaultValue={(z.price_cents/100).toFixed(2)} onBlur={e=>void updateZone(z,{price_cents:Math.round(Math.max(0,Number(e.target.value))*100)})}/></label><div className="flex gap-2"><button type="button" onClick={()=>{const points=zonePoints(z);const index=points.length-1;const a=points[index],b=points[0];void updateZone(z,{points:[...points,{x:Math.round((a.x+b.x)/2),y:Math.round((a.y+b.y)/2)}]})}} className="rounded border px-2 py-1 text-xs">+ Add corner</button><button type="button" disabled={zonePoints(z).length<=3} onClick={()=>void updateZone(z,{points:zonePoints(z).slice(0,-1)})} className="rounded border px-2 py-1 text-xs disabled:opacity-40">− Remove corner</button></div><button type="button" onClick={()=>void deleteZone(z)} className="text-xs text-red-700 underline">Delete zone</button></div>)}</div>}
+     <section className="mb-5 rounded-xl border border-black/15 bg-[#fffaf1] p-3">
+       <h3 className="text-lg font-black">Table price areas</h3>
+       <p className="mt-1 text-xs text-gray-600">This list controls ticket prices. Editing it never moves tables or changes the coloured outlines. Tables without an override follow the area under their centre.</p>
+       {zones.map(z=>{
+         const members=tables.filter(t=>zoneForTable(t,zones)?.id===z.id).sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true}));
+         return <div key={z.id} className="mt-3 border-b border-black/10 pb-3">
+           <div className="flex items-center gap-2"><span className="h-3 w-3 shrink-0 rounded-full" style={{backgroundColor:z.color}}/><strong>{z.name} · ${(z.price_cents/100).toFixed(2)}</strong></div>
+           <p className="mt-1 text-sm">{members.length?members.map(t=>t.label).join(", "):"No tables assigned"}</p>
+         </div>;
+       })}
+       {tables.some(t=>!zoneForTable(t,zones))&&<p className="mt-3 text-sm text-red-700">No price area: {tables.filter(t=>!zoneForTable(t,zones)).map(t=>t.label).join(", ")}</p>}
+       <details className="mt-4"><summary className="cursor-pointer text-sm font-bold underline">Edit table assignments</summary>
+         <div className="mt-3 space-y-2">{[...tables].sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true})).map(t=><label key={t.id} className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate font-medium">{t.label}</span><select aria-label={`Pricing area for ${t.label}`} className="max-w-44 rounded border border-black/20 bg-white p-2 text-xs" value={t.price_zone_id??""} onChange={e=>void assignTablePriceZone(t,e.target.value||null)}><option value="">Follow map automatically</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name} · ${z.price_cents/100}</option>)}</select></label>)}</div>
+       </details>
+     </section>
      <div className="mt-5 border-t pt-4">{tables.map(t=><button key={t.id} onClick={()=>setSelected(t.id)} className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-[#fff2db]">{t.label} · {seats(t)} seats {t.table_price_cents!==null?"· $"+(t.table_price_cents/100).toFixed(2):""}</button>)}</div>
     </aside>
    </div>
