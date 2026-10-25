@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import {useSiteLanguage} from "@/lib/useSiteLanguage";
 
 type EventRow = {
   id: string; slug: string; title: string; title_en: string | null;
@@ -18,6 +19,7 @@ const empty: Fields = { slug: "", title: "", title_en: "", description: "",
 
 export default function AdminEventsPage() {
   const router = useRouter();
+  const en=useSiteLanguage()==="en";
   const [allowed, setAllowed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -94,7 +96,7 @@ export default function AdminEventsPage() {
       setEvents(current => [data as EventRow, ...current.filter(item => item.id !== data.id)]
         .sort((a, b) => b.event_date.localeCompare(a.event_date)));
       setSelectedId(data.id);
-      setMessage(data.is_active ? "Published event saved." : "Draft saved.");
+      setMessage(data.is_active ? (en?"Published event saved.":"Мероприятие опубликовано.") : (en?"Draft saved.":"Черновик сохранён."));
       setShowForm(false);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -103,76 +105,76 @@ export default function AdminEventsPage() {
 
   const inputClass = "mt-2 w-full rounded-lg border-2 border-black bg-white px-4 py-3 text-base";
   const labelClass = "block text-sm font-bold";
-  if (loading) return <main className="min-h-[75vh] bg-[#fff2db] p-6" role="status">Loading events…</main>;
-  if (!allowed) return <main className="min-h-[75vh] bg-[#fff2db] p-6" role="alert">{error || "Checking access…"}</main>;
+  if (loading) return <main className="min-h-[75vh] bg-[#fff2db] p-6" role="status">{en?"Loading events…":"Загрузка мероприятий…"}</main>;
+  if (!allowed) return <main className="min-h-[75vh] bg-[#fff2db] p-6" role="alert">{error || (en?"Checking access…":"Проверяем доступ…")}</main>;
   return (
     <main className="min-h-[80vh] bg-[#fff2db] px-4 py-8 text-black sm:px-8">
       <div className="mx-auto max-w-5xl">
-        <Link href="/admin" className="text-sm font-bold underline">← Dashboard</Link>
+        <Link href="/admin" className="text-sm font-bold underline">{en?"← Dashboard":"← Панель управления"}</Link>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <div><p className="text-xs font-bold uppercase tracking-widest text-pink-700">Yumorilnik / Admin</p>
-          <h1 className="mt-1 text-3xl font-black">Manage events</h1></div>
-          <div className="flex items-center gap-2"><label htmlFor="new-event-type" className="sr-only">New event type</label><select id="new-event-type" value={fields.event_type} onChange={e=>setFields(old=>({...old,event_type:e.target.value as Fields["event_type"]}))} className="rounded-lg border border-black bg-white px-3 py-3"><option value="internal">Internal</option><option value="external">External</option></select><button type="button" onClick={reset} className="rounded-lg bg-black px-4 py-3 font-bold text-white">+ Add event</button></div>
+          <h1 className="mt-1 text-3xl font-black">{en?"Manage events":"Управление мероприятиями"}</h1></div>
+          <div className="flex items-center gap-2"><label htmlFor="new-event-type" className="sr-only">{en?"New event type":"Тип мероприятия"}</label><select id="new-event-type" value={fields.event_type} onChange={e=>setFields(old=>({...old,event_type:e.target.value as Fields["event_type"]}))} className="rounded-lg border border-black bg-white px-3 py-3"><option value="internal">{en?"Internal":"Наши"}</option><option value="external">{en?"External":"Стороннее"}</option></select><button type="button" onClick={reset} className="rounded-lg bg-black px-4 py-3 font-bold text-white">{en?"+ Add event":"+ Добавить мероприятие"}</button></div>
         </div>
 
         {message && !showForm && <p role="status" className="mt-5 rounded bg-green-100 p-4 text-green-900">{message}</p>}
         {error && !showForm && <p role="alert" className="mt-5 rounded bg-red-100 p-4 text-red-900">{error}</p>}
         {showForm && <form onSubmit={save} className="mt-7 space-y-6 rounded-2xl border-2 border-black bg-white p-5 sm:p-8">
-          <button type="button" onClick={backToList} className="text-sm font-bold underline">← Back to events</button>
-          <div><h2 className="text-xl font-black">{selectedId ? "Edit event" : "Create event"}</h2>
-          <p className="mt-1 text-sm text-gray-600">Basic details and publishing. Ticketing and seating come next.</p></div>
+          <button type="button" onClick={backToList} className="text-sm font-bold underline">{en?"← Back to events":"← К мероприятиям"}</button>
+          <div><h2 className="text-xl font-black">{selectedId?(en?"Edit event":"Редактировать мероприятие"):(en?"Create event":"Создать мероприятие")}</h2>
+          <p className="mt-1 text-sm text-gray-600">{en?"Basic details and publishing. Ticketing and seating come next.":"Основные сведения и публикация. Билеты и рассадка на следующем шаге."}</p></div>
 
           <section className="space-y-4">
-            <h3 className="border-b pb-2 text-lg font-black">1. Basic details</h3>
-            <div><label htmlFor="event-kind" className={labelClass}>Ticketing type</label><select id="event-kind" value={fields.event_type} onChange={e=>update("event_type",e.target.value as Fields["event_type"])} className={inputClass}><option value="internal">Internal — tickets sold here</option><option value="external">External — tickets on another website</option></select></div>
-            {fields.event_type==="external"&&<div><label htmlFor="event-link" className={labelClass}>External booking website *</label><input id="event-link" required type="url" placeholder="https://..." className={inputClass} value={fields.external_url??""} onChange={e=>update("external_url",e.target.value)}/></div>}
-            <div><label htmlFor="event-title" className={labelClass}>Russian title *</label>
+            <h3 className="border-b pb-2 text-lg font-black">{en?"1. Basic details":"1. Основная информация"}</h3>
+            <div><label htmlFor="event-kind" className={labelClass}>{en?"Ticketing type":"Тип продажи билетов"}</label><select id="event-kind" value={fields.event_type} onChange={e=>update("event_type",e.target.value as Fields["event_type"])} className={inputClass}><option value="internal">{en?"Internal — tickets sold here":"Наше мероприятие — билеты продаются здесь"}</option><option value="external">{en?"External — tickets on another website":"Стороннее мероприятие — билеты на другом сайте"}</option></select></div>
+            {fields.event_type==="external"&&<div><label htmlFor="event-link" className={labelClass}>{en?"External booking website *":"Ссылка на продажу билетов *"}</label><input id="event-link" required type="url" placeholder="https://..." className={inputClass} value={fields.external_url??""} onChange={e=>update("external_url",e.target.value)}/></div>}
+            <div><label htmlFor="event-title" className={labelClass}>{en?"Russian title *":"Название на русском *"}</label>
               <input id="event-title" required className={inputClass} value={fields.title} onChange={e => update("title", e.target.value)} /></div>
-            <div><label htmlFor="event-title-en" className={labelClass}>English title</label>
+            <div><label htmlFor="event-title-en" className={labelClass}>{en?"English title":"Название на английском"}</label>
               <input id="event-title-en" className={inputClass} value={fields.title_en ?? ""} onChange={e => update("title_en", e.target.value)} /></div>
-            <div><label htmlFor="event-slug" className={labelClass}>URL slug * (Latin letters, digits and hyphens)</label>
+            <div><label htmlFor="event-slug" className={labelClass}>{en?"URL slug * (Latin letters, digits and hyphens)":"Адрес страницы * (латиница, цифры и дефисы)"}</label>
               <input id="event-slug" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" className={inputClass} value={fields.slug}
                 onChange={e => update("slug", e.target.value.toLowerCase())} placeholder="new-year-2026" /></div>
-            <div><label htmlFor="event-description" className={labelClass}>Russian description</label>
+            <div><label htmlFor="event-description" className={labelClass}>{en?"Russian description":"Описание на русском"}</label>
               <textarea id="event-description" rows={4} className={inputClass} value={fields.description ?? ""} onChange={e => update("description", e.target.value)} /></div>
-            <div><label htmlFor="event-description-en" className={labelClass}>English description</label>
+            <div><label htmlFor="event-description-en" className={labelClass}>{en?"English description":"Описание на английском"}</label>
               <textarea id="event-description-en" rows={4} className={inputClass} value={fields.description_en ?? ""} onChange={e => update("description_en", e.target.value)} /></div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div><label htmlFor="event-date" className={labelClass}>Date *</label>
+              <div><label htmlFor="event-date" className={labelClass}>{en?"Date *":"Дата *"}</label>
                 <input id="event-date" required type="date" className={inputClass} value={fields.event_date} onChange={e => update("event_date", e.target.value)} /></div>
-              <div><label htmlFor="event-time" className={labelClass}>Time *</label>
+              <div><label htmlFor="event-time" className={labelClass}>{en?"Time *":"Время *"}</label>
                 <input id="event-time" required type="time" className={inputClass} value={fields.event_time} onChange={e => update("event_time", e.target.value)} /></div>
             </div>
-            <div><label htmlFor="event-location" className={labelClass}>Venue / location</label>
+            <div><label htmlFor="event-location" className={labelClass}>{en?"Venue / location":"Место проведения / адрес"}</label>
               <input id="event-location" className={inputClass} value={fields.location ?? ""} onChange={e => update("location", e.target.value)} /></div>
-            <div><label htmlFor="event-image" className={labelClass}>Image URL (upload coming later)</label>
+            <div><label htmlFor="event-image" className={labelClass}>{en?"Image URL (upload coming later)":"Ссылка на изображение (загрузка появится позже)"}</label>
               <input id="event-image" type="url" className={inputClass} value={fields.image_url ?? ""} onChange={e => update("image_url", e.target.value)} placeholder="https://..." /></div>
           </section>
 
           <section className="space-y-3 border-t pt-5">
-            <h3 className="text-lg font-black">2. Publishing</h3>
+            <h3 className="text-lg font-black">{en?"2. Publishing":"2. Публикация"}</h3>
             <label className="flex items-center gap-3 rounded-lg bg-[#fff2db] p-4 font-semibold">
               <input type="checkbox" checked={fields.is_active} onChange={e => update("is_active", e.target.checked)} className="h-5 w-5 accent-black"/>
               Published (visible on public event listings)
             </label>
-            <p className="text-xs text-gray-600">Leave unchecked to save as a draft. Translation can be added later.</p>
+            <p className="text-xs text-gray-600">{en?"Leave unchecked to save as a draft. Translation can be added later.":"Оставьте выключенным, чтобы сохранить черновик. Перевод можно добавить позже."}</p>
           </section>
           {error && <p role="alert" className="rounded bg-red-100 p-3 text-sm text-red-900">{error}</p>}
           {message && <p role="status" className="rounded bg-green-100 p-3 text-sm text-green-900">{message}</p>}
           <button type="submit" disabled={saving} className="w-full rounded-lg bg-black px-5 py-4 font-bold text-white disabled:opacity-50">
-            {saving ? "Saving…" : fields.is_active ? "Save and publish" : "Save draft"}
+            {saving?(en?"Saving…":"Сохранение…"):fields.is_active?(en?"Save and publish":"Сохранить и опубликовать"):(en?"Save draft":"Сохранить черновик")}
           </button>
         </form>}
 
         {!showForm && <section className="mt-8">
-          <h2 className="text-2xl font-black">Existing events</h2>
-          {events.length === 0 ? <p className="mt-4 text-sm">No events yet. Create your first one above.</p> :
+          <h2 className="text-2xl font-black">{en?"Existing events":"Существующие мероприятия"}</h2>
+          {events.length === 0 ? <p className="mt-4 text-sm">{en?"No events yet. Create your first one above.":"Мероприятий пока нет. Создайте первое."}</p> :
           <div className="mt-4 grid gap-3">
             {events.map(item => <article key={item.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-black bg-white p-4">
               <div><h3 className="font-black">{item.title}</h3>
                 <p className="text-sm">{item.event_date} · {item.location || "Venue TBD"}</p>
-                <p className="mt-1 text-xs font-bold">{item.is_active ? "Published" : "Draft"} · {item.event_type==="external"?"External":"Internal"}</p></div>
-              <button type="button" onClick={() => router.push(`/admin/events/${item.id}`)} className="rounded-lg border-2 border-black px-5 py-3 font-bold">Open event →</button>
+                <p className="mt-1 text-xs font-bold">{item.is_active?(en?"Published":"Опубликовано"):(en?"Draft":"Черновик")} · {item.event_type==="external"?(en?"External":"Стороннее"):(en?"Internal":"Наше")}</p></div>
+              <button type="button" onClick={() => router.push(`/admin/events/${item.id}`)} className="rounded-lg border-2 border-black px-5 py-3 font-bold">{en?"Open event →":"Открыть мероприятие →"}</button>
             </article>)}
           </div>}
         </section>}
