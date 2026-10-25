@@ -56,7 +56,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const selectedSeatPrice=(key:string)=>{const table=venue?.tables.find(t=>t.id===key.split(":")[0]);return table?(zonePricing?zoneForTable(table,venue?.zones??[])?.price_cents??null:table.seat_price_cents):null;};
  const seatTotal=!tableBooking?mapSelections.reduce((sum,key)=>sum+(selectedSeatPrice(key)??0),0):0;
  const missingSeatPrices=!tableBooking&&mapSelections.some(key=>selectedSeatPrice(key)==null);
- const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&seatCount>adultTicketCount+(zonePricing?childTicketCount:0);
+ const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&mapSelections.length>adultTicketCount+(zonePricing?childTicketCount:0);
  const invalidTablePrices=tableBooking&&mapSelections.some(key=>venue?.tables.find(t=>t.id===key)?.table_price_cents==null);
  const canReview=count>0&&!seatOverage&&seatsStillNeeded===0&&(!tableBooking||mapSelections.length>0)&&!missingSeatPrices&&!invalidTablePrices;
  const pricingIncomplete=missingSeatPrices||invalidTablePrices;
