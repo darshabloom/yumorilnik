@@ -14,15 +14,27 @@ export default function AdminLogin() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  function readableAuthError(err: unknown) {
+    const message=err instanceof Error?err.message:String(err);
+    if (/failed to fetch|networkerror|fetch failed/i.test(message)) {
+      return en
+        ?"Cannot connect to Supabase authentication. Check your internet connection and NEXT_PUBLIC_SUPABASE_URL, then try again."
+        :"Не удаётся подключиться к Supabase. Проверьте интернет и NEXT_PUBLIC_SUPABASE_URL, затем попробуйте ещё раз.";
+    }
+    return message;
+  }
+
   async function signInWithGoogle() {
     setBusy(true);
     setError("");
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/admin` },
-    });
-    if (oauthError) {
-      setError(oauthError.message);
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/admin` },
+      });
+      if (oauthError) throw oauthError;
+    } catch (err) {
+      setError(readableAuthError(err));
       setBusy(false);
     }
   }
@@ -44,7 +56,7 @@ export default function AdminLogin() {
       router.replace("/admin");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign-in failed. Please try again.");
+      setError(readableAuthError(err));
     } finally {
       setBusy(false);
     }
