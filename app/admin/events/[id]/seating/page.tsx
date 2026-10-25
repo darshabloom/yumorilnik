@@ -135,13 +135,13 @@ export default function SeatingBuilder(){
   if(e.button!==0)return;
   e.preventDefault();e.stopPropagation();
   setEditingStage(true);setSelected(null);
-  const scale=stage.current?.getBoundingClientRect().width/W||1;
+  const scale=(stage.current ? stage.current.getBoundingClientRect().width / W : 1);
   stageDrag.current={px:e.clientX/scale,py:e.clientY/scale,x:stageItem.x,y:stageItem.y};
   e.currentTarget.setPointerCapture(e.pointerId);
  }
  function moveStageDrag(e:React.PointerEvent<HTMLButtonElement>){
   if(!stageDrag.current)return;
-  const scale=stage.current?.getBoundingClientRect().width/W||1;
+  const scale=(stage.current ? stage.current.getBoundingClientRect().width / W : 1);
   const d=stageDrag.current;
   setStageItem(old=>({...old,x:Math.round(Math.max(0,Math.min(W-old.width,d.x+e.clientX/scale-d.px))),y:Math.round(Math.max(0,Math.min(H-old.height,d.y+e.clientY/scale-d.py)))}));
   setMessage("Stage position not saved");
@@ -309,13 +309,13 @@ export default function SeatingBuilder(){
   setEditingStage(false);
   if(e.button!==0)return;
   e.preventDefault();setSelected(t.id);
-  const scale=stage.current?.getBoundingClientRect().width/W||1;
+  const scale=(stage.current ? stage.current.getBoundingClientRect().width / W : 1);
   drag.current={id:t.id,startX:e.clientX/scale,startY:e.clientY/scale,x:t.x,y:t.y};
   e.currentTarget.setPointerCapture(e.pointerId);
  }
  function pointerMove(e:React.PointerEvent<HTMLButtonElement>){
   const d=drag.current;if(!d)return;
-  const scale=stage.current?.getBoundingClientRect().width/W||1;
+  const scale=(stage.current ? stage.current.getBoundingClientRect().width / W : 1);
   mutate(d.id,{x:Math.round(Math.max(0,Math.min(900,d.x+e.clientX/scale-d.startX))),y:Math.round(Math.max(0,Math.min(620,d.y+e.clientY/scale-d.startY)))});
  }
  function rotateDown(e:React.PointerEvent<HTMLButtonElement>,t:TableItem){
@@ -339,7 +339,7 @@ export default function SeatingBuilder(){
  function resizeMove(e:React.PointerEvent<HTMLButtonElement>){
   const d=resize.current;if(!d)return;
   e.preventDefault();e.stopPropagation();
-  const scale=stage.current?.getBoundingClientRect().width/W||1;
+  const scale=(stage.current ? stage.current.getBoundingClientRect().width / W : 1);
   const dx=(e.clientX-d.startX)/scale,dy=(e.clientY-d.startY)/scale;
   const localX=dx*Math.cos(d.angle)+dy*Math.sin(d.angle);
   const localY=-dx*Math.sin(d.angle)+dy*Math.cos(d.angle);
