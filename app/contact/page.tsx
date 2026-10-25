@@ -1,11 +1,12 @@
+import Link from "next/link";
 import LocalizedText from "@/components/LocalizedText";
 export default function ContactPage() {
     return (
         <main className="min-h-screen bg-[#f5a047] px-6 py-16 text-black">
             <section className="mx-auto max-w-4xl">
-                <a href="/" className="text-lg font-bold underline">
+                <Link href="/" className="text-lg font-bold underline">
                     <LocalizedText ru="← На главную" en="← Home"/>
-                </a>
+                </Link>
 
                 <h1 className="mt-10 text-5xl font-black text-pink-600"><LocalizedText ru="Контакты" en="Contact"/></h1>
 
