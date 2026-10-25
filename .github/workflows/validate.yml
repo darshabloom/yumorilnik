@@ -1,0 +1,32 @@
+name: Validate website
+
+on:
+  push:
+    branches: [remake/2026]
+  pull_request:
+    branches: [remake/2026]
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    name: TypeScript and JSX validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Next.js route types
+        run: npx next typegen
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-for-static-validation
+      - name: Validate TypeScript and JSX
+        run: npx tsc --noEmit
