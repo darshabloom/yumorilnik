@@ -17,6 +17,7 @@ export default function SiteHeader() {
   useEffect(() => {
     const stored = window.localStorage.getItem("yumorilnik-language");
     if (stored === "en" || stored === "ru") setLanguage(stored);
+    document.documentElement.lang = stored === "en" ? "en" : "ru";
   }, []);
 
   const changeLanguage = (next: Language) => {
