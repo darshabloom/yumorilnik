@@ -1,7 +1,7 @@
 export type ZonePoint={x:number;y:number};
 export type PriceZone={id:string;event_id:string;name:string;price_cents:number;color:string;x:number;y:number;width:number;height:number;sort_order:number;points:ZonePoint[]|null};
 export function zonePoints(zone:PriceZone):ZonePoint[]{
- return zone.points?.length>=3?zone.points:[{x:zone.x,y:zone.y},{x:zone.x+zone.width,y:zone.y},{x:zone.x+zone.width,y:zone.y+zone.height},{x:zone.x,y:zone.y+zone.height}];
+ return zone.points && zone.points.length >= 3 ? zone.points :[{x:zone.x,y:zone.y},{x:zone.x+zone.width,y:zone.y},{x:zone.x+zone.width,y:zone.y+zone.height},{x:zone.x,y:zone.y+zone.height}];
 }
 export function insidePolygon(point:ZonePoint,polygon:ZonePoint[]):boolean{
  let inside=false;

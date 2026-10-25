@@ -6,7 +6,7 @@ import {supabase} from "@/lib/supabaseClient";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import {VenueLines, type VenueFeature, type Point} from "@/components/VenueLines";
 import CustomerVenueMap from "@/components/CustomerVenueMap";
-import {type PriceZone,zonePoints,zoneForTable,type ZonePoint} from "@/lib/priceZones";
+import {type PriceZone,zonePoints,zoneForTable,} from "@/lib/priceZones";
 
 type TableItem={id:string;event_id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id:string|null;is_active:boolean;shape:string};
 type EventItem={id:string;title:string;seating_mode:string;table_booking_mode:string};
@@ -33,7 +33,7 @@ export default function SeatingBuilder(){
  const [zoneSaving,setZoneSaving]=useState(false);
  const zoneDrag=useRef<{id:string;index:number}|null>(null);
  const zonesRef=useRef<PriceZone[]>([]);
- zonesRef.current=zones;
+ useEffect(()=>{zonesRef.current=zones;},[zones]);
  const [traceMode,setTraceMode]=useState<"wall"|"entrance"|null>(null);
  const [draftPoints,setDraftPoints]=useState<Point[]>([]);
  const [featureSelected,setFeatureSelected]=useState<string|null>(null);
@@ -135,13 +135,13 @@ export default function SeatingBuilder(){
   if(e.button!==0)return;
   e.preventDefault();e.stopPropagation();
   setEditingStage(true);setSelected(null);
-  const scale=stage.current?.getBoundingClientRect().width/W||1;
+  const scale=(stage.current ? stage.current.getBoundingClientRect().width / W : 1);
   stageDrag.current={px:e.clientX/scale,py:e.clientY/scale,x:stageItem.x,y:stageItem.y};
   e.currentTarget.setPointerCapture(e.pointerId);
  }
  function moveStageDrag(e:React.PointerEvent<HTMLButtonElement>){
   if(!stageDrag.current)return;
-  const scale=stage.current?.getBoundingClientRect().width/W||1;
+  const scale=(stage.current ? stage.current.getBoundingClientRect().width / W : 1);
   const d=stageDrag.current;
   setStageItem(old=>({...old,x:Math.round(Math.max(0,Math.min(W-old.width,d.x+e.clientX/scale-d.px))),y:Math.round(Math.max(0,Math.min(H-old.height,d.y+e.clientY/scale-d.py)))}));
   setMessage("Stage position not saved");
@@ -210,7 +210,7 @@ export default function SeatingBuilder(){
   },900);
  }
  const featuresRef=useRef<VenueFeature[]>(features);
- featuresRef.current=features;
+ useEffect(()=>{featuresRef.current=features;},[features]);
  async function deletePoint(){
    if(!selectedPoint)return;
    const feature=featuresRef.current.find(f=>f.id===selectedPoint.id);
@@ -309,13 +309,13 @@ export default function SeatingBuilder(){
   setEditingStage(false);
   if(e.button!==0)return;
   e.preventDefault();setSelected(t.id);
-  const scale=stage.current?.getBoundingClientRect().width/W||1;
+  const scale=(stage.current ? stage.current.getBoundingClientRect().width / W : 1);
   drag.current={id:t.id,startX:e.clientX/scale,startY:e.clientY/scale,x:t.x,y:t.y};
   e.currentTarget.setPointerCapture(e.pointerId);
  }
  function pointerMove(e:React.PointerEvent<HTMLButtonElement>){
   const d=drag.current;if(!d)return;
-  const scale=stage.current?.getBoundingClientRect().width/W||1;
+  const scale=(stage.current ? stage.current.getBoundingClientRect().width / W : 1);
   mutate(d.id,{x:Math.round(Math.max(0,Math.min(900,d.x+e.clientX/scale-d.startX))),y:Math.round(Math.max(0,Math.min(620,d.y+e.clientY/scale-d.startY)))});
  }
  function rotateDown(e:React.PointerEvent<HTMLButtonElement>,t:TableItem){
@@ -339,7 +339,7 @@ export default function SeatingBuilder(){
  function resizeMove(e:React.PointerEvent<HTMLButtonElement>){
   const d=resize.current;if(!d)return;
   e.preventDefault();e.stopPropagation();
-  const scale=stage.current?.getBoundingClientRect().width/W||1;
+  const scale=(stage.current ? stage.current.getBoundingClientRect().width / W : 1);
   const dx=(e.clientX-d.startX)/scale,dy=(e.clientY-d.startY)/scale;
   const localX=dx*Math.cos(d.angle)+dy*Math.sin(d.angle);
   const localY=-dx*Math.sin(d.angle)+dy*Math.cos(d.angle);
