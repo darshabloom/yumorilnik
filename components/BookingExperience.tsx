@@ -52,13 +52,14 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const ticketTotal=tickets.reduce((sum,t)=>sum+(zonePricing&&/adult|взросл/i.test(t.name)?0:t.price_cents*(quantities[t.id]??0)),0);
  const adultTicketCount=tickets.filter(t=>/adult|взросл/i.test(t.name)).reduce((sum,t)=>sum+(quantities[t.id]??0),0);
  const childTicketCount=tickets.filter(t=>/child|детск|ребён|ребен/i.test(t.name)).reduce((sum,t)=>sum+(quantities[t.id]??0),0);
- const seatsStillNeeded=(zonePricing||event.adult_seat_required)&&event.seating_mode!=="general_admission"?Math.max(0,adultTicketCount-Object.values(seatAssignments).filter(id=>Number(id)<adultTicketCount).length):0;
+ const seatsStillNeeded=!tableBooking&&(zonePricing||event.adult_seat_required)&&event.seating_mode!=="general_admission"?Math.max(0,adultTicketCount-Object.values(seatAssignments).filter(id=>Number(id)<adultTicketCount).length):0;
  const selectedSeatPrice=(key:string)=>{const table=venue?.tables.find(t=>t.id===key.split(":")[0]);return table?(zonePricing?zoneForTable(table,venue?.zones??[])?.price_cents??null:table.seat_price_cents):null;};
  const seatTotal=!tableBooking?mapSelections.reduce((sum,key)=>sum+(selectedSeatPrice(key)??0),0):0;
  const missingSeatPrices=!tableBooking&&mapSelections.some(key=>selectedSeatPrice(key)==null);
  const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&mapSelections.length>adultTicketCount+(zonePricing?childTicketCount:0);
  const invalidTablePrices=tableBooking&&mapSelections.some(key=>venue?.tables.find(t=>t.id===key)?.table_price_cents==null);
- const canReview=count>0&&!seatOverage&&seatsStillNeeded===0&&(!tableBooking||mapSelections.length>0)&&!missingSeatPrices&&!invalidTablePrices;
+ const guestDetailsComplete=Array.from({length:adultTicketCount+childTicketCount},(_,i)=>{const g=guestInfo[String(i)];if(!g?.name.trim())return false;if(i<adultTicketCount)return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(g.email)&&!!g.phone.trim();const parent=Number(childParents[String(i)]);return childParents[String(i)]!==undefined&&parent>=0&&parent<adultTicketCount;}).every(Boolean);
+ const canReview=count>0&&guestDetailsComplete&&!seatOverage&&seatsStillNeeded===0&&(!tableBooking||mapSelections.length>0)&&!missingSeatPrices&&!invalidTablePrices;
  const pricingIncomplete=missingSeatPrices||invalidTablePrices;
  const selections=mapSelections.map(key=>{
   const table=venue?.tables.find(t=>t.id===(tableBooking?key:key.split(":")[0]));
@@ -71,7 +72,6 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const max=10;
  const needsSeats=event.seating_mode!=="general_admission";
  const canContinueTickets=count>0 && (adultTicketCount+childTicketCount===count) && (childTicketCount===0||adultTicketCount>0);
- const guestDetailsComplete=Array.from({length:adultTicketCount+childTicketCount},(_,i)=>{const g=guestInfo[String(i)];if(!g?.name.trim())return false;if(i<adultTicketCount)return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(g.email)&&!!g.phone.trim();const parent=Number(childParents[String(i)]);return childParents[String(i)]!==undefined&&parent>=0&&parent<adultTicketCount;}).every(Boolean);
  const childSeats=Object.values(seatAssignments).filter(id=>Number(id)>=adultTicketCount&&Number(id)<adultTicketCount+childTicketCount).length;
  const adultSeats=Object.values(seatAssignments).filter(id=>Number(id)<adultTicketCount).length;
  function adjust(ticket:BookingTicket,delta:number){
