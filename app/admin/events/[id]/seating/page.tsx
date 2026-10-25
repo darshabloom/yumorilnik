@@ -3,6 +3,7 @@ import {useEffect,useRef,useState} from "react";
 import Link from "next/link";
 import {useParams,useRouter} from "next/navigation";
 import {supabase} from "@/lib/supabaseClient";
+import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import {VenueLines, type VenueFeature, type Point} from "@/components/VenueLines";
 import CustomerVenueMap from "@/components/CustomerVenueMap";
 import {type PriceZone,zonePoints,zoneForTable,type ZonePoint} from "@/lib/priceZones";
@@ -20,6 +21,7 @@ function SeatMarkers({t}:{t:TableItem}){
 export default function SeatingBuilder(){
  const {id}=useParams<{id:string}>();
  const router=useRouter();
+ const en=useSiteLanguage()==="en";
  const [event,setEvent]=useState<EventItem|null>(null);
  const [tables,setTables]=useState<TableItem[]>([]);
  const [background,setBackground]=useState<string|null>(null);
@@ -343,12 +345,12 @@ export default function SeatingBuilder(){
   const localY=-dx*Math.sin(d.angle)+dy*Math.cos(d.angle);
   mutate(d.id,{width:Math.round(Math.max(40,Math.min(400,d.width+localX))),height:Math.round(Math.max(25,Math.min(300,d.height+localY)))});
  }
- if(loading)return <main className="bg-[#fffaf1] p-8">Loading seating builder…</main>;
+ if(loading)return <main className="bg-[#fffaf1] p-8">{en?"Loading seating builder…":"Загрузка редактора зала…"}</main>;
  if(!event)return <main role="alert" className="p-8">{error||"Event unavailable"}</main>;
  const whole=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
  return <main className="min-h-screen bg-[#fffaf1] px-4 py-6 text-black sm:px-8">
   <section className="mx-auto max-w-xl space-y-4 lg:hidden">
-    <Link href={`/admin/events/${id}/tickets`} className="text-sm font-bold underline">← Tickets</Link>
+    <Link href={`/admin/events/${id}/tickets`} className="text-sm font-bold underline">{en?"← Tickets":"← К билетам"}</Link>
     <div className="rounded-xl border border-black/15 bg-white p-5">
       <h1 className="text-xl font-black">{event.title}</h1>
       <p className="mt-2 text-sm text-gray-700">The venue plan is for viewing on a phone. To move tables, trace walls or change prices, open this page on a computer.</p>
@@ -356,20 +358,20 @@ export default function SeatingBuilder(){
     <CustomerVenueMap tables={tables} features={features} stage={{stage_x:stageItem.x,stage_y:stageItem.y,stage_width:stageItem.width,stage_height:stageItem.height,stage_rotation:stageItem.rotation}} mode={whole?"whole_table":"individual_seats"}/>
   </section>
   <div className="mx-auto hidden max-w-7xl lg:block">
-   <Link href={`/admin/events/${id}/tickets`} className="text-sm font-bold underline">← Tickets</Link>
-   <div className="sticky top-0 z-40 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-black/15 bg-[#fffaf1]/95 px-3 py-3 shadow-sm backdrop-blur"><div><p className="text-xs font-bold uppercase tracking-widest text-pink-700">Seating layout</p><h1 className="text-3xl font-black">{event.title}</h1></div><div className="flex gap-2"><button onClick={()=>void add()} disabled={saving} className="rounded-lg bg-black px-4 py-3 font-bold text-white">+ Add table</button><button onClick={()=>void save()} disabled={saving} className="rounded-lg border border-black px-4 py-3 font-bold">{saving?"Saving…":"Save layout"}</button></div></div>
+   <Link href={`/admin/events/${id}/tickets`} className="text-sm font-bold underline">{en?"← Tickets":"← К билетам"}</Link>
+   <div className="sticky top-0 z-40 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-black/15 bg-[#fffaf1]/95 px-3 py-3 shadow-sm backdrop-blur"><div><p className="text-xs font-bold uppercase tracking-widest text-pink-700">{en?"Seating layout":"План рассадки"}</p><h1 className="text-3xl font-black">{event.title}</h1></div><div className="flex gap-2"><button onClick={()=>void add()} disabled={saving} className="rounded-lg bg-black px-4 py-3 font-bold text-white">{en?"+ Add table":"+ Добавить стол"}</button><button onClick={()=>void save()} disabled={saving} className="rounded-lg border border-black px-4 py-3 font-bold">{saving?"Saving…":"Save layout"}</button></div></div>
    <p className="mt-3 text-sm text-gray-600">Drag the stage to its actual location. Drag a table to position it. Select a table to edit its size, seats, rotation and price. Pricing is per entire table in whole-table mode.</p>
-   <details className="mt-3 hidden rounded-xl border border-black/15 bg-white lg:block"><summary className="cursor-pointer px-4 py-3 text-sm font-bold">Floor plan image & framing controls ▾</summary><div className="border-t border-black/10 p-2">   <div className="flex flex-wrap items-center gap-3 p-3">
+   <details className="mt-3 hidden rounded-xl border border-black/15 bg-white lg:block"><summary className="cursor-pointer px-4 py-3 text-sm font-bold">{en?"Floor plan image & framing controls ▾":"Изображение плана зала и настройка ▾"}</summary><div className="border-t border-black/10 p-2">   <div className="flex flex-wrap items-center gap-3 p-3">
      <label className="cursor-pointer rounded-lg border-2 border-dashed border-black bg-[#fff2db] px-4 py-3 text-sm font-bold">
        {uploading?"Uploading…":background?"Replace floor plan":"Upload floor plan"}
        <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} className="sr-only" onChange={e=>{void uploadFloorPlan(e.target.files?.[0]);e.target.value="";}}/>
      </label>
-     {background&&<button type="button" onClick={()=>void clearFloorPlan()} className="text-sm font-bold underline">Remove background</button>}
-     <span className="text-xs text-gray-600">JPG, PNG, WebP · up to 10 MB. Tables remain editable above the image.</span>
+     {background&&<button type="button" onClick={()=>void clearFloorPlan()} className="text-sm font-bold underline">{en?"Remove background":"Убрать фон"}</button>}
+     <span className="text-xs text-gray-600">{en?"JPG, PNG, WebP · up to 10 MB. Tables remain editable above the image.":"JPG, PNG, WebP · до 10 МБ. Столы можно редактировать поверх изображения."}</span>
    </div>
    {background&&<div className="rounded-xl border border-black/15 bg-white p-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="font-black">Adjust floor plan</h2><p className="text-sm text-gray-600">Zoom and move the image behind the tables. Table positions are unchanged.</p></div>
+      <div><h2 className="font-black">{en?"Adjust floor plan":"Настроить план зала"}</h2><p className="text-sm text-gray-600">{en?"Zoom and move the image behind the tables. Table positions are unchanged.":"Масштабируйте и двигайте изображение под столами. Столы не изменятся."}</p></div>
       <button type="button" onClick={()=>setFraming(!framing)} className={`rounded-lg border px-4 py-2 text-sm font-bold ${framing?"bg-black text-white":"bg-white"}`}>{framing?"Finish moving image":"Move image on canvas"}</button>
     </div>
     <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -378,21 +380,21 @@ export default function SeatingBuilder(){
       <label className="text-sm font-semibold">Move up/down · {panY}%<input className="mt-2 w-full" type="range" min="0" max="100" value={panY} onChange={e=>setPanY(Number(e.target.value))}/></label>
     </div>
     <div className="mt-3 flex gap-2">
-      <button type="button" onClick={()=>{setZoom(1);setPanX(50);setPanY(50);setMessage("Background framing reset; save to keep changes.");}} className="rounded-lg border px-4 py-2 text-sm font-bold">Reset framing</button>
+      <button type="button" onClick={()=>{setZoom(1);setPanX(50);setPanY(50);setMessage("Background framing reset; save to keep changes.");}} className="rounded-lg border px-4 py-2 text-sm font-bold">{en?"Reset framing":"Сбросить положение"}</button>
       <button type="button" disabled={framingSaving} onClick={()=>void saveFraming()} className="rounded-lg bg-black px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{framingSaving?"Saving…":"Save image framing"}</button>
     </div>
    </div>}
 </div></details>
    <div className="mt-3 hidden flex-wrap items-center gap-2 rounded-xl border border-black/15 bg-white p-3 lg:flex">
-     <span className="mr-2 text-sm font-black">Room layout</span>
+     <span className="mr-2 text-sm font-black">{en?"Room layout":"План помещения"}</span>
      <button type="button" onClick={()=>setEditingZones(v=>!v)} className="rounded-lg border border-black px-4 py-2 text-sm font-bold">{editingZones?"Finish price zones":"Edit price zones"}</button>
-     <button type="button" disabled={zoneSaving} onClick={()=>void addZone()} className="rounded-lg border border-black px-4 py-2 text-sm font-bold">+ Price zone</button>
+     <button type="button" disabled={zoneSaving} onClick={()=>void addZone()} className="rounded-lg border border-black px-4 py-2 text-sm font-bold">{en?"+ Price zone":"+ Ценовая зона"}</button>
      {background&&<button type="button" onClick={()=>setShowFloorPhoto(v=>!v)} aria-pressed={!showFloorPhoto} className="rounded-lg border border-black px-4 py-2 text-sm font-bold">{showFloorPhoto?"Hide photo":"Show photo"}</button>}
-     <button type="button" onClick={()=>{setTraceMode(traceMode==="wall"?null:"wall");setDraftPoints([]);setFraming(false);panDrag.current=null;}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="wall"?"bg-black text-white":""}`}>Trace walls</button>
-     <button type="button" onClick={()=>{setTraceMode(traceMode==="entrance"?null:"entrance");setDraftPoints([]);setFraming(false);panDrag.current=null;}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="entrance"?"bg-black text-white":""}`}>Mark entrance</button>
-     {traceMode&&<><button type="button" disabled={featureSaving||draftPoints.length<2} onClick={()=>void finishFeature()} className="rounded-lg bg-black px-4 py-2 text-sm font-bold text-white disabled:opacity-40">Finish & save</button>
-     <button type="button" onClick={()=>setDraftPoints(old=>old.slice(0,-1))} className="rounded border px-3 py-2 text-sm">Undo point</button>
-     <button type="button" onClick={()=>{setTraceMode(null);setDraftPoints([])}} className="rounded border px-3 py-2 text-sm">Done tracing</button></>}
+     <button type="button" onClick={()=>{setTraceMode(traceMode==="wall"?null:"wall");setDraftPoints([]);setFraming(false);panDrag.current=null;}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="wall"?"bg-black text-white":""}`}>{en?"Trace walls":"Обвести стены"}</button>
+     <button type="button" onClick={()=>{setTraceMode(traceMode==="entrance"?null:"entrance");setDraftPoints([]);setFraming(false);panDrag.current=null;}} className={`rounded-lg border px-4 py-2 text-sm font-bold ${traceMode==="entrance"?"bg-black text-white":""}`}>{en?"Mark entrance":"Обозначить вход"}</button>
+     {traceMode&&<><button type="button" disabled={featureSaving||draftPoints.length<2} onClick={()=>void finishFeature()} className="rounded-lg bg-black px-4 py-2 text-sm font-bold text-white disabled:opacity-40">{en?"Finish & save":"Завершить и сохранить"}</button>
+     <button type="button" onClick={()=>setDraftPoints(old=>old.slice(0,-1))} className="rounded border px-3 py-2 text-sm">{en?"Undo point":"Отменить точку"}</button>
+     <button type="button" onClick={()=>{setTraceMode(null);setDraftPoints([])}} className="rounded border px-3 py-2 text-sm">{en?"Done tracing":"Завершить обводку"}</button></>}
      <span className="text-xs text-gray-600">{traceMode?"Click points along the photo. Double-click to finish. Drag pink endpoints to correct walls.":"Walls and entrances appear on the customer map."}</span>
    </div>
    {error&&<p role="alert" className="mt-4 rounded bg-red-100 p-3 text-red-800">{error}</p>}
@@ -421,7 +423,7 @@ export default function SeatingBuilder(){
           {draftPoints.length>0&&<polyline points={draftPoints.map(p=>p.x+","+p.y).join(" ")} fill="none" stroke="#db2777" strokeWidth="5" strokeDasharray="10 6"/>}
           {draftPoints.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="8" fill="#db2777" stroke="white" strokeWidth="3"/>)}
         </svg>}
-       {!framing&&!traceMode&&<button type="button" onPointerDown={beginStageDrag} onPointerMove={moveStageDrag} onPointerUp={()=>{stageDrag.current=null}} onPointerCancel={()=>{stageDrag.current=null}} onClick={()=>{setEditingStage(true);setSelected(null)}} className={`absolute z-10 flex touch-none select-none items-center justify-center rounded-lg border-2 border-black/25 bg-[#f5a047] text-sm font-bold ${editingStage?"ring-2 ring-pink-600":""}`} style={{left:stageItem.x/W*100+"%",top:stageItem.y/H*100+"%",width:stageItem.width/W*100+"%",height:stageItem.height/H*100+"%",transform:`rotate(${stageItem.rotation}deg)`}}>Stage</button>}
+       {!framing&&!traceMode&&<button type="button" onPointerDown={beginStageDrag} onPointerMove={moveStageDrag} onPointerUp={()=>{stageDrag.current=null}} onPointerCancel={()=>{stageDrag.current=null}} onClick={()=>{setEditingStage(true);setSelected(null)}} className={`absolute z-10 flex touch-none select-none items-center justify-center rounded-lg border-2 border-black/25 bg-[#f5a047] text-sm font-bold ${editingStage?"ring-2 ring-pink-600":""}`} style={{left:stageItem.x/W*100+"%",top:stageItem.y/H*100+"%",width:stageItem.width/W*100+"%",height:stageItem.height/H*100+"%",transform:`rotate(${stageItem.rotation}deg)`}}>{en?"Stage":"Сцена"}</button>}
        {!framing&&tables.filter(t=>t.is_active).map(t=><div key={t.id} className={traceMode?"pointer-events-none absolute z-[10] opacity-75":"absolute z-[10]"} style={{left:t.x/W*100+"%",top:t.y/H*100+"%",width:t.width/W*100+"%",height:t.height/H*100+"%",transform:`rotate(${t.rotation_deg}deg)`}}><button type="button" onPointerDown={e=>pointerDown(e,t)} onPointerMove={pointerMove} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}}
         className={`absolute select-none touch-none ${t.shape==="round"||t.shape==="oval"?"rounded-full":"rounded-lg"} border-2 text-sm font-bold shadow ${selected===t.id?"border-pink-600 bg-[#ffd7e8]":"border-black/50 bg-white"}`}
         style={{width:"100%",height:"100%"}}>
@@ -434,47 +436,47 @@ export default function SeatingBuilder(){
     </div>
     <aside className="hidden rounded-xl border border-black/20 bg-white p-4 lg:sticky lg:block lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
      <button type="button" disabled={saving} onClick={()=>void applySuggestedSeatPrices()} className="mb-4 w-full rounded-lg border border-black/30 bg-[#fff2db] p-3 text-left text-sm font-semibold disabled:opacity-50">Apply proposed seat tiers · $10 / $20 / $30</button>
-     {traceMode?<><h2 className="text-xl font-black">Tracing walls</h2><p className="mt-2 text-sm">Click along walls to create connected segments. Double-click or Finish to save. Drag circular points to make corrections.</p>
-       <h3 className="mt-5 font-bold">Saved features</h3>
+     {traceMode?<><h2 className="text-xl font-black">{en?"Tracing walls":"Обводка стен"}</h2><p className="mt-2 text-sm">Click along walls to create connected segments. Double-click or Finish to save. Drag circular points to make corrections.</p>
+       <h3 className="mt-5 font-bold">{en?"Saved features":"Сохранённые элементы"}</h3>
        {features.map(f=><button key={f.id} type="button" onClick={()=>{setFeatureSelected(f.id);setSelectedPoint(null)}} className={`mt-2 block w-full rounded border p-2 text-left text-sm ${featureSelected===f.id?"border-pink-600 bg-pink-50":""}`}>{f.kind==="wall"?"Wall":"Entrance"} · {f.points.length} points</button>)}
        {selectedPoint&&featureSelected===selectedPoint.id&&<div className="mt-3 rounded-lg border border-pink-300 bg-pink-50 p-3">
          <p className="text-sm font-semibold">Selected point {selectedPoint.index+1}</p>
-         <button type="button" onClick={()=>void deletePoint()} className="mt-2 rounded border border-red-700 px-3 py-2 text-sm font-bold text-red-700">Delete this point</button>
+         <button type="button" onClick={()=>void deletePoint()} className="mt-2 rounded border border-red-700 px-3 py-2 text-sm font-bold text-red-700">{en?"Delete this point":"Удалить точку"}</button>
        </div>}
-       {featureSelected&&<button type="button" onClick={()=>void deleteFeature()} className="mt-3 font-bold text-red-700 underline">Delete entire wall / entrance</button>}
-     </>:editingStage?<><h2 className="text-xl font-black">Edit stage</h2><p className="mt-2 text-sm text-gray-600">Drag the stage into place or adjust its size and rotation here.</p>
+       {featureSelected&&<button type="button" onClick={()=>void deleteFeature()} className="mt-3 font-bold text-red-700 underline">{en?"Delete entire wall / entrance":"Удалить всю стену / вход"}</button>}
+     </>:editingStage?<><h2 className="text-xl font-black">{en?"Edit stage":"Редактировать сцену"}</h2><p className="mt-2 text-sm text-gray-600">{en?"Drag the stage into place or adjust its size and rotation here.":"Перетащите сцену или настройте её размер и поворот."}</p>
        <div className="mt-4 grid grid-cols-2 gap-3">
          {([{key:"width",label:"Width",min:60,max:400},{key:"height",label:"Height",min:25,max:220},{key:"rotation",label:"Rotation °",min:-180,max:180}] as const).map(f=><label key={f.key} className="text-sm font-bold">{f.label}<input type="number" className="mt-1 w-full rounded border p-2" min={f.min} max={f.max} value={stageItem[f.key]} onChange={e=>setStageItem(old=>({...old,[f.key]:Math.max(f.min,Math.min(f.max,Number(e.target.value)||0))}))}/></label>)}
        </div>
        <label className="mt-4 block text-sm font-bold">Turn stage · {stageItem.rotation}°<input type="range" min="-180" max="180" step="5" className="mt-2 w-full" value={stageItem.rotation} onChange={e=>setStageItem(old=>({...old,rotation:Number(e.target.value)}))}/></label>
        <div className="mt-3 flex gap-2"><button onClick={()=>setStageItem(old=>({...old,rotation:old.rotation-15< -180?165:old.rotation-15}))} className="rounded border px-3 py-2">↶ 15°</button><button onClick={()=>setStageItem(old=>({...old,rotation:old.rotation+15>180?-165:old.rotation+15}))} className="rounded border px-3 py-2">↷ 15°</button></div>
-       <button onClick={()=>void saveStage()} disabled={saving} className="mt-5 w-full rounded-lg bg-black px-4 py-3 font-bold text-white">Save stage position</button>
+       <button onClick={()=>void saveStage()} disabled={saving} className="mt-5 w-full rounded-lg bg-black px-4 py-3 font-bold text-white">{en?"Save stage position":"Сохранить положение сцены"}</button>
      </>:current?<><h2 className="text-xl font-black">Edit {current.label}</h2>
-       <label className="mt-4 block text-sm font-bold">Table name<input className="mt-1 w-full rounded border p-2" value={current.label} onChange={e=>mutate(current.id,{label:e.target.value})}/></label>
+       <label className="mt-4 block text-sm font-bold">{en?"Table name":"Название стола"}<input className="mt-1 w-full rounded border p-2" value={current.label} onChange={e=>mutate(current.id,{label:e.target.value})}/></label>
        <div className="mt-3 grid grid-cols-2 gap-3">{([{field:"width",label:"Width",min:80,max:340},{field:"height",label:"Height",min:45,max:240},{field:"rotation_deg",label:"Rotation °",min:-180,max:180} ] as const).map(o=><label key={o.field} className="text-sm font-bold">{o.label}<input type="number" min={o.min} max={o.max} value={current[o.field]} onChange={e=>mutate(current.id,{[o.field]:Math.max(o.min,Math.min(o.max,Number(e.target.value)||0))})} className="mt-1 w-full rounded border p-2"/></label>)}</div>
-       <p className="mt-2 text-xs text-gray-600">Use the ↘ handle on the selected table to resize it directly.</p>
+       <p className="mt-2 text-xs text-gray-600">{en?"Use the ↘ handle on the selected table to resize it directly.":"Используйте ↘, чтобы изменить размер выбранного стола."}</p>
        <div className="mt-4"><label className="block text-sm font-bold">Turn table · {current.rotation_deg}°<input aria-label="Rotate table" className="mt-2 w-full" type="range" min="-180" max="180" step="5" value={current.rotation_deg} onChange={e=>mutate(current.id,{rotation_deg:Number(e.target.value)})}/></label>
         <div className="mt-2 flex gap-2">
          <button type="button" onClick={()=>mutate(current.id,{rotation_deg:Math.max(-180,current.rotation_deg-15)})} className="rounded border px-3 py-2 text-sm font-bold">↶ 15°</button>
          <button type="button" onClick={()=>mutate(current.id,{rotation_deg:Math.min(180,current.rotation_deg+15)})} className="rounded border px-3 py-2 text-sm font-bold">↷ 15°</button>
-         <button type="button" onClick={()=>mutate(current.id,{rotation_deg:0})} className="rounded border px-3 py-2 text-sm font-bold">Reset</button>
+         <button type="button" onClick={()=>mutate(current.id,{rotation_deg:0})} className="rounded border px-3 py-2 text-sm font-bold">{en?"Reset":"Сбросить"}</button>
         </div>
        </div>
        <h3 className="mt-5 font-bold">Seats around table · {seats(current)}</h3>
        <div className="mt-2 grid grid-cols-2 gap-3">{([{field:"seats_top",label:"Top"},{field:"seats_bottom",label:"Bottom"},{field:"seats_left",label:"Left"},{field:"seats_right",label:"Right"}] as const).map(o=><label key={o.field} className="text-sm font-semibold">{o.label}<input type="number" min="0" max="30" value={current[o.field]} onChange={e=>mutate(current.id,{[o.field]:Math.max(0,Math.min(30,Number(e.target.value)||0))})} className="mt-1 w-full rounded border p-2"/></label>)}</div>
-       <label className="mt-4 block text-sm font-bold">Table shape<select value={current.shape} onChange={e=>mutate(current.id,{shape:e.target.value})} className="mt-1 w-full rounded border p-3"><option value="rectangle">Rectangle</option><option value="round">Round</option><option value="oval">Oval</option></select></label>
+       <label className="mt-4 block text-sm font-bold">{en?"Table shape":"Форма стола"}<select value={current.shape} onChange={e=>mutate(current.id,{shape:e.target.value})} className="mt-1 w-full rounded border p-3"><option value="rectangle">{en?"Rectangle":"Прямоугольный"}</option><option value="round">{en?"Round":"Круглый"}</option><option value="oval">{en?"Oval":"Овальный"}</option></select></label>
        <label className="mt-5 block font-bold">Seat surcharge (NZD)
          <input type="number" min="0" step="0.01" placeholder="Not set" value={current.seat_price_cents===null?"":(current.seat_price_cents/100).toFixed(2)} onChange={e=>mutate(current.id,{seat_price_cents:e.target.value===""?null:Math.max(0,Math.round(Number(e.target.value)*100))})} className="mt-1 w-full rounded border p-3"/>
        </label>
-       <p className="mt-1 text-xs text-gray-600">Per reserved seat, in addition to admission. Autosaves.</p>
-       <label className="mt-5 block font-bold">Whole-table price (NZD)<input type="number" min="0" step=".01" placeholder="Not set" value={current.table_price_cents===null?"":(current.table_price_cents/100).toFixed(2)} onChange={e=>mutate(current.id,{table_price_cents:e.target.value===""?null:Math.max(0,Math.round(Number(e.target.value)*100))})} className="mt-1 w-full rounded border p-3"/></label>
+       <p className="mt-1 text-xs text-gray-600">{en?"Per reserved seat, in addition to admission. Autosaves.":"За каждое забронированное место сверх входного билета. Сохраняется автоматически."}</p>
+       <label className="mt-5 block font-bold">{en?"Whole-table price (NZD)":"Цена целого стола (NZD)"}<input type="number" min="0" step=".01" placeholder="Not set" value={current.table_price_cents===null?"":(current.table_price_cents/100).toFixed(2)} onChange={e=>mutate(current.id,{table_price_cents:e.target.value===""?null:Math.max(0,Math.round(Number(e.target.value)*100))})} className="mt-1 w-full rounded border p-3"/></label>
        <p className="mt-1 text-xs text-gray-600">{whole?"This is the complete price for the table, not per person.":"Saved for whole-table mode only. Individual-seat bookings use ticket prices."}</p>
-       <label className="mt-4 flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={current.is_active} onChange={e=>mutate(current.id,{is_active:e.target.checked})}/>Table active</label>
-       <button onClick={()=>void remove()} className="mt-5 text-sm font-bold text-red-700 underline">Remove table</button>
-     </>:<><h2 className="text-xl font-black">Tables</h2><p className="mt-2 text-sm">Add a table or select one on the map.</p></>}
-     {editingZones&&<div className="mb-5 rounded-xl bg-[#fff2db] p-3"><h3 className="font-bold">Price areas</h3><p className="my-2 text-xs">Click a zone, then drag its pink corner handles to reshape the area. Add or remove corners below. A table inherits the zone containing its centre.</p>{zones.map(z=><div key={z.id} className="my-3 space-y-2 rounded-lg border bg-white p-3"><button type="button" onClick={()=>setActiveZone(z.id)} className="font-semibold underline">{z.name} · ${z.price_cents/100}</button><input aria-label="Zone name" className="w-full rounded border p-2" defaultValue={z.name} onBlur={e=>e.target.value!==z.name&&void updateZone(z,{name:e.target.value})}/><label className="block text-xs">Zone price (NZD)<input className="w-full rounded border p-2" type="number" min="0" step=".01" defaultValue={(z.price_cents/100).toFixed(2)} onBlur={e=>void updateZone(z,{price_cents:Math.round(Math.max(0,Number(e.target.value))*100)})}/></label><div className="flex gap-2"><button type="button" onClick={()=>{const points=zonePoints(z);const index=points.length-1;const a=points[index],b=points[0];void updateZone(z,{points:[...points,{x:Math.round((a.x+b.x)/2),y:Math.round((a.y+b.y)/2)}]})}} className="rounded border px-2 py-1 text-xs">+ Add corner</button><button type="button" disabled={zonePoints(z).length<=3} onClick={()=>void updateZone(z,{points:zonePoints(z).slice(0,-1)})} className="rounded border px-2 py-1 text-xs disabled:opacity-40">− Remove corner</button></div><button type="button" onClick={()=>void deleteZone(z)} className="text-xs text-red-700 underline">Delete zone</button></div>)}</div>}
+       <label className="mt-4 flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={current.is_active} onChange={e=>mutate(current.id,{is_active:e.target.checked})}/>{en?"Table active":"Стол активен"}</label>
+       <button onClick={()=>void remove()} className="mt-5 text-sm font-bold text-red-700 underline">{en?"Remove table":"Удалить стол"}</button>
+     </>:<><h2 className="text-xl font-black">{en?"Tables":"Столы"}</h2><p className="mt-2 text-sm">{en?"Add a table or select one on the map.":"Добавьте стол или выберите его на схеме."}</p></>}
+     {editingZones&&<div className="mb-5 rounded-xl bg-[#fff2db] p-3"><h3 className="font-bold">{en?"Price areas":"Ценовые зоны"}</h3><p className="my-2 text-xs">Click a zone, then drag its pink corner handles to reshape the area. Add or remove corners below. A table inherits the zone containing its centre.</p>{zones.map(z=><div key={z.id} className="my-3 space-y-2 rounded-lg border bg-white p-3"><button type="button" onClick={()=>setActiveZone(z.id)} className="font-semibold underline">{z.name} · ${z.price_cents/100}</button><input aria-label="Zone name" className="w-full rounded border p-2" defaultValue={z.name} onBlur={e=>e.target.value!==z.name&&void updateZone(z,{name:e.target.value})}/><label className="block text-xs">{en?"Zone price (NZD)":"Цена зоны (NZD)"}<input className="w-full rounded border p-2" type="number" min="0" step=".01" defaultValue={(z.price_cents/100).toFixed(2)} onBlur={e=>void updateZone(z,{price_cents:Math.round(Math.max(0,Number(e.target.value))*100)})}/></label><div className="flex gap-2"><button type="button" onClick={()=>{const points=zonePoints(z);const index=points.length-1;const a=points[index],b=points[0];void updateZone(z,{points:[...points,{x:Math.round((a.x+b.x)/2),y:Math.round((a.y+b.y)/2)}]})}} className="rounded border px-2 py-1 text-xs">{en?"+ Add corner":"+ Добавить угол"}</button><button type="button" disabled={zonePoints(z).length<=3} onClick={()=>void updateZone(z,{points:zonePoints(z).slice(0,-1)})} className="rounded border px-2 py-1 text-xs disabled:opacity-40">{en?"− Remove corner":"− Удалить угол"}</button></div><button type="button" onClick={()=>void deleteZone(z)} className="text-xs text-red-700 underline">{en?"Delete zone":"Удалить зону"}</button></div>)}</div>}
      <section className="mb-5 rounded-xl border border-black/15 bg-[#fffaf1] p-3">
-       <h3 className="text-lg font-black">Table price areas</h3>
+       <h3 className="text-lg font-black">{en?"Table price areas":"Зоны цен для столов"}</h3>
        <p className="mt-1 text-xs text-gray-600">This list controls ticket prices. Editing it never moves tables or changes the coloured outlines. Tables without an override follow the area under their centre.</p>
        {zones.map(z=>{
          const members=tables.filter(t=>zoneForTable(t,zones)?.id===z.id).sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true}));
@@ -484,8 +486,8 @@ export default function SeatingBuilder(){
          </div>;
        })}
        {tables.some(t=>!zoneForTable(t,zones))&&<p className="mt-3 text-sm text-red-700">No price area: {tables.filter(t=>!zoneForTable(t,zones)).map(t=>t.label).join(", ")}</p>}
-       <details className="mt-4"><summary className="cursor-pointer text-sm font-bold underline">Edit table assignments</summary>
-         <div className="mt-3 space-y-2">{[...tables].sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true})).map(t=><label key={t.id} className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate font-medium">{t.label}</span><select aria-label={`Pricing area for ${t.label}`} className="max-w-44 rounded border border-black/20 bg-white p-2 text-xs" value={t.price_zone_id??""} onChange={e=>void assignTablePriceZone(t,e.target.value||null)}><option value="">Follow map automatically</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name} · ${z.price_cents/100}</option>)}</select></label>)}</div>
+       <details className="mt-4"><summary className="cursor-pointer text-sm font-bold underline">{en?"Edit table assignments":"Изменить назначение столов"}</summary>
+         <div className="mt-3 space-y-2">{[...tables].sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true})).map(t=><label key={t.id} className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate font-medium">{t.label}</span><select aria-label={`Pricing area for ${t.label}`} className="max-w-44 rounded border border-black/20 bg-white p-2 text-xs" value={t.price_zone_id??""} onChange={e=>void assignTablePriceZone(t,e.target.value||null)}><option value="">{en?"Follow map automatically":"Определять по схеме автоматически"}</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name} · ${z.price_cents/100}</option>)}</select></label>)}</div>
        </details>
      </section>
      <div className="mt-5 border-t pt-4">{tables.map(t=><button key={t.id} onClick={()=>setSelected(t.id)} className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-[#fff2db]">{t.label} · {seats(t)} seats {t.table_price_cents!==null?"· $"+(t.table_price_cents/100).toFixed(2):""}</button>)}</div>
