@@ -16,7 +16,10 @@ export default function CartPage() {
     const currency = items[0]?.currency ?? "nzd";
 
     useEffect(() => {
-        setItems(getCart());
+        // Rehydrate the locally stored cart after the initial server render.
+        let active = true;
+        queueMicrotask(() => { if (active) setItems(getCart()); });
+        return () => { active = false; };
     }, []);
 
     function handleQuantityChange(ticketTypeId: string, quantity: number) {
