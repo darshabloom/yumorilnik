@@ -1,3 +1,4 @@
+import Link from "next/link";
 const performers = [
     "Ольга Андропова",
     "Наталья Неринг",
@@ -13,9 +14,9 @@ export default function LineUpPage() {
     return (
         <main className="min-h-screen bg-[#f5a047] px-6 py-16 text-black">
             <section className="mx-auto max-w-6xl">
-                <a href="/" className="text-lg font-bold underline">
+                <Link href="/" className="text-lg font-bold underline">
                     ← На главную
-                </a>
+                </Link>
 
                 <h1 className="mt-10 text-5xl font-black text-pink-600">Юмористы</h1>
 
