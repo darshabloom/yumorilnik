@@ -6,7 +6,7 @@ import {supabase} from "@/lib/supabaseClient";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import {VenueLines, type VenueFeature, type Point} from "@/components/VenueLines";
 import CustomerVenueMap from "@/components/CustomerVenueMap";
-import {type PriceZone,zonePoints,zoneForTable,type ZonePoint} from "@/lib/priceZones";
+import {type PriceZone,zonePoints,zoneForTable,} from "@/lib/priceZones";
 
 type TableItem={id:string;event_id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id:string|null;is_active:boolean;shape:string};
 type EventItem={id:string;title:string;seating_mode:string;table_booking_mode:string};
@@ -33,7 +33,7 @@ export default function SeatingBuilder(){
  const [zoneSaving,setZoneSaving]=useState(false);
  const zoneDrag=useRef<{id:string;index:number}|null>(null);
  const zonesRef=useRef<PriceZone[]>([]);
- zonesRef.current=zones;
+ useEffect(()=>{zonesRef.current=zones;},[zones]);
  const [traceMode,setTraceMode]=useState<"wall"|"entrance"|null>(null);
  const [draftPoints,setDraftPoints]=useState<Point[]>([]);
  const [featureSelected,setFeatureSelected]=useState<string|null>(null);
@@ -210,7 +210,7 @@ export default function SeatingBuilder(){
   },900);
  }
  const featuresRef=useRef<VenueFeature[]>(features);
- featuresRef.current=features;
+ useEffect(()=>{featuresRef.current=features;},[features]);
  async function deletePoint(){
    if(!selectedPoint)return;
    const feature=featuresRef.current.find(f=>f.id===selectedPoint.id);
