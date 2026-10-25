@@ -16,7 +16,6 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [quantities,setQuantities]=useState<Record<string,number>>({});
  const [mapSelections,setMapSelections]=useState<string[]>([]);
  const [step,setStep]=useState<"tickets"|"guests"|"seats"|"children"|"review">("tickets");
- const [seatLimitNotice,setSeatLimitNotice]=useState(false);
  const [guestInfo,setGuestInfo]=useState<Record<string,{name:string;email:string;phone:string}>>({});
  const [guestErrors,setGuestErrors]=useState(false);
  const [childParents,setChildParents]=useState<Record<string,string>>({});
@@ -57,10 +56,9 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const selectedSeatPrice=(key:string)=>{const table=venue?.tables.find(t=>t.id===key.split(":")[0]);return table?(zonePricing?zoneForTable(table,venue?.zones??[])?.price_cents??null:table.seat_price_cents):null;};
  const seatTotal=!tableBooking?mapSelections.reduce((sum,key)=>sum+(selectedSeatPrice(key)??0),0):0;
  const missingSeatPrices=!tableBooking&&mapSelections.some(key=>selectedSeatPrice(key)==null);
- const seatCount=mapSelections.length;
  const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&seatCount>adultTicketCount+(zonePricing?childTicketCount:0);
  const invalidTablePrices=tableBooking&&mapSelections.some(key=>venue?.tables.find(t=>t.id===key)?.table_price_cents==null);
- const canReview=count>0&&!seatOverage&&seatsStillNeeded===0&&(!tableBooking||mapSelections.length>0);
+ const canReview=count>0&&!seatOverage&&seatsStillNeeded===0&&(!tableBooking||mapSelections.length>0)&&!missingSeatPrices&&!invalidTablePrices;
  const pricingIncomplete=missingSeatPrices||invalidTablePrices;
  const selections=mapSelections.map(key=>{
   const table=venue?.tables.find(t=>t.id===(tableBooking?key:key.split(":")[0]));
@@ -72,13 +70,22 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const format=useMemo(()=>new Intl.NumberFormat("en-NZ",{style:"currency",currency}),[currency]);
  const max=10;
  const needsSeats=event.seating_mode!=="general_admission";
- const canContinueTickets=count>0;
+ const canContinueTickets=count>0 && (adultTicketCount+childTicketCount===count) && (childTicketCount===0||adultTicketCount>0);
  const guestDetailsComplete=Array.from({length:adultTicketCount+childTicketCount},(_,i)=>{const g=guestInfo[String(i)];if(!g?.name.trim())return false;if(i<adultTicketCount)return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(g.email)&&!!g.phone.trim();const parent=Number(childParents[String(i)]);return childParents[String(i)]!==undefined&&parent>=0&&parent<adultTicketCount;}).every(Boolean);
- const childSeats=Object.values(seatAssignments).filter(id=>Number(id)>=adultTicketCount).length;
+ const childSeats=Object.values(seatAssignments).filter(id=>Number(id)>=adultTicketCount&&Number(id)<adultTicketCount+childTicketCount).length;
  const adultSeats=Object.values(seatAssignments).filter(id=>Number(id)<adultTicketCount).length;
  function adjust(ticket:BookingTicket,delta:number){
-   const available=Math.max(0,(ticket.quantity_total??0)-(ticket.quantity_sold??0));
-   setQuantities(prev=>({...prev,[ticket.id]:Math.max(0,Math.min(max,available,(prev[ticket.id]??0)+delta))}));
+   const available=ticket.quantity_total==null?max:Math.max(0,ticket.quantity_total-(ticket.quantity_sold??0));
+   const next=Math.max(0,Math.min(max,available,(quantities[ticket.id]??0)+delta));
+   if(next===(quantities[ticket.id]??0))return;
+   // Indexed guests and seats must not silently transfer when the party changes.
+   setQuantities(prev=>({...prev,[ticket.id]:next}));
+   setGuestInfo({});
+   setChildParents({});
+   setGuestErrors(false);
+   setMapSelections([]);
+   setSeatAssignments({});
+   setActiveSeatGuest("0");
  }
  return <main className="min-h-screen bg-[#fffaf1] pb-36 text-black">
    <div className="relative bg-[#fffaf1]">
@@ -124,7 +131,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
        <p className="rounded-lg bg-[#fff2db] p-4 text-sm">{en?"Booking confirmation and guest-data submission are not yet enabled.":"Подтверждение бронирования и отправка данных гостей пока недоступны."}</p>
        <button type="button" onClick={()=>{setStep("tickets")}} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Back to attendees":"Назад к гостям"}</button>
      </section>:step==="review"?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8" aria-label={en?"Order review":"Проверка заказа"}>
-       <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Review your selection":"Проверьте ваш выбор"}</h2><button type="button" onClick={()=>setStep(needsSeats?"seats":"guests")} className="text-sm font-semibold underline">{en?"← Edit":"← Изменить"}</button></div>
+       <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Review your selection":"Проверьте ваш выбор"}</h2><button type="button" onClick={()=>setStep(needsSeats?(childTicketCount>0&&!tableBooking?"children":"seats"):"guests")} className="text-sm font-semibold underline">{en?"← Edit":"← Изменить"}</button></div>
        <p className="text-sm text-gray-600">{en?"Check each guest, assigned seat and total before proceeding. This is a preview only.":"Проверьте гостей, их места и итоговую сумму. Сейчас это только предварительный просмотр."}</p>
        <div><h3 className="mb-2 font-semibold">{en?"Admission tickets":"Входные билеты"}</h3>{tickets.filter(t=>(quantities[t.id]??0)>0).map(t=><div key={t.id} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{t.name} × {quantities[t.id]}</span><span>{zonePricing&&/adult|взросл/i.test(t.name)?(en?"Included in seat prices":"Включено в стоимость мест"):format.format(t.price_cents*(quantities[t.id]??0)/100)}</span></div>)}</div>
        {event.seating_mode!=="general_admission"&&<div><h3 className="mb-2 font-semibold">{tableBooking?(en?"Selected tables":"Выбранные столы"):(en?"Selected seats":"Выбранные места")}</h3>{selections.length===0?<p className="text-sm text-gray-600">{en?"No seats selected":"Места не выбраны"}</p>:selections.map(s=><div key={s.key} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{s.label}{s.seat?` · ${en?"seat":"место"} ${s.seat}`:""}</span><span>{s.cost==null?(en?"Price not set":"Цена не указана"):format.format(s.cost/100)}</span></div>)}</div>}
@@ -138,9 +145,10 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
        {step==="tickets"&&<section aria-labelledby="tickets-title" className="space-y-3">
          <h2 id="tickets-title" className="text-xl font-bold">{en?"How many tickets?":"Сколько билетов?"}</h2>
          <p className="text-sm text-gray-600">{en?"Choose the number of adults and children attending. You will choose seats on the next screen.":"Выберите количество взрослых и детей. Места можно будет выбрать на следующем экране."}</p>
+         {count>0&&!canContinueTickets&&<p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">{en?"Please include an adult for every child booking, and use Adult/Child ticket types for this journey.":"Для заказа с детьми добавьте хотя бы одного взрослого. Используйте типы билетов «Взрослый» и «Детский»."}</p>}
          {tickets.length===0?<p className="rounded-xl border border-black/15 bg-white p-5">{en?"No tickets have been added yet.":"Билеты пока не добавлены."}</p>:<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{tickets.map(ticket=>{
             const quantity=quantities[ticket.id]??0;
-            const remaining=Math.max(0,(ticket.quantity_total??0)-(ticket.quantity_sold??0));
+            const remaining=ticket.quantity_total==null?max:Math.max(0,ticket.quantity_total-(ticket.quantity_sold??0));
             return <div key={ticket.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-black/15 bg-white px-4 py-3">
               <div className="min-w-0 flex-1">
                 <h3 className="text-base font-semibold">{ticket.name}</h3>
@@ -162,7 +170,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
        </section>}
        {(step==="seats"||step==="children")&&<section aria-labelledby="seating-title" className="min-w-0 space-y-4">
          <button type="button" onClick={()=>setStep("guests")} className="text-sm font-semibold underline">{en?"← Edit guest details":"← Изменить данные гостей"}</button>
-         {!tableBooking&&<div className="rounded-xl border border-[#f5a047] bg-white p-4"><h3 className="font-bold">{en?"Assign a seat to each adult":"Выберите место для каждого взрослого"}</h3><p className="mt-1 text-sm text-gray-600">{en?"Select a name, then tap their numbered seat on the map.":"Выберите имя, затем нажмите на номер места на схеме."}</p><div className="mt-3 flex flex-wrap gap-2">{Array.from({length:adultTicketCount},(_,i)=>{const key=String(i);const assigned=selections.find(s=>seatAssignments[s.key]===key);return <button type="button" key={key} onClick={()=>setActiveSeatGuest(key)} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${activeSeatGuest===key?"border-black bg-black text-white":"border-black/20 bg-[#fffaf1]"}`}>{guestInfo[key]?.name||`${en?"Adult":"Взрослый"} ${i+1}`}{assigned?` · ${assigned.label}/${assigned.seat} ✓`:" · +"}</button>})}</div><p className="mt-3 text-sm font-bold">{adultSeats}/{adultTicketCount} {en?"adult seats assigned":"мест для взрослых выбрано"}</p></div>}
+         {step==="seats"&&!tableBooking&&<div className="rounded-xl border border-[#f5a047] bg-white p-4"><h3 className="font-bold">{en?"Assign a seat to each adult":"Выберите место для каждого взрослого"}</h3><p className="mt-1 text-sm text-gray-600">{en?"Select a name, then tap their numbered seat on the map.":"Выберите имя, затем нажмите на номер места на схеме."}</p><div className="mt-3 flex flex-wrap gap-2">{Array.from({length:adultTicketCount},(_,i)=>{const key=String(i);const assigned=selections.find(s=>seatAssignments[s.key]===key);return <button type="button" key={key} onClick={()=>setActiveSeatGuest(key)} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${activeSeatGuest===key?"border-black bg-black text-white":"border-black/20 bg-[#fffaf1]"}`}>{guestInfo[key]?.name||`${en?"Adult":"Взрослый"} ${i+1}`}{assigned?` · ${assigned.label}/${assigned.seat} ✓`:" · +"}</button>})}</div><p className="mt-3 text-sm font-bold">{adultSeats}/{adultTicketCount} {en?"adult seats assigned":"мест для взрослых выбрано"}</p></div>}
          {step==="children"&&<div className="rounded-xl border border-[#f5a047] bg-white p-4"><h3 className="font-bold">{en?"Optional seats for children":"Дополнительные места для детей"}</h3><div className="mt-3 grid gap-3 sm:grid-cols-2"><div className="rounded-lg border p-3"><span className="text-2xl">🎟️</span><p className="font-semibold">{en?"Without a table seat":"Без места за столом"}</p><p className="text-sm text-gray-600">{en?"Child admission only · No reserved seat":"Только детский вход · Без закреплённого места"}</p></div><div className="rounded-lg border p-3"><span className="text-2xl">🪑</span><p className="font-semibold">{en?"With a table seat":"С местом за столом"}</p><p className="text-sm text-gray-600">{en?"Extra reserved seat at full zone price, plus child admission":"Дополнительное место по полной цене зоны плюс детский вход"}</p></div></div><p className="mt-3 text-sm">{en?"Select a child below and tap a seat if they need one. Otherwise leave their seat unassigned.":"Выберите ребёнка ниже и нажмите на место, если оно нужно. Иначе оставьте без закреплённого места."}</p><div className="mt-3 flex flex-wrap gap-2">{Array.from({length:childTicketCount},(_,i)=>{const key=String(adultTicketCount+i);const assigned=selections.find(s=>seatAssignments[s.key]===key);return <button key={key} type="button" onClick={()=>setActiveSeatGuest(key)} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${activeSeatGuest===key?"border-black bg-black text-white":"border-black/20 bg-[#fffaf1]"}`}>{guestInfo[key]?.name||`${en?"Child":"Ребёнок"} ${i+1}`}{assigned?` · ${assigned.label}/${assigned.seat} ✓`:" · optional"}</button>})}</div></div>}
          <h2 id="seating-title" className="text-xl font-bold">{step==="children"?(en?"Choose extra child seats (optional)":"Дополнительные места для детей (по желанию)"):event.seating_mode==="general_admission"?(en?"General admission":"Вход без закреплённых мест"):event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?(en?"Seats at tables":"Места за столами"):(en?"Whole-table booking":"Бронирование столов")):(en?"Seating":"Рассадка")}</h2>
          {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage} mode={seatingMode} selectedKeys={mapSelections} onToggle={toggleMapSelection} zones={venue.zones} />:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
@@ -186,7 +194,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
        </div>
        {step==="tickets"?<button type="button" disabled={!canContinueTickets} onClick={()=>{setStep("guests");window.scrollTo({top:0,behavior:"smooth"})}} className="min-h-12 shrink-0 rounded-lg bg-black px-4 py-3 text-sm font-bold text-white disabled:opacity-45">{en?"Enter guest info →":"Данные гостей →"}</button>:
         step==="seats"?<button type="button" disabled={!canReview} onClick={()=>{setStep(childTicketCount>0&&!tableBooking?"children":"review");setActiveSeatGuest(String(adultTicketCount));window.scrollTo({top:0,behavior:"smooth"})}} className="min-h-12 shrink-0 rounded-lg bg-black px-4 py-3 text-sm font-bold text-white disabled:opacity-45">{childTicketCount>0&&!tableBooking?(en?"Children's seats →":"Места детей →"):(en?"Review →":"Проверить →")}</button>:
-        step==="children"?<button type="button" onClick={()=>{setStep("review");window.scrollTo({top:0,behavior:"smooth"})}} className="min-h-12 shrink-0 rounded-lg bg-black px-4 py-3 text-sm font-bold text-white">{en?"Review booking →":"Проверить заказ →"}</button>:
+        step==="children"?<button type="button" disabled={!canReview} onClick={()=>{setStep("review");window.scrollTo({top:0,behavior:"smooth"})}} className="min-h-12 shrink-0 rounded-lg bg-black px-4 py-3 text-sm font-bold text-white disabled:opacity-45">{en?"Review booking →":"Проверить заказ →"}</button>:
         <span className="max-w-40 text-right text-xs text-gray-500">{en?"Preview only · Not a reservation":"Предпросмотр · Не бронь"}</span>}
      </div>
    </div>
