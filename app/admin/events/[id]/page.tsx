@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import EventPresentation from "@/components/EventPresentation";
+import {useSiteLanguage} from "@/lib/useSiteLanguage";
 
 type EventRecord = {
   id: string; slug: string; title: string; title_en: string | null;
@@ -17,6 +18,7 @@ type Ticket = { id: string; name: string; price_cents: number; currency: string;
 export default function InlineEventEditor() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const en=useSiteLanguage()==="en";
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [language, setLanguage] = useState<"ru" | "en">("ru");
@@ -157,21 +159,21 @@ export default function InlineEventEditor() {
       <span aria-hidden="true">↑</span> {uploading ? "Uploading image…" : "Choose image from device"}
       <input id="event-image-upload" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploading} onChange={e=>uploadImage(e,target)} className="sr-only"/>
     </label>
-    <p className="mt-2 text-center text-xs text-gray-500">JPG, PNG, WebP or GIF · up to 10 MB</p>
-    <label className="mt-3 block text-sm font-semibold">Or use image URL<input type="url" className="mt-1 w-full rounded border p-2 font-normal" value={target==="banner"?(event?.image_url??""):(event?.detail_image_url??"")} onChange={e=>change(target==="banner"?"image_url":"detail_image_url",e.target.value)}/></label>
+    <p className="mt-2 text-center text-xs text-gray-500">{en?"JPG, PNG, WebP or GIF · up to 10 MB":"JPG, PNG, WebP или GIF · до 10 МБ"}</p>
+    <label className="mt-3 block text-sm font-semibold">{en?"Or use image URL":"Или укажите ссылку на изображение"}<input type="url" className="mt-1 w-full rounded border p-2 font-normal" value={target==="banner"?(event?.image_url??""):(event?.detail_image_url??"")} onChange={e=>change(target==="banner"?"image_url":"detail_image_url",e.target.value)}/></label>
     <div className="mt-4 border-t pt-3">
-      <p className="mb-2 text-sm font-semibold">Image display</p>
+      <p className="mb-2 text-sm font-semibold">{en?"Image display":"Отображение изображения"}</p>
       <div className="flex gap-2">
         {(["cover","contain"] as const).map(fit=><button key={fit} type="button"
           onClick={()=>change(target==="banner"?"banner_fit":"detail_fit",fit)}
           className={`rounded border px-3 py-2 text-xs font-bold ${(target==="banner"?event?.banner_fit:event?.detail_fit)===fit?"bg-black text-white":"bg-white"}`}>
-          {fit==="cover"?"Fill frame (crop)":"Fit entire image"}
+          {fit==="cover"?(en?"Fill frame (crop)":"Заполнить рамку (обрезать)"):(en?"Fit entire image":"Показать целиком")}
         </button>)}
       </div>
-      <p className="mt-3 text-xs text-gray-600">Move the image within its frame</p>
+      <p className="mt-3 text-xs text-gray-600">{en?"Move the image within its frame":"Передвигайте изображение внутри рамки"}</p>
       {(["x","y"] as const).map(axis=>{
         const field = target==="banner"?(axis==="x"?"banner_position_x":"banner_position_y"):(axis==="x"?"detail_position_x":"detail_position_y");
-        return <label key={axis} className="mt-2 flex items-center gap-3 text-xs font-bold">{axis==="x"?"Horizontal":"Vertical"}
+        return <label key={axis} className="mt-2 flex items-center gap-3 text-xs font-bold">{axis==="x"?(en?"Horizontal":"По горизонтали"):(en?"Vertical":"По вертикали")}
           <input aria-label={axis==="x"?"Horizontal image position":"Vertical image position"} type="range" min="0" max="100" step="1"
             className="min-w-0 flex-1" value={event?.[field]??50} onChange={e=>change(field,Number(e.target.value))}/>
         </label>;
@@ -179,54 +181,54 @@ export default function InlineEventEditor() {
       <button type="button" onClick={()=>{
         change(target==="banner"?"banner_position_x":"detail_position_x",50);
         change(target==="banner"?"banner_position_y":"detail_position_y",50);
-      }} className="mt-3 text-xs font-bold underline">Centre image</button>
+      }} className="mt-3 text-xs font-bold underline">{en?"Centre image":"По центру"}</button>
     </div>
-    {uploading&&<p role="status" className="mt-2 text-sm">Uploading…</p>}
+    {uploading&&<p role="status" className="mt-2 text-sm">{en?"Uploading…":"Загрузка…"}</p>}
     {error&&<p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
     {status&&<p role="status" className="mt-2 text-sm text-green-700">{status}</p>}
   </div>;
 
-  if (loading) return <main className="min-h-[75vh] bg-[#fff2db] p-6" role="status">Loading event…</main>;
+  if (loading) return <main className="min-h-[75vh] bg-[#fff2db] p-6" role="status">{en?"Loading event…":"Загрузка мероприятия…"}</main>;
   if (!event) return <main className="min-h-[75vh] bg-[#fff2db] p-6" role="alert">{error || "Event unavailable."}</main>;
 
   return (
     <main className="min-h-screen bg-[#fff2db] text-black">
       <div className="sticky top-0 z-20 border-b border-black/20 bg-[#fff2db]/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2">
-          <Link href="/admin/events" className="text-sm font-bold underline">← All events</Link>
+          <Link href="/admin/events" className="text-sm font-bold underline">{en?"← All events":"← Все мероприятия"}</Link>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-white px-3 py-2 text-xs font-bold">{event.is_active ? "Published" : "Draft"}</span>
+            <span className="rounded-full bg-white px-3 py-2 text-xs font-bold">{event.is_active?(en?"Published":"Опубликовано"):(en?"Draft":"Черновик")}</span>
             <button type="button" onClick={() => setLanguage(language === "ru" ? "en" : "ru")} className="rounded-lg border border-black px-3 py-2 text-sm font-bold">{language.toUpperCase()} ▾</button>
-            <button type="button" onClick={() => setIsPreview(!isPreview)} className="rounded-lg border border-black px-3 py-2 text-sm font-bold">{isPreview ? "Edit" : "Preview"}</button>
-            <span role="status" aria-live="polite" className="ml-auto whitespace-nowrap text-xs font-semibold text-gray-700 sm:text-sm">{status || (saving ? "Saving…" : "Auto-save")}</span>
+            <button type="button" onClick={() => setIsPreview(!isPreview)} className="rounded-lg border border-black px-3 py-2 text-sm font-bold">{isPreview?(en?"Edit":"Редактировать"):(en?"Preview":"Предпросмотр")}</button>
+            <span role="status" aria-live="polite" className="ml-auto whitespace-nowrap text-xs font-semibold text-gray-700 sm:text-sm">{status || (saving ? (en?"Saving…":"Сохранение…") : (en?"Auto-save":"Автосохранение"))}</span>
           </div>
         </div>
       </div>
 
       {!isPreview&&<div className="mx-auto max-w-6xl px-4 pt-4">
-        <label htmlFor="event-url-slug" className="block text-sm font-bold">Event URL</label>
+        <label htmlFor="event-url-slug" className="block text-sm font-bold">{en?"Event URL":"Адрес страницы мероприятия"}</label>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <span className="text-sm text-gray-600">/events/</span>
           <input id="event-url-slug" type="text" value={event.slug} onChange={e=>change("slug",e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,""))} className="min-w-0 flex-1 rounded-lg border border-black/30 bg-white px-3 py-2 text-sm" spellCheck={false} aria-describedby="slug-help"/>
         </div>
-        <p id="slug-help" className="mt-1 text-xs text-gray-600">Use letters, numbers and hyphens. Changes save automatically. Changing this URL will break previously shared links.</p>
+        <p id="slug-help" className="mt-1 text-xs text-gray-600">{en?"Use letters, numbers and hyphens. Changes save automatically. Changing this URL will break previously shared links.":"Используйте латинские буквы, цифры и дефисы. Изменения сохраняются автоматически. Старые ссылки после изменения перестанут работать."}</p>
       </div>}
       <EventPresentation
-        event={{slug:event.slug,title,description,event_date:event.event_date,event_time:event.event_time,location:event.location,image_url:event.image_url,detail_image_url:event.detail_image_url,banner_fit:event.banner_fit,banner_position_x:event.banner_position_x,banner_position_y:event.banner_position_y,detail_fit:event.detail_fit,detail_position_x:event.detail_position_x,detail_position_y:event.detail_position_y}}
+        event={{slug:event.slug,title,title_en:event.title_en,description,description_en:event.description_en,event_date:event.event_date,event_time:event.event_time,location:event.location,image_url:event.image_url,detail_image_url:event.detail_image_url,banner_fit:event.banner_fit,banner_position_x:event.banner_position_x,banner_position_y:event.banner_position_y,detail_fit:event.detail_fit,detail_position_x:event.detail_position_x,detail_position_y:event.detail_position_y}}
         heading={isPreview ? undefined : <textarea aria-label="Event title" value={title} onChange={e=>change(titleKey,e.target.value.replace(/\n/g," "))}
           rows={2} placeholder={language==="ru"?"Название мероприятия":"Event title"}
           className="block min-h-24 w-full min-w-0 resize-y whitespace-pre-wrap break-words rounded-md bg-transparent text-3xl font-black leading-tight outline-none hover:bg-black/5 focus:bg-white focus:ring-2 focus:ring-pink-600 sm:min-h-28 sm:text-5xl"/>}
         description={isPreview ? undefined : <textarea aria-label="Event description" rows={Math.max(8,description.split("\n").length+3)}
           value={description} onChange={e=>change(descKey,e.target.value)}
-          placeholder="Click to write a description"
+          placeholder={en?"Click to write a description":"Нажмите, чтобы добавить описание"}
           className="w-full resize-y rounded-md bg-transparent p-2 leading-7 outline-none hover:bg-black/5 focus:bg-white focus:ring-2 focus:ring-pink-600"/>}
         dateAndPlace={isPreview ? undefined : <div className="space-y-2">
-          <label className="block text-xs font-bold">Date<input type="date" value={event.event_date} onChange={e=>change("event_date",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
-          <label className="block text-xs font-bold">Time<input type="time" value={event.event_time.slice(0,5)} onChange={e=>change("event_time",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
-          <label className="block text-xs font-bold">Venue<input value={event.location??""} onChange={e=>change("location",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
+          <label className="block text-xs font-bold">{en?"Date":"Дата"}<input type="date" value={event.event_date} onChange={e=>change("event_date",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
+          <label className="block text-xs font-bold">{en?"Time":"Время"}<input type="time" value={event.event_time.slice(0,5)} onChange={e=>change("event_time",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
+          <label className="block text-xs font-bold">{en?"Venue":"Место проведения"}<input value={event.location??""} onChange={e=>change("location",e.target.value)} className="mt-1 w-full rounded border p-2"/></label>
         </div>}
-        bannerControl={!isPreview?<div className="relative">{editingImage==="banner"&&imageEditor("banner")}<button type="button" onClick={()=>setEditingImage(editingImage==="banner"?null:"banner")} aria-expanded={editingImage==="banner"} className="rounded bg-white px-4 py-3 text-sm font-bold shadow">Change image</button></div>:undefined}
-        imageControl={!isPreview?<div className="relative">{editingImage==="detail"&&imageEditor("detail")}<button type="button" onClick={()=>setEditingImage(editingImage==="detail"?null:"detail")} aria-expanded={editingImage==="detail"} className="rounded bg-white px-3 py-2 text-sm font-bold shadow">Edit photo</button></div>:undefined}
+        bannerControl={!isPreview?<div className="relative">{editingImage==="banner"&&imageEditor("banner")}<button type="button" onClick={()=>setEditingImage(editingImage==="banner"?null:"banner")} aria-expanded={editingImage==="banner"} className="rounded bg-white px-4 py-3 text-sm font-bold shadow">{en?"Change image":"Изменить изображение"}</button></div>:undefined}
+        imageControl={!isPreview?<div className="relative">{editingImage==="detail"&&imageEditor("detail")}<button type="button" onClick={()=>setEditingImage(editingImage==="detail"?null:"detail")} aria-expanded={editingImage==="detail"} className="rounded bg-white px-3 py-2 text-sm font-bold shadow">{en?"Edit photo":"Изменить фото"}</button></div>:undefined}
         bookingAction={()=>router.push(`/admin/events/${event.id}/tickets`)}
       />
       {!isPreview && <div className="w-full space-y-5 bg-white px-5 pb-12 sm:px-10 lg:px-[6vw]">
