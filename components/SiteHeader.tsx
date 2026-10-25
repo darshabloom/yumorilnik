@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSiteLanguage, type SiteLanguage } from "@/lib/useSiteLanguage";
 
-type Language = "ru" | "en";
+type Language = SiteLanguage;
 
 const labels = {
   ru: { home: "Главная", events: "Афиша", about: "О нас", contact: "Контакты", tickets: "Купить билеты", menu: "Открыть меню", close: "Закрыть меню" },
@@ -11,19 +12,13 @@ const labels = {
 };
 
 export default function SiteHeader() {
-  const [language, setLanguage] = useState<Language>("ru");
+  const language = useSiteLanguage();
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem("yumorilnik-language");
-    if (stored === "en" || stored === "ru") setLanguage(stored);
-    document.documentElement.lang = stored === "en" ? "en" : "ru";
-  }, []);
+  useEffect(() => { document.documentElement.lang = language; }, [language]);
 
   const changeLanguage = (next: Language) => {
-    setLanguage(next);
     window.localStorage.setItem("yumorilnik-language", next);
-    document.documentElement.lang = next;
     window.dispatchEvent(new Event("yumorilnik-language-change"));
   };
 
