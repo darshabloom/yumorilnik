@@ -1,10 +1,11 @@
+import Link from "next/link";
 export default function ProgrammePage() {
     return (
         <main className="min-h-screen bg-[#f5a047] px-6 py-16 text-black">
             <section className="mx-auto max-w-4xl">
-                <a href="/" className="text-lg font-bold underline">
+                <Link href="/" className="text-lg font-bold underline">
                     ← На главную
-                </a>
+                </Link>
 
                 <h1 className="mt-10 text-5xl font-black text-pink-600">Программа</h1>
 
