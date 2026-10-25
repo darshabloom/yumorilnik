@@ -10,7 +10,7 @@ export default async function EventsPage() {
   {error?<p role="alert" className="mt-8"><LocalizedText ru="Не удалось загрузить афишу." en="Could not load the events."/></p>:!events?.length?<p className="mt-8 rounded-xl bg-white p-8"><LocalizedText ru="Скоро новые мероприятия!" en="More events coming soon!"/></p>:
   <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">{events.map(event=><Link key={event.id} href={event.event_type==="external"&&event.external_url?event.external_url:"/events/"+event.slug} target={event.event_type==="external"?"_blank":undefined} rel={event.event_type==="external"?"noopener noreferrer":undefined} className="overflow-hidden rounded-xl border bg-white hover:shadow-xl">
    {event.image_url?<img src={event.image_url} alt="" className="aspect-[16/10] w-full object-cover"/>:<div className="flex aspect-[16/10] items-center justify-center bg-[#f5a047]/30">Юморильник</div>}
-   <div className="space-y-3 p-5"><p className="text-sm font-semibold">{event.event_date} · {event.event_time.slice(0,5)}</p><h2 className="text-2xl font-black"><LocalizedText ru={event.title} en={event.title_en||event.title}/></h2><p>{event.location}</p><p className="font-bold underline">{event.event_type==="external"?"External tickets ↗":"<LocalizedText ru="Подробнее →" en="Details →"/>"}</p></div>
+   <div className="space-y-3 p-5"><p className="text-sm font-semibold">{event.event_date} · {event.event_time.slice(0,5)}</p><h2 className="text-2xl font-black"><LocalizedText ru={event.title} en={event.title_en||event.title}/></h2><p>{event.location}</p><p className="font-bold underline">{event.event_type==="external"?"External tickets ↗":<LocalizedText ru="Подробнее →" en="Details →"/>}</p></div>
   </Link>)}</div>}
  </main>;
 }
