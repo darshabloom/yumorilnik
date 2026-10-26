@@ -26,7 +26,9 @@ async function attendees(page, adults, children=0) {
 
 async function openTable(page,label="Table A") {
   const details=page.locator("details").filter({has:page.locator("summary", { hasText:label })});
-  await details.locator("summary").click();
+  if (!(await details.getAttribute("open"))) {
+    await details.locator("summary").click();
+  }
 }
 
 test("family booking assigns two adult seats and one optional child seat for $375", async ({page}) => {
