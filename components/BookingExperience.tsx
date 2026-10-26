@@ -108,9 +108,17 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  }
  const guestErrorLabel=(problem:{guestIndex:number;field:"name"|"email"|"phone"|"parent"})=>{
   const isChild=problem.guestIndex>=adultTicketCount;
-  const guestLabel=isChild?`${en?"Child":"Ребёнок"} ${problem.guestIndex-adultTicketCount+1}`:`${en?"Adult":"Взрослый"} ${problem.guestIndex+1}`;
-  const fieldLabel={name:en?"full name":"имя",email:en?"valid email address":"правильный адрес электронной почты",phone:en?"phone number":"номер телефона",parent:en?"accompanying adult":"сопровождающий взрослый"}[problem.field];
-  return `${guestLabel}: ${fieldLabel}`;
+  const index=problem.guestIndex;
+  const person=isChild?`${en?"Child":"Ребёнок"} ${index-adultTicketCount+1}`:`${en?"Adult":"Взрослый"} ${index+1}`;
+  const enteredName=guestInfo[String(index)]?.name.trim();
+  const who=enteredName?`${person} (${enteredName})`:person;
+  const message={
+   name:en?"please enter a full name.":"укажите имя и фамилию.",
+   email:en?"please enter a valid email address (e.g. name@example.com).":"укажите правильный email (например, name@example.com).",
+   phone:en?"please enter a phone number.":"укажите номер телефона.",
+   parent:en?"please select a parent or accompanying adult.":"выберите родителя или сопровождающего взрослого.",
+  }[problem.field];
+  return `${who}: ${message}`;
  };
  function continueFromGuestInfo(){
   setGuestErrors(guestProblems.length>0);
