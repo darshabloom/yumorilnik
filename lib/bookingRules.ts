@@ -88,6 +88,7 @@ export function selectedTableCapacity(
 }
 
 
+/** A review preview is allowed before every price is configured; checkout is not. */
 export function bookingReadyForReview(options:{
  ticketCount:number;guestDetailsComplete:boolean;totalCents:number|null;
  generalAdmission:boolean;wholeTable:boolean;selectedCount:number;
@@ -95,9 +96,10 @@ export function bookingReadyForReview(options:{
  adultSeatsRequired:boolean;seatOverage:boolean;
 }):boolean{
  const o=options;
- if(o.ticketCount<=0||!o.guestDetailsComplete||o.totalCents===null||o.seatOverage)return false;
+ if(o.ticketCount<=0||!o.guestDetailsComplete||o.seatOverage)return false;
  if(o.generalAdmission)return true;
  if(o.wholeTable)return o.selectedCount>0&&o.tableCapacity>=o.adultCount;
  if(o.adultSeatsRequired&&o.assignedAdultSeats!==o.adultCount)return false;
  return true;
 }
+\n/** Never enable actual checkout with an incomplete or unsafe total. */\nexport function bookingPriceReadyForCheckout(totalCents:number|null):boolean{\n return totalCents!==null&&Number.isSafeInteger(totalCents)&&totalCents>=0;\n}\n
