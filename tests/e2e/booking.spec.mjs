@@ -219,6 +219,11 @@ test("no adult admission price is displayed before choosing a table place",async
 
 test("customer can submit a booking REQUEST and see the saved reference (mock backend)",async({page})=>{
  let request=null;
+ let marketingCalls=0;
+ await page.route("**/rest/v1/rpc/marketing_opt_in",async route=>{
+  marketingCalls++;
+  await route.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:"true"});
+ });
  await page.route("**/rest/v1/rpc/submit_booking",async route=>{
   if(route.request().method()==="OPTIONS"){
    await route.fulfill({status:204,headers:{"access-control-allow-origin":"*","access-control-allow-methods":"POST,OPTIONS","access-control-allow-headers":"authorization,apikey,content-type,x-client-info"}});
@@ -244,6 +249,7 @@ test("customer can submit a booking REQUEST and see the saved reference (mock ba
  expect(request.p_guests.map(g=>g.name)).toEqual(["Adult 1","Adult 2","Child 1","Child 2"]);
  expect(request.p_selections.map(s=>s.guest_index)).toEqual([0,1,2]);
  expect(JSON.stringify(request)).not.toContain("price_cents");
+ expect(marketingCalls).toBe(0);
 });
 
 test("guest form names the missing adult field, focuses it, and then proceeds",async({page})=>{
