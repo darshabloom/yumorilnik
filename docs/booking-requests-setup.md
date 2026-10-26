@@ -36,3 +36,19 @@ Security: anonymous customers **cannot read or directly write** personal booking
 Before using this as a ticket-selling service, build and test concurrency-safe seat reservation, payment confirmation, ticket delivery and cancellation/refund handling. The next event-helper phase should use restricted staff identities and individual `booking_guests.id` records to prevent duplicate check-in, and should reject requests that are not confirmed. The nullable `checked_in_at` field is reserved for that future functionality; clients have no permission to update it now.
 
 **Testing evidence:** GitHub CI verifies the front-end logic and (with mocks) customer submission. It does **not** prove that the SQL migration has run successfully or that genuine records can be saved in Yumorilnik Supabase. That must be tested against the correct project.
+
+## Future-event invitations: separate and optional
+
+The booking form has a **second, unticked checkbox** offering email invitations to future Yumorilnik and Marina events. Customers must explicitly opt in and identify which adult email should receive invitations. This has no effect on their booking request.
+
+- Add marketing consent storage only after applying the first booking migration, using `supabase/migrations/20261026_marketing_optin.sql` in the **Yumorilnik** project (never UniOS).
+- Each opted-in adult has one `marketing_contacts` record with email, name, explicit-consent timestamp, source booking and event, status and a cryptographically random unsubscribe token.
+- If consent is not ticked, no marketing RPC is called. Other adults, children, non-consenting contacts and all existing customer data are **not** automatically copied into the marketing list.
+- Anonymous visitors have no SELECT permission for contacts. Only owner/admin may view `/admin/contacts`, search, export the active consent list, or process an opt-out reported by phone or email. The CSV includes source consent details and each recipient's unique opt-out link.
+- The public `/unsubscribe?token=...` page offers explicit one-click consent withdrawal, without account login; simply opening the link never changes a database record. A recorded opt-out is not silently reversed by future bookings.
+- The optional opt-in is recorded separately **after** a successful saved booking request, not in a transaction with it. If saving consent fails, the booking is still received and the customer can retry the optional signup.
+- **No marketing emails are sent by this implementation.** A future mailing solution must include the sender's correct identifying information, valid unsubscribe links or equivalent and opt-out processing; comply with the NZ Unsolicited Electronic Messages Act 2007 and Privacy Act 2020. Do not send invitations using `bookings` guest contacts: only `marketing_contacts` with `status='subscribed'`.
+- Live activation remains behind `NEXT_PUBLIC_BOOKING_REQUESTS_ENABLED` and depends on a configured Yumorilnik Supabase project, anti-spam controls, privacy notice and real permission checks. Current CI verifies an isolated PostgreSQL database, *not* Yumorilnik production.
+- Before launching real invitations, consider email-address verification/double opt-in to prevent subscribers adding an address they do not own, enforce retention/deletion handling, and select a permitted mail delivery provider.
+
+The NZ Department of Internal Affairs guidance: https://www.dia.govt.nz/Spam-Three-Steps

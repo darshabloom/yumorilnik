@@ -86,3 +86,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261026_booking_requests.sql
       - name: Verify persistence, pricing, RLS and cancellation
         run: psql -v ON_ERROR_STOP=1 -f tests/db/booking_requests_smoke.sql
+      - name: Apply marketing opt-in schema
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261026_marketing_optin.sql
+      - name: Verify opt-in list, RLS, unsubscribe and admin permissions
+        run: psql -v ON_ERROR_STOP=1 -f tests/db/marketing_optin_smoke.sql
