@@ -3,7 +3,7 @@
 import {useEffect,useRef,useState} from "react";
 import type {VenueFeature} from "@/components/VenueLines";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
-import {zoneForTable,zonePoints,type PriceZone} from "@/lib/priceZones";
+import {zonePoints,type PriceZone} from "@/lib/priceZones";
 
 export type PublicTable={id:string;label:string;shape?:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id?:string|null;is_active:boolean};
 export type PublicStage={stage_x:number;stage_y:number;stage_width:number;stage_height:number;stage_rotation:number};
@@ -120,13 +120,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
       <button type="button" aria-label={en?"Zoom in":"Увеличить"} onClick={()=>zoomTo(zoom*1.4)} className="h-10 w-10 rounded border border-black/30 bg-white font-bold">+</button>
     </div>
    </div>
-   {zones.length>0&&<div className="relative z-10 -mx-1 rounded-lg border border-black/10 bg-white/95 px-2 py-2 shadow-sm backdrop-blur lg:hidden" aria-label={en?"Seat prices":"Стоимость мест"}>
-     <div className="grid grid-cols-3 gap-1.5">{[...zones].sort((a,b)=>b.price_cents-a.price_cents).map(z=><div key={z.id} className="flex min-w-0 items-center gap-1.5 rounded-md px-1 py-1">
-       <span className="h-5 w-5 shrink-0 rounded border border-black/10" style={{backgroundColor:z.color}}/>
-       <span className="min-w-0 text-[11px] leading-tight"><span className="block truncate font-semibold">{z.name}</span><strong className="block text-xs">{money(z.price_cents)}</strong></span>
-     </div>)}</div>
-   </div>}
-   <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+   <div className="grid items-start gap-4">
    <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#F6F5F1]":"relative h-[48svh] min-h-[310px] overflow-hidden rounded-xl border border-black/15 bg-[#F6F5F1] lg:h-[min(78vh,880px)]"}>
     {expanded&&<button type="button" onClick={()=>setExpanded(false)} className="absolute right-3 top-3 z-10 rounded-lg bg-white px-4 py-3 font-bold shadow">{en?"Close ✕":"Закрыть ✕"}</button>}
     <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet" aria-label={en?"Venue seating plan":"План зала"} role="group" className={`block h-full w-full ${expanded?"cursor-grab touch-none":"cursor-pointer touch-pan-y lg:cursor-grab lg:touch-none"}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
@@ -150,18 +144,8 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
       </g>)}
     </svg>
    </div>
-   {zones.length>0&&<aside aria-label={en?"Seat price areas":"Ценовые зоны"} className="rounded-xl border border-black/15 bg-white p-4 lg:sticky lg:top-5">
-     <h3 className="text-base font-bold">{en?"Seat price areas":"Цены по зонам"}</h3>
-     <p className="mt-1 text-xs text-gray-600">{en?"Full price per reserved seat":"Полная стоимость одного места"}</p>
-     <div className="mt-4 space-y-3">{[...zones].sort((a,b)=>b.price_cents-a.price_cents).map(z=><div key={z.id} className="flex items-center gap-3">
-       <span className="h-8 w-8 shrink-0 rounded-lg border border-black/10" style={{backgroundColor:z.color}} aria-hidden="true"/>
-       <span className="min-w-0 flex-1"><strong className="block text-sm">{z.name}</strong><span className="text-xs text-gray-600">{en?"per seat":"за место"}</span></span>
-       <strong className="text-base tabular-nums">{money(z.price_cents)}</strong>
-     </div>)}</div>
-     <p className="mt-4 border-t border-black/10 pt-3 text-xs text-gray-600">{en?"Each table has one price, including tables manually assigned to a price area.":"У всех мест за одним столом одна цена, включая столы, назначенные в зону вручную."}</p>
-   </aside>}
    </div>
    <div className="flex flex-wrap gap-4 text-xs text-gray-600"><span>{en?"◯ Seat":"◯ Место"}</span><span className="text-pink-700">{en?"● Selected":"● Выбрано"}</span><span>{en?"Reservations are not open yet":"Бронирование ещё не открыто"}</span></div>
-   {selected&&<p className="text-sm text-gray-700" aria-live="polite"><strong>{selected.label}</strong> · {en?"Tap numbered seats to select or deselect. Tap the table itself to zoom in.":"Нажмите на номер места на схеме, чтобы выбрать или отменить выбор."} {zones.length>0&&zoneForTable(selected,zones)?<span className="font-semibold"> · {money(zoneForTable(selected,zones)!.price_cents)} {en?"per seat":"за место"}</span>:null}</p>}
+   {selected&&<p className="rounded-lg border border-black/15 bg-white p-3 text-sm text-gray-700" aria-live="polite"><strong>{selected.label}</strong> · {mode==="whole_table"?(selected.table_price_cents!==null?money(selected.table_price_cents):(en?"Price pending":"Цена уточняется")):(selected.seat_price_cents!==null?money(selected.seat_price_cents)+(en?" per adult place":" за взрослое место"):(en?"Adult price not set for this table":"Взрослая цена для этого стола не указана"))}</p>}
  </div>;
 }
