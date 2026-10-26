@@ -24,24 +24,31 @@ async function attendees(page, adults, children=0) {
   }
 }
 
-async function openTable(page,label="Table A") {
-  const details=page.locator("details").filter({has:page.locator("summary", { hasText:label })});
-  if ((await details.getAttribute("open")) === null) {
-    await details.locator("summary").click();
-  }
+async function selectSeat(page, seatNumber, tableId="A") {
+  const key=tableId+":"+seatNumber;
+  const circle=page.locator(`g[data-seat-key="${key}"] circle`).last();
+  await circle.click();
+  await expect(page.locator(`g[data-seat-key="${key}"] circle`).first()).toHaveAttribute("fill","#f5a047");
+}
+
+async function focusTable(page, tableId="A") {
+  await page.locator(`rect[data-table-id="${tableId}"]`).click();
+}
+
+async function selectTable(page, tableId) {
+  await page.locator(`rect[data-seat-key="${tableId}"]`).click();
 }
 
 test("family booking assigns two adult seats and one optional child seat for $375", async ({page}) => {
   await begin(page);
   await attendees(page,2,2);
   await page.getByRole("button", { name: "Choose adult seats →" }).click();
-  await openTable(page);
-  await page.getByTestId("seat-option-A:1").click();
-  await page.getByTestId("seat-option-A:2").click();
+  await focusTable(page);
+  await selectSeat(page,1);
+  await selectSeat(page,2);
   await expect(page.getByText("2/2 adult seats assigned")).toBeVisible();
   await page.getByRole("button", { name: "Children's seats →" }).click();
-  await openTable(page);
-  await page.getByTestId("seat-option-A:3").click();
+  await selectSeat(page,3);
   await page.getByRole("button", { name: "Review booking →" }).click();
   await expect(page.getByRole("heading", { name: "Review your selection" })).toBeVisible();
   await expect(page.getByText("$375.00").first()).toBeVisible();
@@ -55,12 +62,11 @@ test("assigned adult seat cannot be silently taken by another guest", async ({pa
   await begin(page);
   await attendees(page,2);
   await page.getByRole("button", { name: "Choose adult seats →" }).click();
-  await openTable(page);
-  await page.getByTestId("seat-option-A:1").click();
-  await page.getByTestId("seat-option-A:1").click();
+  await selectSeat(page,1);
+  await page.locator('g[data-seat-key="A:1"] circle').last().click();
   await expect(page.getByText("This seat belongs to another guest.", {exact:false})).toBeVisible();
-  await expect(page.getByTestId("seat-option-A:1")).toHaveAttribute("aria-pressed","true");
-  await page.getByTestId("seat-option-A:2").click();
+  await expect(page.locator('g[data-seat-key="A:1"] circle').first()).toHaveAttribute("fill","#f5a047");
+  await selectSeat(page,2);
   await expect(page.getByRole("button", { name: "Review →" })).toBeEnabled();
 });
 
@@ -68,10 +74,10 @@ test("whole-table booking uses table capacity and no individual assignment", asy
   await begin(page,"whole");
   await attendees(page,5);
   await page.getByRole("button", { name: "Choose tables →" }).click();
-  await page.getByTestId("table-option-A").click();
+  await selectTable(page,"A");
   await expect(page.getByText("Available places for adults: 4/5")).toBeVisible();
   await expect(page.getByRole("button", { name: "Review →" })).toBeDisabled();
-  await page.getByTestId("table-option-B").click();
+  await selectTable(page,"B");
   await expect(page.getByText("Available places for adults: 6/5")).toBeVisible();
   await page.getByRole("button", { name: "Review →" }).click();
   await expect(page.getByRole("heading", { name:"Selected tables" })).toBeVisible();
@@ -91,19 +97,19 @@ test("explicit legacy pricing charges admission plus a seat even with zones", as
   await begin(page,"legacy");
   await attendees(page,1);
   await page.getByRole("button", { name:"Choose adult seats →" }).click();
-  await openTable(page);
-  await page.getByTestId("seat-option-A:1").click();
+  await selectSeat(page,1);
   await page.getByRole("button", { name:"Review →" }).click();
   await expect(page.getByText("$60.00").first()).toBeVisible();
 });
 
-test("seat without a configured price prevents review", async ({page}) => {
+test("unpriced adult seats still allow review but show pending price", async ({page}) => {
   await begin(page,"unpriced");
   await attendees(page,1);
   await page.getByRole("button", { name:"Choose adult seats →" }).click();
-  await openTable(page);
-  await page.getByTestId("seat-option-A:1").click();
-  await expect(page.getByRole("button", { name:"Review →" })).toBeDisabled();
+  await selectSeat(page,1);
+  await expect(page.getByRole("button", { name:"Review →" })).toBeEnabled();
+  await page.getByRole("button", { name:"Review →" }).click();
+  await expect(page.getByRole("heading", { name:"Review your selection" })).toBeVisible();
   await expect(page.getByText("Price pending").first()).toBeVisible();
 });
 
@@ -122,20 +128,17 @@ test("editing adult seats preserves another adult and the child's seat", async (
   await begin(page);
   await attendees(page,2,1);
   await page.getByRole("button", { name:"Choose adult seats →" }).click();
-  await openTable(page);
-  await page.getByTestId("seat-option-A:1").click();
-  await page.getByTestId("seat-option-A:2").click();
+  await selectSeat(page,1);
+  await selectSeat(page,2);
   await page.getByRole("button", { name:"Children's seats →" }).click();
-  await openTable(page);
-  await page.getByTestId("seat-option-A:3").click();
+  await selectSeat(page,3);
   await page.getByRole("button", { name:"Review booking →" }).click();
   await page.getByRole("button", { name:"3 · Adult seats" }).click();
   await page.getByRole("button", { name:/Adult 1.*Table A/ }).click();
-  await openTable(page);
-  await page.getByTestId("seat-option-A:4").click();
-  await expect(page.getByTestId("seat-option-A:1")).toHaveAttribute("aria-pressed","false");
-  await expect(page.getByTestId("seat-option-A:2")).toHaveAttribute("aria-pressed","true");
-  await expect(page.getByTestId("seat-option-A:3")).toHaveAttribute("aria-pressed","true");
+  await selectSeat(page,4);
+  await expect(page.locator('g[data-seat-key="A:1"] circle').first()).toHaveAttribute("fill","#fff");
+  await expect(page.locator('g[data-seat-key="A:2"] circle').first()).toHaveAttribute("fill","#f5a047");
+  await expect(page.locator('g[data-seat-key="A:3"] circle').first()).toHaveAttribute("fill","#f5a047");
   await page.getByRole("button", { name:"Children's seats →" }).click();
   await page.getByRole("button", { name:"Review booking →" }).click();
   await expect(page.getByText("Adult 1 — Table A · 4", {exact:false})).toBeVisible();
@@ -147,8 +150,7 @@ test("changing ticket quantities resets indexed guests and seat assignments", as
   await begin(page);
   await attendees(page,1,1);
   await page.getByRole("button", { name:"Choose adult seats →" }).click();
-  await openTable(page);
-  await page.getByTestId("seat-option-A:1").click();
+  await selectSeat(page,1);
   await page.getByRole("button", { name:"Children's seats →" }).click();
   await page.getByRole("button", { name:"Review booking →" }).click();
   await page.getByRole("button", { name:"1 · Attendees" }).click();
