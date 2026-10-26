@@ -8,7 +8,7 @@ import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import type {PriceZone} from "@/lib/priceZones";
 import CustomerVenueMap,{type PublicTable,type PublicStage} from "@/components/CustomerVenueMap";
 import type {VenueFeature} from "@/components/VenueLines";
-import {partyCounts,canStartBooking,guestDetailsValid,reservedAdultSeats,childReservedSeats,bookingTotalCents,classifyTicket,changeNamedSeat,selectedTableCapacity,bookingReadyForReview,tablePlacePriceCents,admissionTotalForEventCents} from "@/lib/bookingRules";
+import {partyCounts,canStartBooking,guestValidationProblems,reservedAdultSeats,childReservedSeats,bookingTotalCents,classifyTicket,changeNamedSeat,selectedTableCapacity,bookingReadyForReview,tablePlacePriceCents,admissionTotalForEventCents} from "@/lib/bookingRules";
 
 export type BookingTicket = {
  id:string; name:string; description:string|null; price_cents:number;
@@ -66,7 +66,8 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const seatTotal=!tableBooking?mapSelections.reduce((sum,key)=>sum+(selectedSeatPrice(key)??0),0):0;
 
  const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&mapSelections.length>adultTicketCount+childTicketCount;
- const guestDetailsComplete=guestDetailsValid(adultTicketCount,childTicketCount,guestInfo,childParents);
+ const guestProblems=guestValidationProblems(adultTicketCount,childTicketCount,guestInfo,childParents);
+ const guestDetailsComplete=guestProblems.length===0;
  const selectedPrices=mapSelections.map(key=>tableBooking?venue?.tables.find(t=>t.id===key)?.table_price_cents??null:selectedSeatPrice(key));
  const ticketPricesInvalid=admissionTotal===null;
  const calculatedTotal=ticketPricesInvalid?null:bookingTotalCents(ticketTotal,selectedPrices);
@@ -101,6 +102,24 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    setSeatAssignments({});
     setSeatFeedback("");
    setActiveSeatGuest("0");
+ }
+ const guestErrorLabel=(problem:{guestIndex:number;field:"name"|"email"|"phone"|"parent"})=>{
+  const isChild=problem.guestIndex>=adultTicketCount;
+  const guestLabel=isChild?`${en?"Child":"Ребёнок"} ${problem.guestIndex-adultTicketCount+1}`:`${en?"Adult":"Взрослый"} ${problem.guestIndex+1}`;
+  const fieldLabel={name:en?"full name":"имя",email:en?"valid email address":"правильный адрес электронной почты",phone:en?"phone number":"номер телефона",parent:en?"accompanying adult":"сопровождающий взрослый"}[problem.field];
+  return `${guestLabel}: ${fieldLabel}`;
+ };
+ function continueFromGuestInfo(){
+  setGuestErrors(guestProblems.length>0);
+  if(guestProblems.length>0){
+   const first=guestProblems[0];
+   document.querySelector<HTMLElement>(`[data-guest-index="${first.guestIndex}"][data-guest-field="${first.field}"]`)?.focus();
+   return;
+  }
+  if(!needsSeats&&pricingIncomplete)return;
+  setActiveSeatGuest("0");
+  setStep(needsSeats?"seats":"review");
+  window.scrollTo({top:0,behavior:"smooth"});
  }
  async function submitBookingRequest(){
   if(!requestsEnabled||!event.id||!canReview||!bookingConsent||savingBooking||savedReference)return;
@@ -146,10 +165,10 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
          return <fieldset key={key} className="space-y-3 rounded-xl border border-black/15 p-4">
            <legend className="px-2 font-semibold">{isChild?(en?"Child":"Ребёнок"):(en?"Adult":"Взрослый")} {isChild?i-adultTicketCount+1:i+1}</legend>
            <p className="text-sm font-semibold text-gray-700">{seatLabel}</p>
-           <label className="block text-sm font-semibold">{en?"Full name":"Имя и фамилия"} *<input autoComplete="off" required type="text" value={guest.name} onChange={e=>update("name",e.target.value)} aria-invalid={guestErrors&&!guest.name.trim()} className={fieldClass}/></label>
+           <label className="block text-sm font-semibold">{en?"Full name":"Имя и фамилия"} *<input autoComplete="off" required type="text" value={guest.name} onChange={e=>update("name",e.target.value)} aria-invalid={guestErrors&&!guest.name.trim()} data-guest-index={i} data-guest-field="name" className={fieldClass}/></label>
            {isChild?<div className="space-y-2">
              <label className="block text-sm font-semibold">{en?"Select parent / accompanying adult":"Выберите родителя / сопровождающего взрослого"} *
-               <select required value={childParents[key]??""} onChange={e=>setChildParents(old=>({...old,[key]:e.target.value}))} className={fieldClass} aria-invalid={guestErrors&&!(childParents[key]??"")}>
+               <select required value={childParents[key]??""} onChange={e=>setChildParents(old=>({...old,[key]:e.target.value}))} className={fieldClass} aria-invalid={guestErrors&&guestProblems.some(p=>p.guestIndex===i&&p.field==="parent")} data-guest-index={i} data-guest-field="parent">
                  <option value="">{en?"Choose adult":"Выберите взрослого"}</option>
                  {Array.from({length:adultTicketCount},(_,adultIndex)=><option key={adultIndex} value={String(adultIndex)}>{guestInfo[String(adultIndex)]?.name.trim()||`${en?"Adult":"Взрослый"} ${adultIndex+1}`}</option>)}
                </select>
@@ -157,15 +176,15 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
              <p className="text-xs text-gray-600">{en?"The child's ticket and emergency contact will use this adult's email and phone.":"Билет ребёнка и экстренный контакт будут привязаны к email и телефону выбранного взрослого."}</p>
              {adultTicketCount===0&&<p className="text-xs font-semibold text-red-700">{en?"Add an accompanying adult ticket to assign a parent.":"Добавьте билет сопровождающего взрослого, чтобы выбрать родителя."}</p>}
            </div>:<div className="grid gap-3 sm:grid-cols-2">
-             <label className="block text-sm font-semibold">{en?"Email address":"Электронная почта"} *<input type="email" required value={guest.email} onChange={e=>update("email",e.target.value)} aria-invalid={guestErrors&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guest.email)} className={fieldClass}/></label>
-             <label className="block text-sm font-semibold">{en?"Phone number":"Номер телефона"} *<input type="tel" required value={guest.phone} onChange={e=>update("phone",e.target.value)} aria-invalid={guestErrors&&!guest.phone.trim()} className={fieldClass}/></label>
+             <label className="block text-sm font-semibold">{en?"Email address":"Электронная почта"} *<input type="email" required value={guest.email} onChange={e=>update("email",e.target.value)} aria-invalid={guestErrors&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guest.email.trim())} data-guest-index={i} data-guest-field="email" className={fieldClass}/></label>
+             <label className="block text-sm font-semibold">{en?"Phone number":"Номер телефона"} *<input type="tel" required value={guest.phone} onChange={e=>update("phone",e.target.value)} aria-invalid={guestErrors&&!guest.phone.trim()} data-guest-index={i} data-guest-field="phone" className={fieldClass}/></label>
            </div>}
          </fieldset>;
        })}
        {!needsSeats&&pricingIncomplete&&<p role="status" className="text-sm font-semibold text-red-700">{en?"A ticket price is invalid. The organiser must correct it before review.":"Цена билета некорректна. Организатор должен исправить её перед проверкой."}</p>}
-        {guestErrors&&<p role="alert" className="text-sm font-semibold text-red-700">{en?"Enter each guest’s name, adult contact details and a parent for every child.":"Укажите имена гостей, контакты взрослых и родителя для каждого ребёнка."}</p>}
-       <button type="button" onClick={()=>{setGuestErrors(!guestDetailsComplete);if(guestDetailsComplete&&(needsSeats||!pricingIncomplete)){setActiveSeatGuest("0");setStep(needsSeats?"seats":"review");window.scrollTo({top:0,behavior:"smooth"});}}} className="w-full rounded-lg bg-black px-4 py-3 font-semibold text-white">{needsSeats?(tableBooking?(en?"Choose tables →":"Выбрать столы →"):(en?"Choose adult seats →":"Выбрать места взрослых →")):(en?"Review →":"Проверить →")}</button>
-       <p className="rounded-lg bg-[#fff2db] p-4 text-sm">{en?"Booking confirmation and guest-data submission are not yet enabled.":"Подтверждение бронирования и отправка данных гостей пока недоступны."}</p>
+        {guestErrors&&guestProblems.length>0&&<div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm font-semibold text-red-800"><p>{en?"Please complete these specific details:":"Пожалуйста, заполните следующие поля:"}</p><ul className="mt-2 list-inside list-disc">{guestProblems.map(p=><li key={`${p.guestIndex}:${p.field}`}>{guestErrorLabel(p)}</li>)}</ul></div>}
+       <button type="button" onClick={continueFromGuestInfo}} className="w-full rounded-lg bg-black px-4 py-3 font-semibold text-white">{needsSeats?(tableBooking?(en?"Choose tables →":"Выбрать столы →"):(en?"Choose adult seats →":"Выбрать места взрослых →")):(en?"Review →":"Проверить →")}</button>
+       <p className="rounded-lg bg-[#fff2db] p-4 text-sm">{en?"Your booking is not saved yet. Complete the next steps to reach the final review.":"Заявка ещё не сохранена. Продолжите оформление до последней страницы проверки."}</p>
        <button type="button" onClick={()=>{setStep("tickets")}} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Back to attendees":"Назад к гостям"}</button>
      </section>:step==="review"?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8" aria-label={en?"Order review":"Проверка заказа"}>
        <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Review your selection":"Проверьте ваш выбор"}</h2><button type="button" onClick={()=>{if(!savedReference)setStep(needsSeats?(showChildStep?"children":"seats"):"guests")}} className="text-sm font-semibold underline">{en?"← Edit":"← Изменить"}</button></div>
