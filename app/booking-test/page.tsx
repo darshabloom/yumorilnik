@@ -9,6 +9,7 @@ export default async function BookingTestPage({searchParams}:{searchParams:Promi
  const {scenario="zone"}=await searchParams;
  const whole=scenario==="whole",general=scenario==="general",legacy=scenario==="legacy",unpriced=scenario==="unpriced";
  const event:BookingEvent={
+   id:scenario==="submit"?"11111111-1111-4111-8111-111111111111":undefined,
    slug:"booking-test",title:"Тестовый вечер",title_en:"Test celebration",image_url:null,
    seating_mode:general?"general_admission":whole?"tables":"assigned_seats",
    table_booking_mode:whole?"whole_table":"individual_seats",
