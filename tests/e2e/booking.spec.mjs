@@ -93,13 +93,13 @@ test("general admission goes directly from guest details to review", async ({pag
   await expect(page.getByText("$45.00").first()).toBeVisible();
 });
 
-test("explicit legacy pricing charges admission plus a seat even with zones", async ({page}) => {
+test("adult admission is included in the table place, even with legacy mode configured", async ({page}) => {
   await begin(page,"legacy");
   await attendees(page,1);
   await page.getByRole("button", { name:"Choose adult seats →" }).click();
   await selectSeat(page,1);
   await page.getByRole("button", { name:"Review →" }).click();
-  await expect(page.getByText("$60.00").first()).toBeVisible();
+  await expect(page.getByText("$105.00").first()).toBeVisible();
 });
 
 test("unpriced adult seats still allow review but show pending price", async ({page}) => {
@@ -198,4 +198,21 @@ test("the venue map is the only seat picker, without a full table-by-table list"
   await focusTable(page);
   await selectSeat(page,1);
   await expect(page.getByText("1/1 adult seats assigned")).toBeVisible();
+});
+
+test("no adult admission price is displayed before choosing a table place",async({page})=>{
+ await begin(page);
+ await page.getByRole("button",{name:"Increase quantity: Adult"}).click();
+ await expect(page.getByText("Choose a table seat to see the adult price")).toBeVisible();
+ await page.getByRole("button",{name:"Enter guest info →"}).click();
+ const adult=page.locator("fieldset").first();
+ await adult.locator('input[type="text"]').fill("Guest");
+ await adult.locator('input[type="email"]').fill("guest@example.com");
+ await adult.locator('input[type="tel"]').fill("0211234567");
+ await page.getByRole("button",{name:"Choose adult seats →"}).click();
+ await focusTable(page);
+ await selectSeat(page,1);
+ await expect(page.getByText("$105.00").first()).toBeVisible();
+ await page.getByRole("button",{name:"Review →"}).click();
+ await expect(page.getByText("Included in seat prices")).toBeVisible();
 });

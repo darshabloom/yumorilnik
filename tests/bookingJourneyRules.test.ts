@@ -4,6 +4,8 @@ import {
   bookingReadyForReview,
   bookingPriceReadyForCheckout,
   bookingTotalCents,
+  admissionTotalForEventCents,
+  tablePlacePriceCents,
   changeNamedSeat,
   selectedTableCapacity,
   usesFullZoneSeatPricing,
@@ -110,4 +112,19 @@ test("review with unpriced adult seats is allowed, but payment is not",()=>{
  assert.equal(bookingReadyForReview({...journey,assignedAdultSeats:1}),false);
  assert.equal(bookingPriceReadyForCheckout(37500),true);
  assert.equal(bookingPriceReadyForCheckout(-100),false);
+});
+
+test("individual places all inherit one table's price, never separate chair prices",()=>{
+ const table={seat_price_cents:10500};
+ assert.equal(tablePlacePriceCents(table),10500);
+ assert.equal(tablePlacePriceCents({seat_price_cents:null}),null);
+ assert.equal(tablePlacePriceCents(null),null);
+});
+test("adults pay only for their chosen table; children retain admission",()=>{
+ const party=[{name:"Adult",price_cents:4000,quantity:2},{name:"Child",price_cents:3000,quantity:2}];
+ assert.equal(admissionTotalForEventCents("assigned_seats",party),6000);
+ assert.equal(bookingTotalCents(6000,[10500,10500,10500]),37500);
+ assert.equal(admissionTotalForEventCents("general_admission",party),14000);
+ assert.equal(admissionTotalForEventCents("tables",party),6000);
+ assert.equal(admissionTotalForEventCents("assigned_seats",[{name:"Child",price_cents:-10,quantity:1}]),null);
 });
