@@ -350,7 +350,7 @@ export default function SeatingBuilder(){
  const whole=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
  return <main className="min-h-screen bg-[#fffaf1] px-4 py-6 text-black sm:px-8">
   <section className="mx-auto max-w-xl space-y-4 lg:hidden">
-    <Link href={`/admin/events/${id}/tickets`} className="text-sm font-bold underline">{en?"← Tickets":"← К билетам"}</Link>
+    <Link href={`/admin/events/${id}/tickets`} className="text-sm font-bold underline">{en?"← Tickets":"← К билетам"}</Link><Link href="/admin/promotions" className="inline-flex items-center rounded-lg border border-black/30 bg-white px-3 py-2 text-sm font-bold hover:bg-[#fff2db]">{en?"🏷️ Promo codes":"🏷️ Промокоды"}</Link>
     <div className="rounded-xl border border-black/15 bg-white p-5">
       <h1 className="text-xl font-black">{event.title}</h1>
       <p className="mt-2 text-sm text-gray-700">The venue plan is for viewing on a phone. To move tables, trace walls or change prices, open this page on a computer.</p>
