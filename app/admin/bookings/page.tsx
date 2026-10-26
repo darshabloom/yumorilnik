@@ -12,7 +12,7 @@ type Item={id:string;ticket_name:string;category:string;quantity:number;unit_adm
 type Selection={id:string;table_label:string;seat_number:number|null;guest_index:number|null;price_cents:number|null};
 type EventSummary={title:string;title_en:string|null;event_date:string|null};
 type BookingRow={
- id:string;event_id:string;booking_reference:string;status:"requested"|"cancelled";
+ id:string;event_id:string;booking_reference:string;status:"requested"|"confirmed"|"cancelled";
  created_at:string;cancelled_at:string|null;cancellation_reason:string|null;
  total_cents:number|null;currency:string;
  events:EventSummary|null;
@@ -24,7 +24,7 @@ const money=(cents:number|null,currency:string,en:boolean)=>cents===null
  :new Intl.NumberFormat("en-NZ",{style:"currency",currency:currency||"NZD"}).format(cents/100);
 
 export default function AdminBookingsPage(){
- if(process.env.NODE_ENV==="development")return <LocalDemoBookings/>;
+ if(process.env.NODE_ENV==="development"&&process.env.NEXT_PUBLIC_REAL_BOOKINGS_ENABLED!=="true")return <LocalDemoBookings/>;
  return <RealAdminBookingsPage/>;
 }
 
@@ -129,7 +129,7 @@ function RealAdminBookingsPage(){
        </div>
        <div className="text-right">
         <p className="text-lg font-black">{money(booking.total_cents,booking.currency,en)}</p>
-        <p className={booking.status==="cancelled"?"text-sm font-semibold text-red-700":"text-sm font-semibold text-amber-700"}>{booking.status==="cancelled"?(en?"Cancelled":"Отменена"):(en?"Awaiting review":"Ожидает проверки")}</p>
+        <p className={booking.status==="cancelled"?"text-sm font-semibold text-red-700":"text-sm font-semibold text-amber-700"}>{booking.status==="cancelled"?(en?"Cancelled":"Отменена"):booking.status==="confirmed"?(en?"Confirmed (free)":"Подтверждено (бесплатно)"):(en?"Awaiting review":"Ожидает проверки")}</p>
        </div>
       </div>
       <button type="button" className="mt-4 min-h-11 rounded-lg border border-black px-4 font-bold" onClick={()=>{setSelectedId(selectedId===booking.id?null:booking.id);setConfirmingId(null);setReason("");}}>{selectedId===booking.id?(en?"Hide details":"Скрыть детали"):(en?"View guests and seats":"Гости и места")}</button>
