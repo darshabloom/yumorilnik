@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect,useRef,useState} from "react";
+import {useEffect,useMemo,useRef,useState} from "react";
 import type {VenueFeature} from "@/components/VenueLines";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import {zonePoints,type PriceZone} from "@/lib/priceZones";
@@ -10,8 +10,8 @@ export type PublicStage={stage_x:number;stage_y:number;stage_width:number;stage_
 type Seat={key:string;label:string;tableId:string;x:number;y:number};
 type Mode="whole_table"|"individual_seats";
 const WIDTH=1000,HEIGHT=700;
-const SEAT_RADIUS=12;
-const TOUCH_RADIUS=21;
+const MAX_SEAT_RADIUS=7.5;
+const MAX_HIT_RADIUS=10;
 const SEAT_DISTANCE=16;
 function seatPositions(table:PublicTable):Seat[]{
  const output:Seat[]=[];
@@ -39,6 +39,28 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
  const tap=useRef<{key:string;tableId:string}|null>(null);
  const downOrigin=useRef<{x:number;y:number}|null>(null);
  const selected=tables.find(t=>t.id===focused);
+ // Determine click targets in venue coordinates, including rotated tables.
+ // A seat's hit area must never overlap the area of another numbered seat.
+ const seatRadii=useMemo(()=>{
+  const positions=tables.filter(t=>t.is_active).flatMap(t=>{
+   const a=(t.rotation_deg??0)*Math.PI/180,c=Math.cos(a),sn=Math.sin(a);
+   const cx=t.width/2,cy=t.height/2;
+   return seatPositions(t).map(seat=>{
+    const x=seat.x-cx,y=seat.y-cy;
+    return {key:seat.key,x:t.x+cx+x*c-y*sn,y:t.y+cy+x*sn+y*c};
+   });
+  });
+  return new Map(positions.map(p=>{
+   let nearest=Infinity;
+   for(const q of positions){
+    if(p.key===q.key)continue;
+    nearest=Math.min(nearest,Math.hypot(p.x-q.x,p.y-q.y));
+   }
+   const half=Math.max(2,(nearest-2)/2);
+   return [p.key,{visible:Math.min(MAX_SEAT_RADIUS,half),hit:Math.min(MAX_HIT_RADIUS,half)}] as const;
+  }));
+ },[tables]);
+
 
  const zoom=baseWidth/view.w;
  useEffect(()=>{
@@ -137,9 +159,9 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
         <rect x="0" y="0" width={t.width} height={t.height} rx={t.shape==="round"||t.shape==="oval"?Math.min(t.width,t.height)/2:7} fill={selectedKeys.includes(t.id)?"#f8c6dc":focused===t.id?"#ffe1ee":"#fff"} stroke={selectedKeys.includes(t.id)?"#c41e73":"#777"} strokeWidth="2" data-seat-key={mode==="whole_table"?t.id:""} data-table-id={t.id} style={{cursor:"pointer"}}/>
         <text x={t.width/2} y={t.height/2+7} fontSize="16" textAnchor="middle" fontWeight="700" pointerEvents="none">{t.label}</text>
         {seatPositions(t).map(s=><g key={s.key} data-seat-key={mode==="individual_seats"?s.key:t.id} data-table-id={t.id} style={{cursor:"pointer"}}>
-          <circle cx={s.x} cy={s.y} r={SEAT_RADIUS} fill={selectedKeys.includes(s.key)?"#f5a047":"#fff"} stroke={selectedKeys.includes(s.key)?"#ad5d09":"#525252"} strokeWidth="1.3" pointerEvents="none"/>
-          <circle cx={s.x} cy={s.y} r={TOUCH_RADIUS} fill="transparent" pointerEvents="all" />
-          <text x={s.x} y={s.y+4} textAnchor="middle" fontSize="9" fontWeight="600" pointerEvents="none">{s.label}</text>
+          <circle cx={s.x} cy={s.y} r={seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS} fill={selectedKeys.includes(s.key)?"#f5a047":"#fff"} stroke={selectedKeys.includes(s.key)?"#ad5d09":"#525252"} strokeWidth="1.3" pointerEvents="none"/>
+          <circle cx={s.x} cy={s.y} r={seatRadii.get(s.key)?.hit??MAX_HIT_RADIUS} fill="transparent" pointerEvents="all" />
+          <text x={s.x} y={s.y+4} textAnchor="middle" fontSize="8" fontWeight="600" pointerEvents="none">{s.label}</text>
         </g>)}
       </g>)}
     </svg>
