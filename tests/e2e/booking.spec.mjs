@@ -172,3 +172,30 @@ test("mobile booking screens do not overflow horizontally", async ({page,isMobil
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth+2);
 });
+
+test("missing adult seat prices never strand a family before child seating", async ({page}) => {
+  await begin(page,"unpriced");
+  await attendees(page,2,2);
+  await page.getByRole("button", { name:"Choose adult seats →" }).click();
+  await focusTable(page);
+  await selectSeat(page,1);
+  await selectSeat(page,2);
+  await expect(page.getByText("2/2 adult seats assigned")).toBeVisible();
+  await expect(page.getByText("One or more selected seats have no configured price.",{exact:false})).toBeVisible();
+  await expect(page.getByRole("button", {name:"Children's seats →"})).toBeEnabled();
+  await page.getByRole("button", {name:"Children's seats →"}).click();
+  await page.getByRole("button", {name:"Review booking →"}).click();
+  await expect(page.getByRole("heading",{name:"Review your selection"})).toBeVisible();
+  await expect(page.getByText("Price pending").first()).toBeVisible();
+});
+
+test("the venue map is the only seat picker, without a full table-by-table list", async ({page}) => {
+  await begin(page);
+  await attendees(page,1);
+  await page.getByRole("button", { name:"Choose adult seats →" }).click();
+  await expect(page.getByRole("heading",{name:"Choose seats by table"})).toHaveCount(0);
+  await expect(page.getByRole("group",{name:"Venue seating plan"})).toBeVisible();
+  await focusTable(page);
+  await selectSeat(page,1);
+  await expect(page.getByText("1/1 adult seats assigned")).toBeVisible();
+});
