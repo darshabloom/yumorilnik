@@ -195,7 +195,7 @@ export default function InlineEventEditor() {
     <main className="min-h-screen bg-[#fff2db] text-black">
       <div className="sticky top-0 z-20 border-b border-black/20 bg-[#fff2db]/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2">
-          <Link href="/admin/events" className="text-sm font-bold underline">{en?"← All events":"← Все мероприятия"}</Link>
+          <Link href="/admin/events" className="text-sm font-bold underline">{en?"← All events":"← Все мероприятия"}</Link><Link href="/admin/promotions" className="inline-flex items-center rounded-lg border border-black/30 bg-white px-3 py-2 text-sm font-bold hover:bg-[#fff2db]">{en?"🏷️ Promo codes":"🏷️ Промокоды"}</Link>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-white px-3 py-2 text-xs font-bold">{event.is_active?(en?"Published":"Опубликовано"):(en?"Draft":"Черновик")}</span>
             <button type="button" onClick={() => setLanguage(language === "ru" ? "en" : "ru")} className="rounded-lg border border-black px-3 py-2 text-sm font-bold">{language.toUpperCase()} ▾</button>
