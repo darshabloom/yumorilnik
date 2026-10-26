@@ -117,3 +117,56 @@ test("language selection persists when navigating through booking steps", async 
   await page.reload();
   await expect(page.getByRole("heading", { name:"Сколько билетов?" })).toBeVisible();
 });
+
+test("editing adult seats preserves another adult and the child's seat", async ({page}) => {
+  await begin(page);
+  await attendees(page,2,1);
+  await page.getByRole("button", { name:"Choose adult seats →" }).click();
+  await openTable(page);
+  await page.getByTestId("seat-option-A:1").click();
+  await page.getByTestId("seat-option-A:2").click();
+  await page.getByRole("button", { name:"Children's seats →" }).click();
+  await openTable(page);
+  await page.getByTestId("seat-option-A:3").click();
+  await page.getByRole("button", { name:"Review booking →" }).click();
+  await page.getByRole("button", { name:"3 · Adult seats" }).click();
+  await page.getByRole("button", { name:/Adult 1.*Table A/ }).click();
+  await openTable(page);
+  await page.getByTestId("seat-option-A:4").click();
+  await expect(page.getByTestId("seat-option-A:1")).toHaveAttribute("aria-pressed","false");
+  await expect(page.getByTestId("seat-option-A:2")).toHaveAttribute("aria-pressed","true");
+  await expect(page.getByTestId("seat-option-A:3")).toHaveAttribute("aria-pressed","true");
+  await page.getByRole("button", { name:"Children's seats →" }).click();
+  await page.getByRole("button", { name:"Review booking →" }).click();
+  await expect(page.getByText("Adult 1 — Table A · 4", {exact:false})).toBeVisible();
+  await expect(page.getByText("Child 1 — Table A · 3", {exact:false})).toBeVisible();
+  await expect(page.getByText("$345.00").first()).toBeVisible();
+});
+
+test("changing ticket quantities resets indexed guests and seat assignments", async ({page}) => {
+  await begin(page);
+  await attendees(page,1,1);
+  await page.getByRole("button", { name:"Choose adult seats →" }).click();
+  await openTable(page);
+  await page.getByTestId("seat-option-A:1").click();
+  await page.getByRole("button", { name:"Children's seats →" }).click();
+  await page.getByRole("button", { name:"Review booking →" }).click();
+  await page.getByRole("button", { name:"1 · Attendees" }).click();
+  await page.getByRole("button", { name:"Increase quantity: Adult" }).click();
+  await expect(page.getByText("Seats: 0", {exact:false})).toBeVisible();
+  await page.getByRole("button", { name:"Enter guest info →" }).click();
+  await expect(page.locator("fieldset").first().locator('input[type="text"]')).toHaveValue("");
+  await expect(page.locator("fieldset").nth(2).locator("select")).toHaveValue("");
+});
+
+test("mobile booking screens do not overflow horizontally", async ({page,isMobile}) => {
+  test.skip(!isMobile, "The overflow constraint applies to mobile viewport");
+  await begin(page);
+  await attendees(page,2,2);
+  await page.getByRole("button", { name:"Choose adult seats →" }).click();
+  const dimensions=await page.evaluate(()=>({
+    clientWidth:document.documentElement.clientWidth,
+    scrollWidth:document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth+2);
+});
