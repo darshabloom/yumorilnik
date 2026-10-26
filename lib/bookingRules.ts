@@ -87,3 +87,17 @@ export function selectedTableCapacity(
  },0);
 }
 
+
+export function bookingReadyForReview(options:{
+ ticketCount:number;guestDetailsComplete:boolean;totalCents:number|null;
+ generalAdmission:boolean;wholeTable:boolean;selectedCount:number;
+ tableCapacity:number;adultCount:number;assignedAdultSeats:number;
+ adultSeatsRequired:boolean;seatOverage:boolean;
+}):boolean{
+ const o=options;
+ if(o.ticketCount<=0||!o.guestDetailsComplete||o.totalCents===null||o.seatOverage)return false;
+ if(o.generalAdmission)return true;
+ if(o.wholeTable)return o.selectedCount>0&&o.tableCapacity>=o.adultCount;
+ if(o.adultSeatsRequired&&o.assignedAdultSeats!==o.adultCount)return false;
+ return true;
+}
