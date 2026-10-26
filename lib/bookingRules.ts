@@ -11,15 +11,42 @@ export function partyCounts(tickets:{name:string;quantity:number}[]):PartyCounts
 export function canStartBooking(counts:PartyCounts):boolean{
  return counts.adults+counts.children>0&&counts.other===0&&(counts.children===0||counts.adults>0);
 }
-export function guestDetailsValid(adults:number,children:number,guestInfo:Record<string,{name:string;email:string;phone:string}>,parents:Record<string,string>):boolean{
- if(adults+children<=0)return false;
- return Array.from({length:adults+children},(_,i)=>{
+export type GuestField="name"|"email"|"phone"|"parent";
+export type GuestValidationProblem={guestIndex:number;field:GuestField};
+
+/** Return each actual missing field rather than showing a generic error after
+ * a user has selected a parent or entered some of the requested details. */
+export function guestValidationProblems(
+ adults:number,
+ children:number,
+ guestInfo:Record<string,{name:string;email:string;phone:string}>,
+ parents:Record<string,string>,
+):GuestValidationProblem[]{
+ const result:GuestValidationProblem[]=[];
+ if(!Number.isInteger(adults)||!Number.isInteger(children)||adults<0||children<0||adults+children<=0){
+  return [{guestIndex:0,field:"name"}];
+ }
+ for(let i=0;i<adults+children;i++){
   const guest=guestInfo[String(i)];
-  if(!guest?.name.trim())return false;
-  if(i<adults)return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guest.email)&&!!guest.phone.trim();
-  const raw=parents[String(i)];
-  return raw!==undefined&&raw!==""&&Number.isInteger(Number(raw))&&Number(raw)>=0&&Number(raw)<adults;
- }).every(Boolean);
+  if(!guest?.name.trim())result.push({guestIndex:i,field:"name"});
+  if(i<adults){
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guest?.email.trim()??""))result.push({guestIndex:i,field:"email"});
+   if(!(guest?.phone.trim()))result.push({guestIndex:i,field:"phone"});
+  }else{
+   const raw=parents[String(i)];
+   if(raw===undefined||raw===""||!Number.isInteger(Number(raw))||Number(raw)<0||Number(raw)>=adults){
+    result.push({guestIndex:i,field:"parent"});
+   }
+  }
+ }
+ return result;
+}
+export function guestDetailsValid(
+ adults:number,children:number,
+ guestInfo:Record<string,{name:string;email:string;phone:string}>,
+ parents:Record<string,string>,
+):boolean{
+ return guestValidationProblems(adults,children,guestInfo,parents).length===0;
 }
 export function reservedAdultSeats(adults:number,assignments:Record<string,string>):number{
  return new Set(Object.values(assignments).filter(id=>Number.isInteger(Number(id))&&Number(id)>=0&&Number(id)<adults)).size;

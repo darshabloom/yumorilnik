@@ -245,3 +245,42 @@ test("customer can submit a booking REQUEST and see the saved reference (mock ba
  expect(request.p_selections.map(s=>s.guest_index)).toEqual([0,1,2]);
  expect(JSON.stringify(request)).not.toContain("price_cents");
 });
+
+test("guest form names the missing adult field, focuses it, and then proceeds",async({page})=>{
+ await begin(page);
+ await page.getByRole("button",{name:"Increase quantity: Adult"}).click();
+ await page.getByRole("button",{name:"Increase quantity: Adult"}).click();
+ await page.getByRole("button",{name:"Increase quantity: Child"}).click();
+ await page.getByRole("button",{name:"Increase quantity: Child"}).click();
+ await page.getByRole("button",{name:"Enter guest info →"}).click();
+ const guests=page.locator("fieldset");
+ for(let i=0;i<2;i++){
+  await guests.nth(i).locator('input[type="text"]').fill(i===0?"Marina":"Fox");
+  await guests.nth(i).locator('input[type="tel"]').fill("0211234567");
+ }
+ await guests.nth(0).locator('input[type="email"]').fill("marina@example.com");
+ await guests.nth(1).locator('input[type="email"]').fill("wrong-email");
+ for(let i=2;i<4;i++){
+  await guests.nth(i).locator('input[type="text"]').fill("Child "+(i-1));
+  await guests.nth(i).locator("select").selectOption("1");
+ }
+ await page.getByRole("button",{name:"Choose adult seats →"}).click();
+ await expect(page.locator('div[role="alert"]').filter({hasText:"Please complete these specific details"})).toContainText("Adult 2: valid email address");
+ await expect(page.locator('[data-guest-index="1"][data-guest-field="email"]')).toBeFocused();
+ await guests.nth(1).locator('input[type="email"]').fill("fox@example.com");
+ await expect(page.locator('div[role="alert"]').filter({hasText:"Please complete these specific details"})).toHaveCount(0);
+ await page.getByRole("button",{name:"Choose adult seats →"}).click();
+ await expect(page.getByRole("heading",{name:"Assign a seat to each adult"})).toBeVisible();
+});
+
+test("guest form makes a missing child's parent explicit",async({page})=>{
+ await begin(page);
+ await attendees(page,1,1);
+ await page.locator("fieldset").nth(1).locator("select").selectOption("");
+ await page.getByRole("button",{name:"Choose adult seats →"}).click();
+ await expect(page.locator('div[role="alert"]').filter({hasText:"Please complete these specific details"})).toContainText("Child 1: accompanying adult");
+ await expect(page.locator('[data-guest-index="1"][data-guest-field="parent"]')).toBeFocused();
+ await page.locator("fieldset").nth(1).locator("select").selectOption("0");
+ await page.getByRole("button",{name:"Choose adult seats →"}).click();
+ await expect(page.getByRole("heading",{name:"Assign a seat to each adult"})).toBeVisible();
+});

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {classifyTicket,partyCounts,canStartBooking,guestDetailsValid,reservedAdultSeats,childReservedSeats,bookingTotalCents} from "../lib/bookingRules.ts";
+import {classifyTicket,partyCounts,canStartBooking,guestDetailsValid,guestValidationProblems,reservedAdultSeats,childReservedSeats,bookingTotalCents} from "../lib/bookingRules.ts";
 
 test("Russian and English ticket types are classified",()=>{
  assert.equal(classifyTicket("Adult"),"adult");
@@ -33,4 +33,11 @@ test("two adult seats plus two child admissions plus one extra child seat",()=>{
  assert.equal(bookingTotalCents(6000,[12000,9000]),27000);
  assert.equal(bookingTotalCents(6000,[10500,null]),null);
  assert.equal(bookingTotalCents(-100,[]),null);
+});
+
+test("validation identifies the exact adult or child field so customers can correct it",()=>{
+ const missingEmail={...guests,"1":{...guests["1"],email:"not-an-email"}};
+ assert.deepEqual(guestValidationProblems(2,2,missingEmail,{"2":"0","3":"1"}),[{guestIndex:1,field:"email"}]);
+ assert.deepEqual(guestValidationProblems(2,2,guests,{"2":"0","3":""}),[{guestIndex:3,field:"parent"}]);
+ assert.deepEqual(guestValidationProblems(2,2,guests,{"2":"0","3":"1"}),[]);
 });
