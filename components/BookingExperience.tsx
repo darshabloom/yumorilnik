@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import {supabase} from "@/lib/supabaseClient";
 import {buildBookingSubmission} from "@/lib/bookingSubmission";
+import type {DemoBookingDraft} from "@/lib/localDemoBookings";
 import Link from "next/link";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import type {PriceZone} from "@/lib/priceZones";
@@ -144,13 +145,44 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
   finally{setMarketingBusy(false)}
  }
  async function submitBookingRequest(){
-  if(!requestsEnabled||!event.id||!canReview||!bookingConsent||savingBooking||savedReference)return;
+  if(!requestsEnabled||(!localTestMode&&!event.id)||!canReview||!bookingConsent||savingBooking||savedReference)return;
   const idempotency=requestId.current??window.crypto.randomUUID();
   requestId.current=idempotency;
   setSavingBooking(true);setBookingError("");
   try{
+   if(localTestMode){
+    const draft:DemoBookingDraft={
+     clientRequestId:idempotency,
+     eventTitle:(en&&event.title_en?event.title_en:event.title),
+     eventSlug:event.slug,currency,totalCents:total,
+     tickets:tickets.filter(t=>(quantities[t.id]??0)>0).map(t=>({
+      name:t.name,quantity:quantities[t.id]??0,
+      admissionCents:seatedPricing&&classifyTicket(t.name)==="adult"?0:t.price_cents,
+     })),
+     guests:Array.from({length:adultTicketCount+childTicketCount},(_,i)=>{
+      const guest=guestInfo[String(i)];
+      return {
+       guestIndex:i,category:i<adultTicketCount?"adult" as const:"child" as const,
+       name:guest.name.trim(),email:i<adultTicketCount?guest.email.trim():null,
+       phone:i<adultTicketCount?guest.phone.trim():null,
+       parentIndex:i<adultTicketCount?null:Number(childParents[String(i)]),
+      };
+     }),
+     selections:selections.map(selection=>({
+      tableLabel:selection.label,seatNumber:selection.seat===null?null:Number(selection.seat),
+      guestIndex:tableBooking?null:Number(seatAssignments[selection.key]),
+      priceCents:selection.cost??null,
+     })),
+    };
+    const response=await fetch("/api/dev/bookings",{method:"POST",
+     headers:{"Content-Type":"application/json"},body:JSON.stringify(draft)});
+    const result=await response.json() as {reference?:string;error?:string};
+    if(!response.ok||!result.reference)throw new Error(result.error??"Unable to save local test booking");
+    setSavedReference(result.reference);
+    return;
+   }
    const payload=buildBookingSubmission({
-    eventId:event.id,clientRequestId:idempotency,
+    eventId:event.id!,clientRequestId:idempotency,
     tickets:tickets.map(t=>({id:t.id,quantity:quantities[t.id]??0})),
     guestInfo,childParents,adultCount:adultTicketCount,childCount:childTicketCount,
     wholeTable:tableBooking,selectedKeys:mapSelections,seatAssignments,
@@ -161,8 +193,10 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    if(typeof result?.reference!=="string"||!result.reference.startsWith("YMR-"))throw new Error("Invalid response");
    setSavedReference(result.reference);
    if(marketingOptIn)await saveOptionalMarketingConsent(idempotency);
-  }catch{
-   setBookingError(en?"The request could not be saved. Please try again or contact Marina.":"Не удалось сохранить заявку. Повторите попытку или свяжитесь с Мариной.");
+  }catch(error){
+   const detail=error instanceof Error?error.message:"Unknown error";
+   setBookingError(localTestMode?(en?`Could not save this test booking: ${detail}`:`Не удалось сохранить тестовую заявку: ${detail}`):
+    (en?"The request could not be saved. Please try again or contact Marina.":"Не удалось сохранить заявку. Повторите попытку или свяжитесь с Мариной."));
   }finally{setSavingBooking(false)}
  }
  return <main className="min-h-screen bg-[#fffaf1] pb-36 text-black">
@@ -172,6 +206,10 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    <div className="mx-auto w-full max-w-[1600px] px-3 py-5 sm:px-6 sm:py-7 lg:px-10">
      <Link href={`/events/${event.slug}`} className="text-sm font-bold underline">{en?"← Back to event":"← Вернуться к мероприятию"}</Link>
      <h1 className="mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl">{en&&event.title_en?event.title_en:event.title}</h1>
+      {localTestMode&&<div role="note" className="mt-4 rounded-xl border-2 border-amber-500 bg-amber-50 p-4 text-sm">
+       <strong>{en?"LOCAL TEST MODE — fictional details only":"ЛОКАЛЬНЫЙ ТЕСТ — только вымышленные данные"}</strong>
+       <p className="mt-1">{en?"Requests are saved only on this computer; they are not real reservations or tickets and are not sent to Supabase. Do not enter real personal information.":"Заявки сохраняются только на этом компьютере, не являются бронями или билетами и не отправляются в Supabase. Не вводите настоящие личные данные."}</p>
+      </div>}
      <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-semibold sm:text-sm">{([{id:"tickets",en:"Attendees",ru:"Гости"},{id:"guests",en:"Guest info",ru:"Данные"},{id:"seats",en:tableBooking?"Tables":"Adult seats",ru:tableBooking?"Столы":"Места взрослых"},{id:"review",en:"Review",ru:"Проверка"}] as const).filter(s=>s.id!=="seats"||needsSeats).map((s,i,steps)=><button type="button" key={s.id} disabled={i>steps.findIndex(item=>item.id===step)} onClick={()=>{if(!savedReference){setStep(s.id);window.scrollTo({top:0,behavior:"smooth"});}}} aria-current={step===s.id?"step":undefined} className={`rounded-full border px-3 py-2 ${step===s.id?"border-black bg-black text-white":i<steps.findIndex(item=>item.id===step)?"border-black/25 bg-white text-black underline underline-offset-2":"border-black/15 bg-white text-gray-400"} disabled:cursor-default`}>{i+1} · {en?s.en:s.ru}</button>)}</div>
      {step==="guests"?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8">
        <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Guest details":"Данные гостей"}</h2><button type="button" className="text-sm underline" onClick={()=>{setStep("tickets")}}>{en?"← Back to attendees":"← К гостям"}</button></div>
