@@ -239,7 +239,7 @@ begin
    v_target:=(v_sel->>'guest_index')::integer;
    if v_seat_number is null or v_seat_number<1 or
     v_seat_number>(v_table.seats_top+v_table.seats_bottom+v_table.seats_left+v_table.seats_right)
-    or v_target is null or v_target<0 or v_target>=v_adults+v_children
+    or v_target is null or v_target<0 or v_target>=v_adults
     or (v_table_id::text||':'||v_seat_number::text)=any(v_place_keys)
     or v_target=any(v_guest_seats)
    then raise exception 'Invalid or duplicate assigned seat' using errcode='22023';end if;
