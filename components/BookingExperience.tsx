@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import {supabase} from "@/lib/supabaseClient";
+import {buildBookingSubmission} from "@/lib/bookingSubmission";
 import Link from "next/link";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import type {PriceZone} from "@/lib/priceZones";
@@ -12,7 +14,7 @@ export type BookingTicket = {
  id:string; name:string; description:string|null; price_cents:number;
  currency:string; quantity_total:number|null; quantity_sold:number|null;show_remaining?:boolean;
 };
-export type BookingEvent = { slug:string;title:string;title_en?:string|null;image_url:string|null;booking_image_url?:string|null;booking_image_fit?:string|null;booking_image_position_x?:number|null;booking_image_position_y?:number|null;banner_fit?:string|null;seating_mode?:string|null;table_booking_mode?:string|null;adult_seat_required?:boolean;pricing_model?:string;child_unseated_price_cents?:number };
+export type BookingEvent = { id?:string;slug:string;title:string;title_en?:string|null;image_url:string|null;booking_image_url?:string|null;booking_image_fit?:string|null;booking_image_position_x?:number|null;booking_image_position_y?:number|null;banner_fit?:string|null;seating_mode?:string|null;table_booking_mode?:string|null;adult_seat_required?:boolean;pricing_model?:string;child_unseated_price_cents?:number };
 export default function BookingExperience({event,tickets,venue}:{event:BookingEvent;tickets:BookingTicket[];venue?:{zones:PriceZone[];tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null}}) {
  const [quantities,setQuantities]=useState<Record<string,number>>({});
  const [mapSelections,setMapSelections]=useState<string[]>([]);
@@ -23,6 +25,11 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [seatAssignments,setSeatAssignments]=useState<Record<string,string>>({});
  const [activeSeatGuest,setActiveSeatGuest]=useState<string>("0");
  const [seatFeedback,setSeatFeedback]=useState("");
+ const [savingBooking,setSavingBooking]=useState(false);
+ const [bookingConsent,setBookingConsent]=useState(false);
+ const [bookingError,setBookingError]=useState("");
+ const [savedReference,setSavedReference]=useState<string|null>(null);
+ const requestId=useRef<string|null>(null);
  const language=useSiteLanguage();
  const en=language==="en";
  const tableBooking=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
@@ -94,6 +101,27 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
     setSeatFeedback("");
    setActiveSeatGuest("0");
  }
+ async function submitBookingRequest(){
+  if(!event.id||!canReview||!bookingConsent||savingBooking||savedReference)return;
+  const idempotency=requestId.current??window.crypto.randomUUID();
+  requestId.current=idempotency;
+  setSavingBooking(true);setBookingError("");
+  try{
+   const payload=buildBookingSubmission({
+    eventId:event.id,clientRequestId:idempotency,
+    tickets:tickets.map(t=>({id:t.id,quantity:quantities[t.id]??0})),
+    guestInfo,childParents,adultCount:adultTicketCount,childCount:childTicketCount,
+    wholeTable:tableBooking,selectedKeys:mapSelections,seatAssignments,
+   });
+   const {data,error}=await supabase.rpc("submit_booking",payload);
+   if(error)throw error;
+   const result=data as {reference?:unknown}|null;
+   if(typeof result?.reference!=="string"||!result.reference.startsWith("YMR-"))throw new Error("Invalid response");
+   setSavedReference(result.reference);
+  }catch{
+   setBookingError(en?"The request could not be saved. Please try again or contact Marina.":"Не удалось сохранить заявку. Повторите попытку или свяжитесь с Мариной.");
+  }finally{setSavingBooking(false)}
+ }
  return <main className="min-h-screen bg-[#fffaf1] pb-36 text-black">
    <div className="relative bg-[#fffaf1]">
      {(event.booking_image_url||event.image_url)?<img src={event.booking_image_url||event.image_url||""} alt="" className="h-32 w-full sm:h-44 lg:h-48" style={{objectFit:event.booking_image_fit==="contain"?"contain":"cover",objectPosition:`${event.booking_image_position_x??50}% ${event.booking_image_position_y??50}%`}}/>:<div className="h-40 w-full bg-[#f5a047]/30"/>}
@@ -101,10 +129,10 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    <div className="mx-auto w-full max-w-[1600px] px-3 py-5 sm:px-6 sm:py-7 lg:px-10">
      <Link href={`/events/${event.slug}`} className="text-sm font-bold underline">{en?"← Back to event":"← Вернуться к мероприятию"}</Link>
      <h1 className="mt-3 text-2xl font-bold sm:text-3xl lg:text-4xl">{en&&event.title_en?event.title_en:event.title}</h1>
-     <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-semibold sm:text-sm">{([{id:"tickets",en:"Attendees",ru:"Гости"},{id:"guests",en:"Guest info",ru:"Данные"},{id:"seats",en:tableBooking?"Tables":"Adult seats",ru:tableBooking?"Столы":"Места взрослых"},{id:"children",en:"Child seats",ru:"Места детей"},{id:"review",en:"Review",ru:"Проверка"}] as const).filter(s=>s.id!=="seats"||needsSeats).filter(s=>s.id!=="children"||showChildStep).map((s,i,steps)=><button type="button" key={s.id} disabled={i>steps.findIndex(item=>item.id===step)} onClick={()=>{setStep(s.id);window.scrollTo({top:0,behavior:"smooth"});}} aria-current={step===s.id?"step":undefined} className={`rounded-full border px-3 py-2 ${step===s.id?"border-black bg-black text-white":i<steps.findIndex(item=>item.id===step)?"border-black/25 bg-white text-black underline underline-offset-2":"border-black/15 bg-white text-gray-400"} disabled:cursor-default`}>{i+1} · {en?s.en:s.ru}</button>)}</div>
+     <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-semibold sm:text-sm">{([{id:"tickets",en:"Attendees",ru:"Гости"},{id:"guests",en:"Guest info",ru:"Данные"},{id:"seats",en:tableBooking?"Tables":"Adult seats",ru:tableBooking?"Столы":"Места взрослых"},{id:"children",en:"Child seats",ru:"Места детей"},{id:"review",en:"Review",ru:"Проверка"}] as const).filter(s=>s.id!=="seats"||needsSeats).filter(s=>s.id!=="children"||showChildStep).map((s,i,steps)=><button type="button" key={s.id} disabled={i>steps.findIndex(item=>item.id===step)} onClick={()=>{if(!savedReference){setStep(s.id);window.scrollTo({top:0,behavior:"smooth"});}}} aria-current={step===s.id?"step":undefined} className={`rounded-full border px-3 py-2 ${step===s.id?"border-black bg-black text-white":i<steps.findIndex(item=>item.id===step)?"border-black/25 bg-white text-black underline underline-offset-2":"border-black/15 bg-white text-gray-400"} disabled:cursor-default`}>{i+1} · {en?s.en:s.ru}</button>)}</div>
      {step==="guests"?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8">
        <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Guest details":"Данные гостей"}</h2><button type="button" className="text-sm underline" onClick={()=>{setStep("tickets")}}>{en?"← Back to attendees":"← К гостям"}</button></div>
-       <p className="text-sm text-gray-600">{en?"Enter a name, email and phone for each adult. For a child, enter their name and select the accompanying adult who should receive their ticket. This is a preview; nothing is submitted or saved.":"Укажите имя, email и телефон каждого взрослого. Для ребёнка укажите имя и выберите сопровождающего взрослого, которому придёт билет ребёнка. Это предварительный просмотр: данные не отправляются и не сохраняются."}</p>
+       <p className="text-sm text-gray-600">{en?"Enter a name, email and phone for each adult. For a child, enter their name and select the accompanying adult who should receive their ticket. Nothing is saved until you submit your booking request on the final review screen.":"Укажите имя, email и телефон каждого взрослого. Для ребёнка укажите имя и выберите сопровождающего взрослого, которому придёт билет ребёнка. Данные сохранятся только после отправки заявки на последнем шаге."}</p>
        {Array.from({length:adultTicketCount+childTicketCount},(_,i)=>{
          const key=String(i),guest=guestInfo[key]??{name:"",email:"",phone:""};
          const isChild=i>=adultTicketCount;
@@ -139,7 +167,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
        <p className="rounded-lg bg-[#fff2db] p-4 text-sm">{en?"Booking confirmation and guest-data submission are not yet enabled.":"Подтверждение бронирования и отправка данных гостей пока недоступны."}</p>
        <button type="button" onClick={()=>{setStep("tickets")}} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Back to attendees":"Назад к гостям"}</button>
      </section>:step==="review"?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8" aria-label={en?"Order review":"Проверка заказа"}>
-       <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Review your selection":"Проверьте ваш выбор"}</h2><button type="button" onClick={()=>setStep(needsSeats?(showChildStep?"children":"seats"):"guests")} className="text-sm font-semibold underline">{en?"← Edit":"← Изменить"}</button></div>
+       <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Review your selection":"Проверьте ваш выбор"}</h2><button type="button" onClick={()=>{if(!savedReference)setStep(needsSeats?(showChildStep?"children":"seats"):"guests")}} className="text-sm font-semibold underline">{en?"← Edit":"← Изменить"}</button></div>
        <p className="text-sm text-gray-600">{en?"Check each guest, assigned seat and total before proceeding. This is a preview only.":"Проверьте гостей, их места и итоговую сумму. Сейчас это только предварительный просмотр."}</p>
        <div><h3 className="mb-2 font-semibold">{en?"Admission tickets":"Входные билеты"}</h3>{tickets.filter(t=>(quantities[t.id]??0)>0).map(t=><div key={t.id} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{t.name} × {quantities[t.id]}</span><span>{seatedPricing&&classifyTicket(t.name)==="adult"?(en?"Included in seat prices":"Включено в стоимость мест"):format.format(t.price_cents*(quantities[t.id]??0)/100)}</span></div>)}</div>
        {event.seating_mode!=="general_admission"&&<div><h3 className="mb-2 font-semibold">{tableBooking?(en?"Selected tables":"Выбранные столы"):(en?"Selected seats":"Выбранные места")}</h3>{selections.length===0?<p className="text-sm text-gray-600">{en?"No seats selected":"Места не выбраны"}</p>:selections.map(s=><div key={s.key} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{s.label}{s.seat?` · ${en?"seat":"место"} ${s.seat}`:""}</span><span>{s.cost==null?(en?"Price not set":"Цена не указана"):format.format(s.cost/100)}</span></div>)}</div>}
@@ -148,8 +176,20 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
        {childTicketCount>0&&!tableBooking&&<p className="rounded-lg bg-[#fffaf0] p-3 text-sm"><strong>{en?"Child seating summary: ":"Детская рассадка: "}</strong>{childSeats} {en?"with a reserved seat":"с закреплённым местом"}, {childTicketCount-childSeats} {en?"without a reserved seat":"без закреплённого места"}. {en?"An extra child seat is charged at that table’s adult price in addition to child admission.":"Дополнительное детское место оплачивается по взрослой цене этого стола сверх стоимости детского входа."}</p>}
        <p className="rounded-lg bg-[#fff2db] p-4 text-sm">{en?"This is a preview only. Seats have not been reserved. Payment and order confirmation are not available yet.":"Это предварительный расчёт. Места не забронированы. Оплата и подтверждение заказа пока недоступны."}</p>
        <div className="rounded-lg border border-black/15 p-4"><h3 className="font-semibold">{en?"Guests and assigned seats":"Гости и их места"}</h3>{Array.from({length:adultTicketCount+childTicketCount},(_,i)=>{const key=String(i);const seat=selections.find(s=>seatAssignments[s.key]===key);return <p key={key} className="mt-2 text-sm">{guestInfo[key]?.name||`${i<adultTicketCount?(en?"Adult":"Взрослый"):(en?"Child":"Ребёнок")} ${i+1}`} — {tableBooking?(en?"Included in whole-table selection · no individual seat assigned":"Включён в бронирование стола · отдельное место не назначено"):seat?`${seat.label} · ${seat.seat}`:(en?"No reserved seat":"Без закреплённого места")}{i>=adultTicketCount&&childParents[key]!==undefined?<span className="block pl-3 text-xs text-gray-600">{en?"Accompanying adult":"Сопровождающий взрослый"}: {guestInfo[childParents[key]]?.name||`${en?"Adult":"Взрослый"} ${Number(childParents[key])+1}`} · {guestInfo[childParents[key]]?.email}</span>:null}</p>})}</div>
+       {savedReference?<section role="status" className="rounded-xl border-2 border-green-700 bg-green-50 p-5">
+         <h3 className="text-lg font-bold">{en?"Booking request received":"Заявка на бронирование получена"}</h3>
+         <p className="mt-2">{en?"Your reference":"Номер заявки"}: <strong className="font-mono text-xl">{savedReference}</strong></p>
+         <p className="mt-2 text-sm">{en?"Keep this reference. No payment was taken, no ticket was issued and seats are NOT reserved yet. Marina can review your request.":"Сохраните номер заявки. Оплата не производилась, билеты не выпущены и места пока НЕ забронированы. Марина сможет проверить вашу заявку."}</p>
+       </section>:event.id?<section className="space-y-3 rounded-xl border border-black/20 bg-[#fffaf1] p-5">
+         <h3 className="font-bold">{en?"Send booking request":"Отправить заявку на бронирование"}</h3>
+         <p className="text-sm">{en?"Your guest details and selected tables/seats will be saved securely for Marina to review. This is not a confirmed reservation; payment and ticket delivery are not available yet.":"Данные гостей и выбранные столы/места будут сохранены для проверки Мариной. Это ещё не подтверждённая бронь: оплата и отправка билетов пока недоступны."}</p>
+         {pricingIncomplete&&<p className="text-sm font-semibold text-orange-800">{en?"One or more prices are pending. Your request can still be saved, but is not confirmed.":"Одна или несколько цен ещё не указаны. Заявку можно сохранить, но она не подтверждена."}</p>}
+         <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={bookingConsent} onChange={e=>setBookingConsent(e.target.checked)} className="mt-1 h-5 w-5" /><span>{en?"I understand Marina's event organisers will use these names and adult contact details to manage this request. No payment will be taken.":"Я понимаю, что организаторы Марины будут использовать имена гостей и контактные данные взрослых для обработки заявки. Оплата не производится."}</span></label>
+         {bookingError&&<p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800">{bookingError}</p>}
+         <button type="button" disabled={!bookingConsent||!canReview||savingBooking} onClick={()=>void submitBookingRequest()} className="min-h-12 w-full rounded-lg bg-black px-5 py-4 font-bold text-white disabled:opacity-40">{savingBooking?(en?"Saving request…":"Сохраняем заявку…"):(en?"Submit booking request":"Отправить заявку")}</button>
+       </section>:<p className="rounded-lg bg-gray-100 p-4 text-sm">{en?"Demo mode: test bookings are not stored.":"Демо-режим: тестовые заявки не сохраняются."}</p>}
        <div className="rounded-lg border border-black/15 p-4"><h3 className="font-semibold">{en?"Promo code":"Промокод"}</h3><p className="mt-1 text-sm text-gray-600">{en?"Promo code redemption will be available when payments are enabled.":"Применение промокодов появится при подключении оплаты."}</p><input disabled placeholder={en?"Enter code":"Введите код"} className="mt-2 w-full rounded-lg border border-black/20 bg-gray-100 p-3" /></div>
-       <button type="button" onClick={()=>setStep("guests")} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Edit guest details":"Изменить данные гостей"}</button>
+       {!savedReference&&<button type="button" onClick={()=>setStep("guests")} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Edit guest details":"Изменить данные гостей"}</button>}
      </section>:<div className="mt-6 flex flex-col gap-8">
        {step==="tickets"&&<section aria-labelledby="tickets-title" className="space-y-3">
          <h2 id="tickets-title" className="text-xl font-bold">{en?"How many tickets?":"Сколько билетов?"}</h2>
