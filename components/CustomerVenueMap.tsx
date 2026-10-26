@@ -153,6 +153,13 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
    </aside>}
    </div>
    <div className="flex flex-wrap gap-4 text-xs text-gray-600"><span>{en?"◯ Seat":"◯ Место"}</span><span className="text-pink-700">{en?"● Selected":"● Выбрано"}</span><span>{en?"Reservations are not open yet":"Бронирование ещё не открыто"}</span></div>
+   <section className="rounded-xl border border-black/15 bg-white p-4" aria-label={en?"Seat and table selector":"Выбор мест и столов"}>
+     <h3 className="font-semibold">{mode==="whole_table"?(en?"Choose whole tables":"Выберите целые столы"):(en?"Choose seats by table":"Выберите места по столам")}</h3>
+     <p className="mt-1 text-xs text-gray-600">{en?"Larger buttons make seat selection easier on a phone. These are preview selections, not reservations.":"Крупные кнопки удобнее для выбора мест с телефона. Это предварительный выбор, места не бронируются."}</p>
+     {mode==="whole_table"
+      ?<div className="mt-3 grid gap-2 sm:grid-cols-2">{tables.filter(t=>t.is_active).map(t=><button type="button" key={t.id} data-testid={`table-option-${t.id}`} onClick={()=>{setFocused(t.id);onToggle?.(t.id);}} aria-pressed={selectedKeys.includes(t.id)} className={`min-h-12 rounded-lg border px-4 py-3 text-left font-semibold ${selectedKeys.includes(t.id)?"border-black bg-[#f5a047]":"border-black/30 bg-white"}`}>{t.label} · {seatPositions(t).length} {en?"places":"мест"} {selectedKeys.includes(t.id)?"✓":""}</button>)}</div>
+      :<div className="mt-3 grid gap-3 sm:grid-cols-2">{tables.filter(t=>t.is_active).map(t=><details key={t.id} className="rounded-lg border border-black/20 p-3"><summary className="cursor-pointer py-2 font-semibold">{t.label} · {seatPositions(t).length} {en?"seats":"мест"}</summary><div className="mt-3 grid grid-cols-4 gap-2">{seatPositions(t).map(seat=><button key={seat.key} data-testid={`seat-option-${seat.key}`} type="button" onClick={()=>{setFocused(t.id);onToggle?.(seat.key);}} aria-pressed={selectedKeys.includes(seat.key)} aria-label={`${t.label}, ${en?"seat":"место"} ${seat.label}`} className={`min-h-11 min-w-11 rounded-lg border text-sm font-bold ${selectedKeys.includes(seat.key)?"border-black bg-[#f5a047]":"border-black/30 bg-white"}`}>{seat.label}</button>)}</div></details>)}</div>}
+   </section>
    {selected&&<p className="text-sm text-gray-700" aria-live="polite"><strong>{selected.label}</strong> · {en?"Tap numbered seats on the map to select or deselect them.":"Нажмите на номер места на схеме, чтобы выбрать или отменить выбор."} {zones.length>0&&zoneForTable(selected,zones)?<span className="font-semibold"> · {money(zoneForTable(selected,zones)!.price_cents)} {en?"per seat":"за место"}</span>:null}</p>}
  </div>;
 }
