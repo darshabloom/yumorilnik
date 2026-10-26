@@ -10,6 +10,7 @@ type Role = "owner" | "admin";
 type Access = { email: string; role: Role } | null;
 const tiles = [
   { title: "Events", ruTitle:"Мероприятия", detail: "Create events, update dates and ticket types",ruDetail:"Создавайте мероприятия, редактируйте даты и типы билетов", icon: "📅", href: "/admin/events" },
+  { title: "Promo codes",ruTitle:"Промокоды", detail: "Configure adult-seat discounts and fixed prices",ruDetail:"Скидки и фиксированные цены мест для взрослых", icon: "🏷️", href: "/admin/promotions" },
   { title: "Bookings",ruTitle:"Заявки", detail: "Review guest requests, table choices and cancellations",ruDetail:"Просмотр заявок, гостей, столов и отмен", icon: "🎟️", href: "/admin/bookings" },
   { title: "Future invitations",ruTitle:"Будущие приглашения",detail:"Manage opted-in adults and event invitation contacts",ruDetail:"Контакты для будущих приглашений по согласию",icon:"✉️",href:"/admin/contacts" },
   { title: "Check-in",ruTitle:"Регистрация", detail: "Scan tickets at the venue",ruDetail:"Сканирование билетов на входе", icon: "✅", href: null },
