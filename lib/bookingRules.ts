@@ -102,4 +102,8 @@ export function bookingReadyForReview(options:{
  if(o.adultSeatsRequired&&o.assignedAdultSeats!==o.adultCount)return false;
  return true;
 }
-\n/** Never enable actual checkout with an incomplete or unsafe total. */\nexport function bookingPriceReadyForCheckout(totalCents:number|null):boolean{\n return totalCents!==null&&Number.isSafeInteger(totalCents)&&totalCents>=0;\n}\n
+
+/** Never enable actual checkout with an incomplete or unsafe total. */
+export function bookingPriceReadyForCheckout(totalCents:number|null):boolean{
+ return totalCents!==null&&Number.isSafeInteger(totalCents)&&totalCents>=0;
+}
