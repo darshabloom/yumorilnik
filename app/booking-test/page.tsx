@@ -20,8 +20,8 @@ export default async function BookingTestPage({searchParams}:{searchParams:Promi
    {id:"child",name:"Child",description:null,price_cents:3000,currency:"NZD",quantity_total:30,quantity_sold:0},
  ];
  const tables:PublicTable[]=[
-   {id:"A",label:"Table A",shape:"rect",x:230,y:260,width:190,height:100,rotation_deg:0,seats_top:4,seats_bottom:0,seats_left:0,seats_right:0,table_price_cents:20000,seat_price_cents:2000,is_active:true,price_zone_id:null},
-   {id:"B",label:"Table B",shape:"rect",x:550,y:260,width:150,height:90,rotation_deg:0,seats_top:2,seats_bottom:0,seats_left:0,seats_right:0,table_price_cents:12000,seat_price_cents:2000,is_active:true,price_zone_id:null},
+   {id:"A",label:"Table A",shape:"rect",x:230,y:260,width:190,height:100,rotation_deg:0,seats_top:4,seats_bottom:0,seats_left:0,seats_right:0,table_price_cents:20000,seat_price_cents:unpriced?null:10500,is_active:true,price_zone_id:null},
+   {id:"B",label:"Table B",shape:"rect",x:550,y:260,width:150,height:90,rotation_deg:0,seats_top:2,seats_bottom:0,seats_left:0,seats_right:0,table_price_cents:12000,seat_price_cents:unpriced?null:9000,is_active:true,price_zone_id:null},
  ];
  const zones:PriceZone[]=unpriced?[]:[{
    id:"middle",event_id:"fixture",name:"Middle",price_cents:10500,color:"#f9d776",
