@@ -14,7 +14,7 @@ type EventSummary={title:string;title_en:string|null;event_date:string|null};
 type BookingRow={
  id:string;event_id:string;booking_reference:string;status:"requested"|"confirmed"|"cancelled";
  created_at:string;cancelled_at:string|null;cancellation_reason:string|null;
- total_cents:number|null;currency:string;
+ total_cents:number|null;currency:string;promo_code?:string|null;confirmation_email_status?:string|null;
  events:EventSummary|null;
  booking_items:Item[];booking_guests:Guest[];booking_selections:Selection[];
 };
@@ -53,7 +53,7 @@ function RealAdminBookingsPage(){
   }
   setAllowed(true);
   const {data,error:fetchError}=await supabase.from("bookings")
-   .select("id,event_id,booking_reference,status,created_at,cancelled_at,cancellation_reason,total_cents,currency,events(title,title_en,event_date),booking_items(id,ticket_name,category,quantity,unit_admission_cents),booking_guests(id,guest_index,category,full_name,email,phone,accompanying_adult_index,checked_in_at),booking_selections(id,table_label,seat_number,guest_index,price_cents)")
+   .select("id,event_id,booking_reference,status,created_at,cancelled_at,cancellation_reason,total_cents,currency,promo_code,confirmation_email_status,events(title,title_en,event_date),booking_items(id,ticket_name,category,quantity,unit_admission_cents),booking_guests(id,guest_index,category,full_name,email,phone,accompanying_adult_index,checked_in_at),booking_selections(id,table_label,seat_number,guest_index,price_cents)")
    .order("created_at",{ascending:false}).limit(250);
   if(fetchError)throw fetchError;
   setBookings((data??[]) as unknown as BookingRow[]);
@@ -129,6 +129,8 @@ function RealAdminBookingsPage(){
        </div>
        <div className="text-right">
         <p className="text-lg font-black">{money(booking.total_cents,booking.currency,en)}</p>
+        {booking.promo_code&&<p className="text-xs font-semibold">{en?"Promo":"Промокод"}: {booking.promo_code}</p>}
+        {booking.confirmation_email_status&&booking.confirmation_email_status!=="not_queued"&&<p className="text-xs text-gray-700">{en?"Confirmation email":"Письмо с подтверждением"}: {booking.confirmation_email_status==="sent"?(en?"sent":"отправлено"):booking.confirmation_email_status==="failed"?(en?"failed":"ошибка"):(en?"pending":"ожидает отправки")}</p>}
         <p className={booking.status==="cancelled"?"text-sm font-semibold text-red-700":"text-sm font-semibold text-amber-700"}>{booking.status==="cancelled"?(en?"Cancelled":"Отменена"):booking.status==="confirmed"?(en?"Confirmed (free)":"Подтверждено (бесплатно)"):(en?"Awaiting review":"Ожидает проверки")}</p>
        </div>
       </div>
