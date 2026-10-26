@@ -64,20 +64,20 @@ function validDraft(value:unknown):value is DemoBookingDraft{
  const selections=value.selections as unknown[];
  const tickets=value.tickets as unknown[];
  if(!guests.every((g):g is DemoGuest=>isRecord(g)
-  &&Number.isInteger(g.guestIndex)&&Number(g.guestIndex)>=0
+  &&typeof g.guestIndex==="number"&&Number.isInteger(g.guestIndex)&&g.guestIndex>=0
   &&(g.category==="adult"||g.category==="child")
   &&shortString(g.name)
   &&(g.email===null||typeof g.email==="string"&&g.email.length<=254)
   &&(g.phone===null||typeof g.phone==="string"&&g.phone.length<=40)
-  &&(g.parentIndex===null||Number.isInteger(g.parentIndex))))return false;
+  &&(g.parentIndex===null||typeof g.parentIndex==="number"&&Number.isInteger(g.parentIndex))))return false;
  if(!selections.every((v):v is DemoSelection=>isRecord(v)
   &&shortString(v.tableLabel)
-  &&(v.seatNumber===null||Number.isInteger(v.seatNumber)&&Number(v.seatNumber)>0)
-  &&(v.guestIndex===null||Number.isInteger(v.guestIndex)&&Number(v.guestIndex)>=0)
+  &&(v.seatNumber===null||typeof v.seatNumber==="number"&&Number.isInteger(v.seatNumber)&&v.seatNumber>0)
+  &&(v.guestIndex===null||typeof v.guestIndex==="number"&&Number.isInteger(v.guestIndex)&&v.guestIndex>=0)
   &&nullableMoney(v.priceCents)))return false;
  if(!tickets.every((t):t is DemoTicket=>isRecord(t)&&shortString(t.name,120)
-  &&Number.isInteger(t.quantity)&&Number(t.quantity)>0&&Number(t.quantity)<=20
-  &&Number.isSafeInteger(t.admissionCents)&&Number(t.admissionCents)>=0))return false;
+  &&typeof t.quantity==="number"&&Number.isInteger(t.quantity)&&t.quantity>0&&t.quantity<=20
+  &&typeof t.admissionCents==="number"&&Number.isSafeInteger(t.admissionCents)&&t.admissionCents>=0))return false;
  return true;
 }
 export async function GET(request:NextRequest){
