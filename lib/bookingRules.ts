@@ -29,5 +29,75 @@ export function childReservedSeats(adults:number,children:number,assignments:Rec
 }
 export function bookingTotalCents(admission:number,seatPrices:(number|null)[]):number|null{
  if(!Number.isSafeInteger(admission)||admission<0||seatPrices.some(p=>p===null||!Number.isSafeInteger(p)||p<0))return null;
- return admission+seatPrices.reduce<number>((sum,p)=>sum+(p??0),0);
+ const total=seatPrices.reduce<number>((sum,p)=>sum+(p??0),admission);
+ return Number.isSafeInteger(total)?total:null;
+}
+
+/** An explicitly configured legacy event must not silently become zone-priced. */
+export function usesFullZoneSeatPricing(
+ seatingMode:string|null|undefined,
+ tableBookingMode:string|null|undefined,
+ pricingModel:string|null|undefined,
+ zoneCount:number,
+):boolean{
+ if(seatingMode==="general_admission"||(seatingMode==="tables"&&tableBookingMode==="whole_table"))return false;
+ if(pricingModel==="zone_full_seat")return true;
+ if(pricingModel==="admission_plus_seat")return false;
+ return zoneCount>0;
+}
+
+export type SeatAssignmentResult={
+ assignments:Record<string,string>;
+ outcome:"assigned"|"removed"|"occupied"|"invalid";
+};
+
+/** Each named guest may hold one seat; already assigned seats cannot be silently stolen. */
+export function changeNamedSeat(
+ assignments:Record<string,string>,
+ seatKey:string,
+ guestIndex:number,
+ adultCount:number,
+ childCount:number,
+ step:"seats"|"children",
+):SeatAssignmentResult{
+ const first=step==="children"?adultCount:0;
+ const limit=step==="children"?adultCount+childCount:adultCount;
+ if(!seatKey||!Number.isInteger(guestIndex)||guestIndex<first||guestIndex>=limit)return {assignments,outcome:"invalid"};
+ const guestId=String(guestIndex);
+ const owner=assignments[seatKey];
+ if(owner!==undefined&&owner!==guestId)return {assignments,outcome:"occupied"};
+ const next={...assignments};
+ if(owner===guestId){
+  delete next[seatKey];
+  return {assignments:next,outcome:"removed"};
+ }
+ for(const key of Object.keys(next))if(next[key]===guestId)delete next[key];
+ next[seatKey]=guestId;
+ return {assignments:next,outcome:"assigned"};
+}
+
+/** Children may have no assigned seat. Whole-table capacity protects adult seating. */
+export function selectedTableCapacity(
+ selectedIds:string[],
+ tables:{id:string;is_active:boolean;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number}[],
+):number{
+ return selectedIds.reduce((sum,id)=>{
+  const table=tables.find(t=>t.id===id&&t.is_active);
+  return sum+(table?Math.max(0,table.seats_top)+Math.max(0,table.seats_bottom)+Math.max(0,table.seats_left)+Math.max(0,table.seats_right):0);
+ },0);
+}
+
+
+export function bookingReadyForReview(options:{
+ ticketCount:number;guestDetailsComplete:boolean;totalCents:number|null;
+ generalAdmission:boolean;wholeTable:boolean;selectedCount:number;
+ tableCapacity:number;adultCount:number;assignedAdultSeats:number;
+ adultSeatsRequired:boolean;seatOverage:boolean;
+}):boolean{
+ const o=options;
+ if(o.ticketCount<=0||!o.guestDetailsComplete||o.totalCents===null||o.seatOverage)return false;
+ if(o.generalAdmission)return true;
+ if(o.wholeTable)return o.selectedCount>0&&o.tableCapacity>=o.adultCount;
+ if(o.adultSeatsRequired&&o.assignedAdultSeats!==o.adultCount)return false;
+ return true;
 }
