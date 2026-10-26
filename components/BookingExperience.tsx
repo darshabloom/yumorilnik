@@ -30,6 +30,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [bookingError,setBookingError]=useState("");
  const [savedReference,setSavedReference]=useState<string|null>(null);
  const requestId=useRef<string|null>(null);
+ const requestsEnabled=process.env.NEXT_PUBLIC_BOOKING_REQUESTS_ENABLED==="true";
  const language=useSiteLanguage();
  const en=language==="en";
  const tableBooking=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
@@ -102,7 +103,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    setActiveSeatGuest("0");
  }
  async function submitBookingRequest(){
-  if(!event.id||!canReview||!bookingConsent||savingBooking||savedReference)return;
+  if(!requestsEnabled||!event.id||!canReview||!bookingConsent||savingBooking||savedReference)return;
   const idempotency=requestId.current??window.crypto.randomUUID();
   requestId.current=idempotency;
   setSavingBooking(true);setBookingError("");
@@ -180,14 +181,14 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
          <h3 className="text-lg font-bold">{en?"Booking request received":"Заявка на бронирование получена"}</h3>
          <p className="mt-2">{en?"Your reference":"Номер заявки"}: <strong className="font-mono text-xl">{savedReference}</strong></p>
          <p className="mt-2 text-sm">{en?"Keep this reference. No payment was taken, no ticket was issued and seats are NOT reserved yet. Marina can review your request.":"Сохраните номер заявки. Оплата не производилась, билеты не выпущены и места пока НЕ забронированы. Марина сможет проверить вашу заявку."}</p>
-       </section>:event.id?<section className="space-y-3 rounded-xl border border-black/20 bg-[#fffaf1] p-5">
+       </section>:event.id&&requestsEnabled?<section className="space-y-3 rounded-xl border border-black/20 bg-[#fffaf1] p-5">
          <h3 className="font-bold">{en?"Send booking request":"Отправить заявку на бронирование"}</h3>
          <p className="text-sm">{en?"Your guest details and selected tables/seats will be saved securely for Marina to review. This is not a confirmed reservation; payment and ticket delivery are not available yet.":"Данные гостей и выбранные столы/места будут сохранены для проверки Мариной. Это ещё не подтверждённая бронь: оплата и отправка билетов пока недоступны."}</p>
          {pricingIncomplete&&<p className="text-sm font-semibold text-orange-800">{en?"One or more prices are pending. Your request can still be saved, but is not confirmed.":"Одна или несколько цен ещё не указаны. Заявку можно сохранить, но она не подтверждена."}</p>}
          <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={bookingConsent} onChange={e=>setBookingConsent(e.target.checked)} className="mt-1 h-5 w-5" /><span>{en?"I understand Marina's event organisers will use these names and adult contact details to manage this request. No payment will be taken.":"Я понимаю, что организаторы Марины будут использовать имена гостей и контактные данные взрослых для обработки заявки. Оплата не производится."}</span></label>
          {bookingError&&<p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800">{bookingError}</p>}
          <button type="button" disabled={!bookingConsent||!canReview||savingBooking} onClick={()=>void submitBookingRequest()} className="min-h-12 w-full rounded-lg bg-black px-5 py-4 font-bold text-white disabled:opacity-40">{savingBooking?(en?"Saving request…":"Сохраняем заявку…"):(en?"Submit booking request":"Отправить заявку")}</button>
-       </section>:<p className="rounded-lg bg-gray-100 p-4 text-sm">{en?"Demo mode: test bookings are not stored.":"Демо-режим: тестовые заявки не сохраняются."}</p>}
+       </section>:<p className="rounded-lg bg-gray-100 p-4 text-sm">{en?"Booking request saving is not enabled yet; please contact Marina.":"Сохранение заявок пока не подключено. Свяжитесь с Мариной."}</p>}
        <div className="rounded-lg border border-black/15 p-4"><h3 className="font-semibold">{en?"Promo code":"Промокод"}</h3><p className="mt-1 text-sm text-gray-600">{en?"Promo code redemption will be available when payments are enabled.":"Применение промокодов появится при подключении оплаты."}</p><input disabled placeholder={en?"Enter code":"Введите код"} className="mt-2 w-full rounded-lg border border-black/20 bg-gray-100 p-3" /></div>
        {!savedReference&&<button type="button" onClick={()=>setStep("guests")} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Edit guest details":"Изменить данные гостей"}</button>}
      </section>:<div className="mt-6 flex flex-col gap-8">
