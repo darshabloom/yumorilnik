@@ -5,6 +5,7 @@ import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {supabase} from "@/lib/supabaseClient";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
+import LocalDemoBookings from "@/components/LocalDemoBookings";
 
 type Guest={id:string;guest_index:number;category:"adult"|"child";full_name:string;email:string|null;phone:string|null;accompanying_adult_index:number|null;checked_in_at:string|null};
 type Item={id:string;ticket_name:string;category:string;quantity:number;unit_admission_cents:number};
@@ -23,6 +24,11 @@ const money=(cents:number|null,currency:string,en:boolean)=>cents===null
  :new Intl.NumberFormat("en-NZ",{style:"currency",currency:currency||"NZD"}).format(cents/100);
 
 export default function AdminBookingsPage(){
+ if(process.env.NODE_ENV==="development")return <LocalDemoBookings/>;
+ return <RealAdminBookingsPage/>;
+}
+
+function RealAdminBookingsPage(){
  const router=useRouter();
  const en=useSiteLanguage()==="en";
  const [allowed,setAllowed]=useState(false);
