@@ -26,7 +26,7 @@ async function attendees(page, adults, children=0) {
 
 async function openTable(page,label="Table A") {
   const details=page.locator("details").filter({has:page.locator("summary", { hasText:label })});
-  if (!(await details.getAttribute("open"))) {
+  if ((await details.getAttribute("open")) === null) {
     await details.locator("summary").click();
   }
 }
