@@ -138,18 +138,21 @@ begin
   or jsonb_typeof(p_selections)<>'array' then
   raise exception 'Invalid booking request' using errcode='22023';
  end if;
+ -- Serialize writes per event and retry-safe submissions.
+ perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_event_id::text,0));
+ select event_id,booking_reference,status,total_cents into v_existing
+ from public.bookings where client_request_id=p_client_request_id;
+ if found then
+  if v_existing.event_id<>p_event_id then
+   raise exception 'Request identifier belongs to a different event' using errcode='22023';
+  end if;
+  return jsonb_build_object('reference',v_existing.booking_reference,
+   'status',v_existing.status,'total_cents',v_existing.total_cents);
+ end if;
  if jsonb_array_length(p_tickets) not between 1 and 20
   or jsonb_array_length(p_guests) not between 1 and 20
   or jsonb_array_length(p_selections)>20 then
   raise exception 'Too many booking entries' using errcode='22023';
- end if;
- -- Serialize writes per event and retry-safe submissions.
- perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_event_id::text,0));
- select booking_reference,status,total_cents into v_existing
- from public.bookings where client_request_id=p_client_request_id;
- if found then
-  return jsonb_build_object('reference',v_existing.booking_reference,
-   'status',v_existing.status,'total_cents',v_existing.total_cents);
  end if;
  select id,is_active,event_type,seating_mode,table_booking_mode into v_event
  from public.events where id=p_event_id and is_active=true and event_type='internal';
