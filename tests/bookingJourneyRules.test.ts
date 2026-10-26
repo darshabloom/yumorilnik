@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   bookingReadyForReview,
+  bookingPriceReadyForCheckout,
   bookingTotalCents,
   changeNamedSeat,
   selectedTableCapacity,
@@ -76,11 +77,12 @@ test("named adult seats required for assigned seating, children remain optional"
   };
   assert.equal(bookingReadyForReview(base), true);
   assert.equal(bookingReadyForReview({ ...base, assignedAdultSeats: 1 }), false);
-  assert.equal(bookingReadyForReview({ ...base, totalCents: null }), false);
+  assert.equal(bookingReadyForReview({ ...base, totalCents: null }), true);
+  assert.equal(bookingPriceReadyForCheckout(null), false);
   assert.equal(bookingReadyForReview({ ...base, seatOverage: true }), false);
 });
 
-test("general admission skips seat requirements and blocks invalid prices", () => {
+test("general admission skips seat requirements, but not checkout price checks", () => {
   const base = {
     ticketCount: 2, guestDetailsComplete: true, totalCents: 6000,
     generalAdmission: true, wholeTable: false, selectedCount: 0,
@@ -88,7 +90,8 @@ test("general admission skips seat requirements and blocks invalid prices", () =
     adultSeatsRequired: true, seatOverage: false,
   };
   assert.equal(bookingReadyForReview(base), true);
-  assert.equal(bookingReadyForReview({ ...base, totalCents: null }), false);
+  assert.equal(bookingReadyForReview({ ...base, totalCents: null }), true);
+  assert.equal(bookingPriceReadyForCheckout(null), false);
   assert.equal(bookingReadyForReview({ ...base, guestDetailsComplete: false }), false);
 });
 
@@ -98,4 +101,13 @@ test("unknown, negative, fractional and unsafe total amounts are rejected", () =
   assert.equal(bookingTotalCents(6000, [-1]), null);
   assert.equal(bookingTotalCents(6000, [2.5]), null);
   assert.equal(bookingTotalCents(Number.MAX_SAFE_INTEGER, [1]), null);
+});
+
+test("review with unpriced adult seats is allowed, but payment is not",()=>{
+ const journey={ticketCount:4,guestDetailsComplete:true,totalCents:null,generalAdmission:false,wholeTable:false,selectedCount:2,tableCapacity:0,adultCount:2,assignedAdultSeats:2,adultSeatsRequired:true,seatOverage:false};
+ assert.equal(bookingReadyForReview(journey),true);
+ assert.equal(bookingPriceReadyForCheckout(journey.totalCents),false);
+ assert.equal(bookingReadyForReview({...journey,assignedAdultSeats:1}),false);
+ assert.equal(bookingPriceReadyForCheckout(37500),true);
+ assert.equal(bookingPriceReadyForCheckout(-100),false);
 });
