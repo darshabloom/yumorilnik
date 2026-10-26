@@ -6,7 +6,7 @@ import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import {zoneForTable,type PriceZone} from "@/lib/priceZones";
 import CustomerVenueMap,{type PublicTable,type PublicStage} from "@/components/CustomerVenueMap";
 import type {VenueFeature} from "@/components/VenueLines";
-import {partyCounts,canStartBooking,guestDetailsValid,reservedAdultSeats,childReservedSeats,bookingTotalCents,classifyTicket} from "@/lib/bookingRules";
+import {partyCounts,canStartBooking,guestDetailsValid,reservedAdultSeats,childReservedSeats,bookingTotalCents,classifyTicket,usesFullZoneSeatPricing,changeNamedSeat,selectedTableCapacity} from "@/lib/bookingRules";
 
 export type BookingTicket = {
  id:string; name:string; description:string|null; price_cents:number;
@@ -22,32 +22,30 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [childParents,setChildParents]=useState<Record<string,string>>({});
  const [seatAssignments,setSeatAssignments]=useState<Record<string,string>>({});
  const [activeSeatGuest,setActiveSeatGuest]=useState<string>("0");
+ const [seatFeedback,setSeatFeedback]=useState("");
  const language=useSiteLanguage();
  const en=language==="en";
  const tableBooking=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
- const zonePricing=!tableBooking&&event.seating_mode!=="general_admission"&&(event.pricing_model==="zone_full_seat"||(venue?.zones.length??0)>0);
+ const zonePricing=usesFullZoneSeatPricing(event.seating_mode,event.table_booking_mode,event.pricing_model,venue?.zones.length??0);
  const seatingMode=tableBooking?"whole_table":"individual_seats";
  function toggleMapSelection(key:string){
+   setSeatFeedback("");
    if(tableBooking){setMapSelections(old=>old.includes(key)?old.filter(item=>item!==key):[...old,key]);return;}
-   if(mapSelections.includes(key)){
-     const owner=seatAssignments[key];
-     if(owner!==undefined&&((step==="children"&&Number(owner)<adultTicketCount)||(step==="seats"&&Number(owner)>=adultTicketCount)))return;
-     setMapSelections(old=>old.filter(item=>item!==key));
-     setSeatAssignments(old=>{const next={...old};delete next[key];return next;});
-     return;
-   }
    const first=step==="children"?adultTicketCount:0;
    const limit=step==="children"?adultTicketCount+childTicketCount:adultTicketCount;
-   const taken=new Set(Object.values(seatAssignments));
-   const preferred=Number(activeSeatGuest);
-   const guestIndex=preferred>=first&&preferred<limit?preferred:first;
-   const guestKey=String(guestIndex);
-   if(limit<=first)return;
-   const previous=Object.keys(seatAssignments).find(k=>seatAssignments[k]===guestKey);
-   setMapSelections(old=>previous?[...old.filter(k=>k!==previous),key]:[...old,key]);
-   setSeatAssignments(old=>{const next={...old};if(previous)delete next[previous];next[key]=guestKey;return next;});
-   const nextGuest=Array.from({length:limit-first},(_,i)=>String(first+i)).find(id=>id!==guestKey&&!taken.has(id));
-   if(nextGuest)setActiveSeatGuest(nextGuest);
+   const result=changeNamedSeat(seatAssignments,key,Number(activeSeatGuest),adultTicketCount,childTicketCount,step==="children"?"children":"seats");
+   if(result.outcome==="occupied"){
+     setSeatFeedback(en?"This seat belongs to another guest. Select their name to change it.":"Это место уже закреплено за другим гостем. Выберите его имя, чтобы изменить место.");
+     return;
+   }
+   if(result.outcome==="invalid")return;
+   setSeatAssignments(result.assignments);
+   setMapSelections(Object.keys(result.assignments));
+   if(result.outcome==="assigned"){
+     const taken=new Set(Object.values(result.assignments));
+     const nextGuest=Array.from({length:limit-first},(_,i)=>String(first+i)).find(id=>!taken.has(id));
+     if(nextGuest)setActiveSeatGuest(nextGuest);
+   }
  }
  const count=tickets.reduce((total,t)=>total+(quantities[t.id]??0),0);
  const party=partyCounts(tickets.map(t=>({name:t.name,quantity:quantities[t.id]??0})));
@@ -57,22 +55,27 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const seatsStillNeeded=!tableBooking&&(zonePricing||event.adult_seat_required)&&event.seating_mode!=="general_admission"?Math.max(0,adultTicketCount-reservedAdultSeats(adultTicketCount,seatAssignments)):0;
  const selectedSeatPrice=(key:string)=>{const table=venue?.tables.find(t=>t.id===key.split(":")[0]);return table?(zonePricing?zoneForTable(table,venue?.zones??[])?.price_cents??null:table.seat_price_cents):null;};
  const seatTotal=!tableBooking?mapSelections.reduce((sum,key)=>sum+(selectedSeatPrice(key)??0),0):0;
- const missingSeatPrices=!tableBooking&&mapSelections.some(key=>selectedSeatPrice(key)==null);
- const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&mapSelections.length>adultTicketCount+(zonePricing?childTicketCount:0);
- const invalidTablePrices=tableBooking&&mapSelections.some(key=>venue?.tables.find(t=>t.id===key)?.table_price_cents==null);
+
+ const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&mapSelections.length>adultTicketCount+childTicketCount;
  const guestDetailsComplete=guestDetailsValid(adultTicketCount,childTicketCount,guestInfo,childParents);
- const canReview=count>0&&guestDetailsComplete&&!seatOverage&&seatsStillNeeded===0&&(!tableBooking||mapSelections.length>0)&&!missingSeatPrices&&!invalidTablePrices;
- const pricingIncomplete=missingSeatPrices||invalidTablePrices;
+ const selectedPrices=mapSelections.map(key=>tableBooking?venue?.tables.find(t=>t.id===key)?.table_price_cents??null:selectedSeatPrice(key));
+ const ticketPricesInvalid=tickets.some(t=>(quantities[t.id]??0)>0&&!(zonePricing&&classifyTicket(t.name)==="adult")&&(!Number.isSafeInteger(t.price_cents)||t.price_cents<0));
+ const calculatedTotal=ticketPricesInvalid?null:bookingTotalCents(ticketTotal,selectedPrices);
+ const pricingIncomplete=calculatedTotal===null;
+ const tableCapacity=tableBooking?selectedTableCapacity(mapSelections,venue?.tables??[]):0;
+ const tableHasAdultCapacity=!tableBooking||tableCapacity>=adultTicketCount;
+ const canReview=count>0&&guestDetailsComplete&&!seatOverage&&seatsStillNeeded===0&&(!tableBooking||mapSelections.length>0)&&tableHasAdultCapacity&&!pricingIncomplete;
  const selections=mapSelections.map(key=>{
   const table=venue?.tables.find(t=>t.id===(tableBooking?key:key.split(":")[0]));
   return {key,label:table?.label??(en?"Table":"Стол"),seat:tableBooking?null:key.split(":")[1],cost:tableBooking?table?.table_price_cents:selectedSeatPrice(key)};
  });
  const tableTotal=tableBooking?mapSelections.reduce((sum,key)=>sum+(venue?.tables.find(t=>t.id===key)?.table_price_cents??0),0):0;
- const total=bookingTotalCents(ticketTotal,tableBooking?mapSelections.map(key=>venue?.tables.find(t=>t.id===key)?.table_price_cents??null):mapSelections.map(key=>selectedSeatPrice(key)))??0;
+ const total=calculatedTotal;
  const currency=tickets[0]?.currency?.toUpperCase()||"NZD";
  const format=useMemo(()=>new Intl.NumberFormat("en-NZ",{style:"currency",currency}),[currency]);
  const max=10;
  const needsSeats=event.seating_mode!=="general_admission";
+ const showChildStep=needsSeats&&!tableBooking&&childTicketCount>0;
  const canContinueTickets=canStartBooking(party);
  const childSeats=childReservedSeats(adultTicketCount,childTicketCount,seatAssignments);
  const adultSeats=reservedAdultSeats(adultTicketCount,seatAssignments);
@@ -87,6 +90,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    setGuestErrors(false);
    setMapSelections([]);
    setSeatAssignments({});
+    setSeatFeedback("");
    setActiveSeatGuest("0");
  }
  return <main className="min-h-screen bg-[#fffaf1] pb-36 text-black">
