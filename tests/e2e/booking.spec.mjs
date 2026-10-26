@@ -265,10 +265,10 @@ test("guest form names the missing adult field, focuses it, and then proceeds",a
   await guests.nth(i).locator("select").selectOption("1");
  }
  await page.getByRole("button",{name:"Choose adult seats →"}).click();
- await expect(page.getByRole("alert")).toContainText("Adult 2: valid email address");
+ await expect(page.locator('div[role="alert"]').filter({hasText:"Please complete these specific details"})).toContainText("Adult 2: valid email address");
  await expect(page.locator('[data-guest-index="1"][data-guest-field="email"]')).toBeFocused();
  await guests.nth(1).locator('input[type="email"]').fill("fox@example.com");
- await expect(page.getByRole("alert")).toHaveCount(0);
+ await expect(page.locator('div[role="alert"]').filter({hasText:"Please complete these specific details"})).toHaveCount(0);
  await page.getByRole("button",{name:"Choose adult seats →"}).click();
  await expect(page.getByRole("heading",{name:"Assign a seat to each adult"})).toBeVisible();
 });
@@ -278,7 +278,7 @@ test("guest form makes a missing child's parent explicit",async({page})=>{
  await attendees(page,1,1);
  await page.locator("fieldset").nth(1).locator("select").selectOption("");
  await page.getByRole("button",{name:"Choose adult seats →"}).click();
- await expect(page.getByRole("alert")).toContainText("Child 1: accompanying adult");
+ await expect(page.locator('div[role="alert"]').filter({hasText:"Please complete these specific details"})).toContainText("Child 1: accompanying adult");
  await expect(page.locator('[data-guest-index="1"][data-guest-field="parent"]')).toBeFocused();
  await page.locator("fieldset").nth(1).locator("select").selectOption("0");
  await page.getByRole("button",{name:"Choose adult seats →"}).click();
