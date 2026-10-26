@@ -36,3 +36,18 @@ jobs:
         run: npm run lint
       - name: Production build
         run: npm run build
+      - name: Install pinned browser test runner
+        run: npm install --no-save --no-package-lock @playwright/test@1.56.1
+      - name: Install Chromium and Linux dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Mobile and desktop booking journeys
+        run: npx playwright test
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
