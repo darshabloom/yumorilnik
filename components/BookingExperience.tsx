@@ -28,6 +28,9 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [seatFeedback,setSeatFeedback]=useState("");
  const [savingBooking,setSavingBooking]=useState(false);
  const [bookingConsent,setBookingConsent]=useState(false);
+ const [promoCode,setPromoCode]=useState("");
+ const [savedStatus,setSavedStatus]=useState<"requested"|"confirmed"|null>(null);
+ const [savedEmailStatus,setSavedEmailStatus]=useState<string|null>(null);
  const [marketingOptIn,setMarketingOptIn]=useState(false);
  const [marketingAdultIndex,setMarketingAdultIndex]=useState(0);
  const [marketingResult,setMarketingResult]=useState<"none"|"subscribed"|"not_subscribed"|"failed">("none");
@@ -35,8 +38,9 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [bookingError,setBookingError]=useState("");
  const [savedReference,setSavedReference]=useState<string|null>(null);
  const requestId=useRef<string|null>(null);
- const localTestMode=process.env.NODE_ENV==="development";
- const requestsEnabled=localTestMode||process.env.NEXT_PUBLIC_BOOKING_REQUESTS_ENABLED==="true";
+ const realBookingsEnabled=process.env.NEXT_PUBLIC_REAL_BOOKINGS_ENABLED==="true";
+ const localTestMode=process.env.NODE_ENV==="development"&&!realBookingsEnabled;
+ const requestsEnabled=localTestMode||realBookingsEnabled;
  const language=useSiteLanguage();
  const en=language==="en";
  const tableBooking=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
@@ -146,7 +150,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
   finally{setMarketingBusy(false)}
  }
  async function submitBookingRequest(){
-  if(!requestsEnabled||(!localTestMode&&!event.id)||!canReview||!bookingConsent||savingBooking||savedReference)return;
+  if(!requestsEnabled||(!localTestMode&&!event.id)||!canReview||!bookingConsent||savingBooking||savedReference||(!localTestMode&&promoCode.trim()!=="TEST12"))return;
   const idempotency=requestId.current??window.crypto.randomUUID();
   requestId.current=idempotency;
   setSavingBooking(true);setBookingError("");
@@ -180,6 +184,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
     const result=await response.json() as {reference?:string;error?:string};
     if(!response.ok||!result.reference)throw new Error(result.error??"Unable to save local test booking");
     setSavedReference(result.reference);
+    setSavedStatus("requested");
     return;
    }
    const payload=buildBookingSubmission({
@@ -188,11 +193,13 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
     guestInfo,childParents,adultCount:adultTicketCount,childCount:childTicketCount,
     wholeTable:tableBooking,selectedKeys:mapSelections,seatAssignments,
    });
-   const {data,error}=await supabase.rpc("submit_booking",payload);
+   const {data,error}=await supabase.rpc("submit_test12_booking",{...payload,p_promo_code:promoCode.trim()});
    if(error)throw error;
-   const result=data as {reference?:unknown}|null;
+   const result=data as {reference?:unknown;status?:unknown;confirmation_email_status?:unknown}|null;
    if(typeof result?.reference!=="string"||!result.reference.startsWith("YMR-"))throw new Error("Invalid response");
    setSavedReference(result.reference);
+   setSavedStatus(result.status==="confirmed"?"confirmed":"requested");
+   setSavedEmailStatus(typeof result.confirmation_email_status==="string"?result.confirmation_email_status:null);
    if(marketingOptIn)await saveOptionalMarketingConsent(idempotency);
   }catch(error){
    const detail=error instanceof Error?error.message:"Unknown error";
@@ -258,9 +265,10 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
        <p className="rounded-lg bg-[#fff2db] p-4 text-sm">{en?"This is a preview only. Seats have not been reserved. Payment and order confirmation are not available yet.":"Это предварительный расчёт. Места не забронированы. Оплата и подтверждение заказа пока недоступны."}</p>
        <div className="rounded-lg border border-black/15 p-4"><h3 className="font-semibold">{en?"Guests and assigned seats":"Гости и их места"}</h3>{Array.from({length:adultTicketCount+childTicketCount},(_,i)=>{const key=String(i);const seat=selections.find(s=>seatAssignments[s.key]===key);return <p key={key} className="mt-2 text-sm">{guestInfo[key]?.name||`${i<adultTicketCount?(en?"Adult":"Взрослый"):(en?"Child":"Ребёнок")} ${i+1}`} — {i>=adultTicketCount?(en?"Spare seating at venue":"Дополнительные места на мероприятии"):tableBooking?(en?"Included in whole-table selection · no individual seat assigned":"Включён в бронирование стола · отдельное место не назначено"):seat?`${seat.label} · ${seat.seat}`:(en?"No reserved seat":"Без закреплённого места")}{i>=adultTicketCount&&childParents[key]!==undefined?<span className="block pl-3 text-xs text-gray-600">{en?"Accompanying adult":"Сопровождающий взрослый"}: {guestInfo[childParents[key]]?.name||`${en?"Adult":"Взрослый"} ${Number(childParents[key])+1}`} · {guestInfo[childParents[key]]?.email}</span>:null}</p>})}</div>
        {savedReference?<section role="status" className="rounded-xl border-2 border-green-700 bg-green-50 p-5">
-         <h3 className="text-lg font-bold">{en?"Booking request received":"Заявка на бронирование получена"}</h3>
+         <h3 className="text-lg font-bold">{savedStatus==="confirmed"?(en?"Free reservation confirmed":"Бесплатная бронь подтверждена"):(en?"Booking request received":"Заявка на бронирование получена")}</h3>
          <p className="mt-2">{en?"Your reference":"Номер заявки"}: <strong className="font-mono text-xl">{savedReference}</strong></p>
-         <p className="mt-2 text-sm">{localTestMode?(en?"Saved locally for testing. No payment, ticket or seat reservation. Open Marina’s test-booking list below.":"Сохранено локально для тестирования. Без оплаты, билета или закрепления места. Откройте список тестовых заявок ниже."):(en?"Keep this reference. No payment was taken, no ticket was issued and seats are NOT reserved yet. Marina can review your request.":"Сохраните номер заявки. Оплата не производилась, билеты не выпущены и места пока НЕ забронированы. Марина сможет проверить вашу заявку.")}</p>
+         <p className="mt-2 text-sm">{localTestMode?(en?"Saved locally for testing only. No seat is reserved.":"Сохранено только для локального теста. Место не закреплено."):savedStatus==="confirmed"?(en?"TEST12 covered the full price: NZ$0 payable. Your selected seats are reserved.":"Промокод TEST12 полностью покрыл стоимость: к оплате NZ$0. Выбранные места забронированы."):(en?"Request received, but seats are not yet reserved.":"Заявка получена, но места пока не забронированы.")}</p>
+         {!localTestMode&&savedEmailStatus==="pending"&&<p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm">{en?"Confirmation email pending. It has not been sent yet; please keep your reference.":"Отправка письма с подтверждением ожидается. Письмо ещё не отправлено; сохраните номер брони."}</p>}
          {localTestMode&&<Link href="/admin/bookings" className="mt-3 inline-block rounded-lg border border-green-800 bg-white px-4 py-3 font-semibold underline">{en?"View saved test bookings →":"Смотреть тестовые заявки →"}</Link>}
           {marketingResult==="subscribed"&&<p className="mt-3 rounded bg-white p-3 text-sm font-semibold text-green-900">{en?"Future-event invitations: the chosen adult is on Marina's opt-in email list. Every email will include an unsubscribe option.":"Приглашения на будущие мероприятия: выбранный взрослый добавлен в список по согласию. В каждом письме будет ссылка отписки."}</p>}
           {marketingResult==="not_subscribed"&&<p className="mt-3 rounded bg-white p-3 text-sm text-orange-900">{en?"This email was previously unsubscribed and has not been re-added. Contact Marina if you wish to sign up again.":"Этот адрес ранее отписался и не был добавлен повторно. Чтобы подписаться снова, свяжитесь с Мариной."}</p>}
@@ -268,7 +276,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
 
        </section>:(localTestMode||(event.id&&requestsEnabled))?<section className="space-y-3 rounded-xl border border-black/20 bg-[#fffaf1] p-5">
          <h3 className="font-bold">{localTestMode?(en?"Save fictional test booking":"Сохранить тестовую заявку"):(en?"Send booking request":"Отправить заявку на бронирование")}</h3>
-         <p className="text-sm">{localTestMode?(en?"Use fictional details only. This request will be saved on this computer for Marina to inspect at /admin/bookings. No payment or tickets.":"Используйте только вымышленные данные. Заявка будет сохранена на этом компьютере; Марина сможет просмотреть её на /admin/bookings. Без оплаты и билетов."):(en?"Your guest details and selected tables/seats will be saved securely for Marina to review. This is not a confirmed reservation; payment and ticket delivery are not available yet.":"Данные гостей и выбранные столы/места будут сохранены для проверки Мариной. Это ещё не подтверждённая бронь: оплата и отправка билетов пока недоступны.")}</p>
+         <p className="text-sm">{localTestMode?(en?"Use fictional details only. This is a local demonstration.":"Используйте только вымышленные данные. Это локальная демонстрация."):(en?"Use TEST12 to reserve selected seats without payment. You will see a booking reference immediately; email delivery may still be pending.":"С TEST12 можно забронировать выбранные места без оплаты. Номер брони появится сразу; отправка письма может ожидать настройки.")}</p>
          {pricingIncomplete&&<p className="text-sm font-semibold text-orange-800">{en?"One or more prices are pending. Your request can still be saved, but is not confirmed.":"Одна или несколько цен ещё не указаны. Заявку можно сохранить, но она не подтверждена."}</p>}
          <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={bookingConsent} onChange={e=>setBookingConsent(e.target.checked)} className="mt-1 h-5 w-5" /><span>{localTestMode?(en?"I understand this is fictional test data saved only on this computer, not a real booking.":"Я понимаю, что это вымышленные тестовые данные, сохранённые только на этом компьютере, а не настоящая бронь."):(en?"I understand Marina's event organisers will use these names and adult contact details to manage this request. No payment will be taken.":"Я понимаю, что организаторы Марины будут использовать имена гостей и контактные данные взрослых для обработки заявки. Оплата не производится.")}</span></label>
          {!localTestMode&&<>
@@ -288,9 +296,9 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
          </div>
                   </>}
          {bookingError&&<p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800">{bookingError}</p>}
-         <button type="button" disabled={!bookingConsent||!canReview||savingBooking} onClick={()=>void submitBookingRequest()} className="min-h-12 w-full rounded-lg bg-black px-5 py-4 font-bold text-white disabled:opacity-40">{savingBooking?(en?"Saving request…":"Сохраняем заявку…"):localTestMode?(en?"Save test booking":"Сохранить тестовую заявку"):(en?"Submit booking request":"Отправить заявку")}</button>
+         <button type="button" disabled={!bookingConsent||!canReview||savingBooking||(!localTestMode&&promoCode.trim()!=="TEST12")} onClick={()=>void submitBookingRequest()} className="min-h-12 w-full rounded-lg bg-black px-5 py-4 font-bold text-white disabled:opacity-40">{savingBooking?(en?"Saving request…":"Сохраняем заявку…"):localTestMode?(en?"Save test booking":"Сохранить тестовую заявку"):(en?"Reserve seats for NZ$0 with TEST12":"Забронировать места за NZ$0 с TEST12")}</button>
        </section>:<p className="rounded-lg bg-gray-100 p-4 text-sm">{en?"Booking request saving is not enabled yet; please contact Marina.":"Сохранение заявок пока не подключено. Свяжитесь с Мариной."}</p>}
-       <div className="rounded-lg border border-black/15 p-4"><h3 className="font-semibold">{en?"Promo code":"Промокод"}</h3><p className="mt-1 text-sm text-gray-600">{en?"Promo code redemption will be available when payments are enabled.":"Применение промокодов появится при подключении оплаты."}</p><input disabled placeholder={en?"Enter code":"Введите код"} className="mt-2 w-full rounded-lg border border-black/20 bg-gray-100 p-3" /></div>
+       <div className="rounded-lg border border-black/15 p-4"><h3 className="font-semibold">{en?"Promo code":"Промокод"}</h3><p className="mt-1 text-sm text-gray-600">{en?"TEST12 will make an eligible booking free when the organiser enables this promotion. A code is checked in the database; typing it does not reserve seats.":"TEST12 сделает заказ бесплатным, когда организатор включит акцию. Код проверяется в базе данных; ввод кода сам по себе не бронирует места."}</p><input value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase().trimStart())} disabled={!!savedReference||localTestMode} maxLength={32} autoComplete="off" placeholder={en?"Enter code":"Введите код"} aria-label={en?"Promo code":"Промокод"} className="mt-2 w-full rounded-lg border border-black/20 bg-white p-3 disabled:bg-gray-100" />{!localTestMode&&promoCode.trim()==="TEST12"&&<p className="mt-2 text-sm font-semibold text-green-800">{en?"Code entered. Final discount will be verified when you submit.":"Код введён. Скидка будет проверена при отправке заказа."}</p>}</div>
        {!savedReference&&<button type="button" onClick={()=>setStep("guests")} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Edit guest details":"Изменить данные гостей"}</button>}
      </section>:<div className="mt-6 flex flex-col gap-8">
        {step==="tickets"&&<section aria-labelledby="tickets-title" className="space-y-3">
