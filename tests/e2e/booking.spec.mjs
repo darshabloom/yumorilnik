@@ -216,3 +216,32 @@ test("no adult admission price is displayed before choosing a table place",async
  await page.getByRole("button",{name:"Review →"}).click();
  await expect(page.getByText("Included in seat prices")).toBeVisible();
 });
+
+test("customer can submit a booking REQUEST and see the saved reference (mock backend)",async({page})=>{
+ let request=null;
+ await page.route("**/rest/v1/rpc/submit_booking",async route=>{
+  if(route.request().method()==="OPTIONS"){
+   await route.fulfill({status:204,headers:{"access-control-allow-origin":"*","access-control-allow-methods":"POST,OPTIONS","access-control-allow-headers":"authorization,apikey,content-type,x-client-info"}});
+   return;
+  }
+  request=JSON.parse(route.request().postData()??"{}");
+  await route.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify({reference:"YMR-TEST00000001",status:"requested",total_cents:37500})});
+ });
+ await begin(page,"submit");
+ await attendees(page,2,2);
+ await page.getByRole("button",{name:"Choose adult seats →"}).click();
+ await focusTable(page);
+ await selectSeat(page,1);
+ await selectSeat(page,2);
+ await page.getByRole("button",{name:"Children's seats →"}).click();
+ await selectSeat(page,3);
+ await page.getByRole("button",{name:"Review booking →"}).click();
+ await page.getByRole("checkbox").check();
+ await page.getByRole("button",{name:"Submit booking request"}).click();
+ await expect(page.getByText("YMR-TEST00000001")).toBeVisible();
+ await expect(page.getByText("seats are NOT reserved yet",{exact:false})).toBeVisible();
+ expect(request.p_tickets.map(t=>t.quantity)).toEqual([2,2]);
+ expect(request.p_guests.map(g=>g.name)).toEqual(["Adult 1","Adult 2","Child 1","Child 2"]);
+ expect(request.p_selections.map(s=>s.guest_index)).toEqual([0,1,2]);
+ expect(JSON.stringify(request)).not.toContain("price_cents");
+});
