@@ -236,7 +236,7 @@ test("customer can submit a booking REQUEST and see the saved reference (mock ba
  await page.getByRole("button",{name:"Children's seats →"}).click();
  await selectSeat(page,3);
  await page.getByRole("button",{name:"Review booking →"}).click();
- await page.getByRole("checkbox").check();
+ await page.getByRole("checkbox",{name:/I understand Marina\x27s event organisers/}).check();
  await page.getByRole("button",{name:"Submit booking request"}).click();
  await expect(page.getByText("YMR-TEST00000001")).toBeVisible();
  await expect(page.getByText("seats are NOT reserved yet",{exact:false})).toBeVisible();
@@ -265,10 +265,10 @@ test("guest form names the missing adult field, focuses it, and then proceeds",a
   await guests.nth(i).locator("select").selectOption("1");
  }
  await page.getByRole("button",{name:"Choose adult seats →"}).click();
- await expect(page.locator('div[role="alert"]').filter({hasText:"Please complete these specific details"})).toContainText("Adult 2: valid email address");
+ await expect(page.getByRole("alert")).toContainText("Adult 2: valid email address");
  await expect(page.locator('[data-guest-index="1"][data-guest-field="email"]')).toBeFocused();
  await guests.nth(1).locator('input[type="email"]').fill("fox@example.com");
- await expect(page.locator('div[role="alert"]').filter({hasText:"Please complete these specific details"})).toHaveCount(0);
+ await expect(page.getByRole("alert")).toHaveCount(0);
  await page.getByRole("button",{name:"Choose adult seats →"}).click();
  await expect(page.getByRole("heading",{name:"Assign a seat to each adult"})).toBeVisible();
 });
@@ -278,9 +278,53 @@ test("guest form makes a missing child's parent explicit",async({page})=>{
  await attendees(page,1,1);
  await page.locator("fieldset").nth(1).locator("select").selectOption("");
  await page.getByRole("button",{name:"Choose adult seats →"}).click();
- await expect(page.locator('div[role="alert"]').filter({hasText:"Please complete these specific details"})).toContainText("Child 1: accompanying adult");
+ await expect(page.getByRole("alert")).toContainText("Child 1: accompanying adult");
  await expect(page.locator('[data-guest-index="1"][data-guest-field="parent"]')).toBeFocused();
  await page.locator("fieldset").nth(1).locator("select").selectOption("0");
  await page.getByRole("button",{name:"Choose adult seats →"}).click();
  await expect(page.getByRole("heading",{name:"Assign a seat to each adult"})).toBeVisible();
+});
+
+test("marketing checkbox is separate, unchecked by default, and only an explicit opt-in is sent",async({page})=>{
+ const calls=[];
+ await page.route("**/rest/v1/rpc/submit_booking",async route=>{
+  calls.push({name:"booking",payload:JSON.parse(route.request().postData()??"{}")});
+  await route.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:JSON.stringify({reference:"YMR-TEST00000002",status:"requested",total_cents:10500})});
+ });
+ await page.route("**/rest/v1/rpc/marketing_opt_in",async route=>{
+  calls.push({name:"marketing",payload:JSON.parse(route.request().postData()??"{}")});
+  await route.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:"true"});
+ });
+ await begin(page,"submit");
+ await attendees(page,1);
+ await page.getByRole("button",{name:"Choose adult seats →"}).click();
+ await selectSeat(page,1);
+ await page.getByRole("button",{name:"Review →"}).click();
+ const optIn=page.getByRole("checkbox",{name:"Email me about future Yumorilnik events (optional)"});
+ await expect(optIn).not.toBeChecked();
+ await optIn.check();
+ await page.getByRole("checkbox",{name:/I understand Marina's event organisers/}).check();
+ await page.getByRole("button",{name:"Submit booking request"}).click();
+ await expect(page.getByText("YMR-TEST00000002")).toBeVisible();
+ await expect(page.getByText("Future-event invitations:",{exact:false})).toBeVisible();
+ expect(calls.map(c=>c.name)).toEqual(["booking","marketing"]);
+ expect(calls[0].payload.p_client_request_id).toBe(calls[1].payload.p_client_request_id);
+ expect(calls[1].payload.p_adult_guest_index).toBe(0);
+});
+
+test("unsubscribing requires a user click, not merely opening a link",async({page})=>{
+ const token="55555555-5555-4555-8555-555555555555";
+ let posts=0;
+ await page.route("**/rest/v1/rpc/marketing_unsubscribe",async route=>{
+  posts++;
+  expect(JSON.parse(route.request().postData()??"{}").p_token).toBe(token);
+  await route.fulfill({status:200,contentType:"application/json",headers:{"access-control-allow-origin":"*"},body:"true"});
+ });
+ await page.goto("/unsubscribe?token="+token);
+ await page.getByRole("button",{name:"EN",exact:true}).click();
+ await expect(page.getByRole("heading",{name:"Stop future invitations"})).toBeVisible();
+ expect(posts).toBe(0);
+ await page.getByRole("button",{name:"Unsubscribe from marketing"}).click();
+ await expect(page.getByText("Unsubscribed.",{exact:false})).toBeVisible();
+ expect(posts).toBe(1);
 });

@@ -27,6 +27,10 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [seatFeedback,setSeatFeedback]=useState("");
  const [savingBooking,setSavingBooking]=useState(false);
  const [bookingConsent,setBookingConsent]=useState(false);
+ const [marketingOptIn,setMarketingOptIn]=useState(false);
+ const [marketingAdultIndex,setMarketingAdultIndex]=useState(0);
+ const [marketingResult,setMarketingResult]=useState<"none"|"subscribed"|"not_subscribed"|"failed">("none");
+ const [marketingBusy,setMarketingBusy]=useState(false);
  const [bookingError,setBookingError]=useState("");
  const [savedReference,setSavedReference]=useState<string|null>(null);
  const requestId=useRef<string|null>(null);
@@ -121,6 +125,17 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
   setStep(needsSeats?"seats":"review");
   window.scrollTo({top:0,behavior:"smooth"});
  }
+ async function saveOptionalMarketingConsent(idempotency:string){
+  setMarketingBusy(true);
+  try{
+   const {data,error}=await supabase.rpc("marketing_opt_in",{
+    p_client_request_id:idempotency,p_adult_guest_index:marketingAdultIndex,
+   });
+   if(error)throw error;
+   setMarketingResult(data===true?"subscribed":"not_subscribed");
+  }catch{setMarketingResult("failed")}
+  finally{setMarketingBusy(false)}
+ }
  async function submitBookingRequest(){
   if(!requestsEnabled||!event.id||!canReview||!bookingConsent||savingBooking||savedReference)return;
   const idempotency=requestId.current??window.crypto.randomUUID();
@@ -138,6 +153,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    const result=data as {reference?:unknown}|null;
    if(typeof result?.reference!=="string"||!result.reference.startsWith("YMR-"))throw new Error("Invalid response");
    setSavedReference(result.reference);
+   if(marketingOptIn)await saveOptionalMarketingConsent(idempotency);
   }catch{
    setBookingError(en?"The request could not be saved. Please try again or contact Marina.":"Не удалось сохранить заявку. Повторите попытку или свяжитесь с Мариной.");
   }finally{setSavingBooking(false)}
@@ -200,11 +216,29 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
          <h3 className="text-lg font-bold">{en?"Booking request received":"Заявка на бронирование получена"}</h3>
          <p className="mt-2">{en?"Your reference":"Номер заявки"}: <strong className="font-mono text-xl">{savedReference}</strong></p>
          <p className="mt-2 text-sm">{en?"Keep this reference. No payment was taken, no ticket was issued and seats are NOT reserved yet. Marina can review your request.":"Сохраните номер заявки. Оплата не производилась, билеты не выпущены и места пока НЕ забронированы. Марина сможет проверить вашу заявку."}</p>
+          {marketingResult==="subscribed"&&<p className="mt-3 rounded bg-white p-3 text-sm font-semibold text-green-900">{en?"Future-event invitations: the chosen adult is on Marina's opt-in email list. Every email will include an unsubscribe option.":"Приглашения на будущие мероприятия: выбранный взрослый добавлен в список по согласию. В каждом письме будет ссылка отписки."}</p>}
+          {marketingResult==="not_subscribed"&&<p className="mt-3 rounded bg-white p-3 text-sm text-orange-900">{en?"This email was previously unsubscribed and has not been re-added. Contact Marina if you wish to sign up again.":"Этот адрес ранее отписался и не был добавлен повторно. Чтобы подписаться снова, свяжитесь с Мариной."}</p>}
+          {marketingResult==="failed"&&<div className="mt-3 rounded bg-white p-3 text-sm"><p>{en?"Your booking request was saved, but the optional future-event signup could not be completed.":"Заявка сохранена, но подписка на будущие мероприятия не удалась."}</p><button type="button" disabled={marketingBusy} onClick={()=>{if(requestId.current)void saveOptionalMarketingConsent(requestId.current)}} className="mt-2 rounded border border-black px-3 py-2 font-semibold disabled:opacity-50">{en?"Retry optional signup":"Повторить подписку"}</button></div>}
+
        </section>:event.id&&requestsEnabled?<section className="space-y-3 rounded-xl border border-black/20 bg-[#fffaf1] p-5">
          <h3 className="font-bold">{en?"Send booking request":"Отправить заявку на бронирование"}</h3>
          <p className="text-sm">{en?"Your guest details and selected tables/seats will be saved securely for Marina to review. This is not a confirmed reservation; payment and ticket delivery are not available yet.":"Данные гостей и выбранные столы/места будут сохранены для проверки Мариной. Это ещё не подтверждённая бронь: оплата и отправка билетов пока недоступны."}</p>
          {pricingIncomplete&&<p className="text-sm font-semibold text-orange-800">{en?"One or more prices are pending. Your request can still be saved, but is not confirmed.":"Одна или несколько цен ещё не указаны. Заявку можно сохранить, но она не подтверждена."}</p>}
          <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={bookingConsent} onChange={e=>setBookingConsent(e.target.checked)} className="mt-1 h-5 w-5" /><span>{en?"I understand Marina's event organisers will use these names and adult contact details to manage this request. No payment will be taken.":"Я понимаю, что организаторы Марины будут использовать имена гостей и контактные данные взрослых для обработки заявки. Оплата не производится."}</span></label>
+         <div className="space-y-2 rounded-lg border border-black/15 bg-white p-4">
+           <label className="flex items-start gap-3 text-sm">
+             <input type="checkbox" aria-label={en?"Email me about future Yumorilnik events (optional)":"Присылать приглашения на будущие мероприятия (необязательно)"} checked={marketingOptIn} onChange={e=>setMarketingOptIn(e.target.checked)} className="mt-1 h-5 w-5" />
+             <span><strong>{en?"Optional — future event invitations":"Необязательно — приглашения на будущие мероприятия"}</strong>
+               <span className="mt-1 block text-gray-700">{en?"The selected adult agrees to receive occasional Yumorilnik/Marina event invitations by email, and I am this person or have their permission. This is separate from this booking; they can unsubscribe at any time.":"Выбранный взрослый согласен получать приглашения на мероприятия Юморильника / Марины по электронной почте. Я и есть этот человек или у меня есть его разрешение. Это отдельно от бронирования; отписаться можно в любой момент."}</span>
+             </span>
+           </label>
+           {marketingOptIn&&adultTicketCount>0&&<label className="block text-sm font-semibold">{en?"Email invitations to":"Кому присылать приглашения"}
+             <select value={marketingAdultIndex} onChange={e=>setMarketingAdultIndex(Number(e.target.value))} className="mt-1 w-full rounded-lg border border-black/30 bg-white p-3">
+              {Array.from({length:adultTicketCount},(_,i)=><option key={i} value={i}>{guestInfo[String(i)]?.name||`${en?"Adult":"Взрослый"} ${i+1}`} · {guestInfo[String(i)]?.email}</option>)}
+             </select>
+             <span className="mt-1 block text-xs font-normal text-gray-600">{en?"Only this adult's email will be added, and only if this separate checkbox is ticked.":"Добавится только электронная почта этого взрослого и только при отдельном согласии."}</span>
+           </label>}
+         </div>
          {bookingError&&<p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800">{bookingError}</p>}
          <button type="button" disabled={!bookingConsent||!canReview||savingBooking} onClick={()=>void submitBookingRequest()} className="min-h-12 w-full rounded-lg bg-black px-5 py-4 font-bold text-white disabled:opacity-40">{savingBooking?(en?"Saving request…":"Сохраняем заявку…"):(en?"Submit booking request":"Отправить заявку")}</button>
        </section>:<p className="rounded-lg bg-gray-100 p-4 text-sm">{en?"Booking request saving is not enabled yet; please contact Marina.":"Сохранение заявок пока не подключено. Свяжитесь с Мариной."}</p>}
