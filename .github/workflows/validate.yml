@@ -51,3 +51,38 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  booking_database_contract:
+    name: PostgreSQL booking persistence and RLS
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bookings_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: bookings_ci
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client if needed
+        run: command -v psql || (sudo apt-get update && sudo apt-get install -y postgresql-client)
+      - name: Prepare isolated Supabase-like fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/db/bootstrap.sql
+      - name: Apply booking request schema
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261026_booking_requests.sql
+      - name: Verify persistence, pricing, RLS and cancellation
+        run: psql -v ON_ERROR_STOP=1 -f tests/db/booking_requests_smoke.sql
