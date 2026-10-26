@@ -107,3 +107,27 @@ export function bookingReadyForReview(options:{
 export function bookingPriceReadyForCheckout(totalCents:number|null):boolean{
  return totalCents!==null&&Number.isSafeInteger(totalCents)&&totalCents>=0;
 }
+
+/** The price belongs to the table, not an individual chair. Every chosen place
+ * at that table inherits the same adult price. */
+export function tablePlacePriceCents(table:{seat_price_cents:number|null}|null|undefined):number|null{
+ return table?.seat_price_cents??null;
+}
+
+/** At seated events, an adult's admission is included in their table place.
+ * Child admission remains separate, even if the child takes a reserved place. */
+export function admissionTotalForEventCents(
+ seatingMode:string|null|undefined,
+ tickets:{name:string;price_cents:number;quantity:number}[],
+):number|null{
+ let total=0;
+ for(const ticket of tickets){
+  if(!Number.isSafeInteger(ticket.quantity)||ticket.quantity<0)return null;
+  const needsAdmission=seatingMode==="general_admission"||classifyTicket(ticket.name)!=="adult";
+  if(!needsAdmission||ticket.quantity===0)continue;
+  if(!Number.isSafeInteger(ticket.price_cents)||ticket.price_cents<0)return null;
+  total+=ticket.price_cents*ticket.quantity;
+  if(!Number.isSafeInteger(total))return null;
+ }
+ return total;
+}
