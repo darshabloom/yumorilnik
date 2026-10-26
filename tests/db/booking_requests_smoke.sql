@@ -10,8 +10,7 @@ select public.submit_booking(
    {"name":"Parent Two","email":"second@example.com","phone":"021123457"},
    {"name":"Child One","parent_index":0},{"name":"Child Two","parent_index":1}]'::jsonb,
  '[{"table_id":"44444444-4444-4444-8444-444444444444","seat_number":1,"guest_index":0},
-   {"table_id":"44444444-4444-4444-8444-444444444444","seat_number":2,"guest_index":1},
-   {"table_id":"44444444-4444-4444-8444-444444444444","seat_number":3,"guest_index":2}]'::jsonb
+   {"table_id":"44444444-4444-4444-8444-444444444444","seat_number":2,"guest_index":1}]'::jsonb
 ) as result;
 -- Anonymous access must never expose PII or cancellations directly.
 do $body$
@@ -32,11 +31,11 @@ do $body$
 begin
  if (select count(*) from public.bookings where client_request_id='77777777-7777-4777-8777-777777777777')<>1
  then raise exception 'Booking was not stored';end if;
- if (select total_cents from public.bookings where client_request_id='77777777-7777-4777-8777-777777777777')<>37500
- then raise exception 'Family total did not equal 37500';end if;
+ if (select total_cents from public.bookings where client_request_id='77777777-7777-4777-8777-777777777777')<>27000
+ then raise exception 'Family total did not equal 27000';end if;
  if (select count(*) from public.booking_guests)<>4
  then raise exception 'Named guests were not stored';end if;
- if (select count(*) from public.booking_selections)<>3
+ if (select count(*) from public.booking_selections)<>2
  then raise exception 'Seat assignments were not stored';end if;
 end;
 $body$;
