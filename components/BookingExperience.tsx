@@ -6,7 +6,7 @@ import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import type {PriceZone} from "@/lib/priceZones";
 import CustomerVenueMap,{type PublicTable,type PublicStage} from "@/components/CustomerVenueMap";
 import type {VenueFeature} from "@/components/VenueLines";
-import {partyCounts,canStartBooking,guestDetailsValid,reservedAdultSeats,childReservedSeats,bookingTotalCents,classifyTicket,changeNamedSeat,selectedTableCapacity,bookingReadyForReview} from "@/lib/bookingRules";
+import {partyCounts,canStartBooking,guestDetailsValid,reservedAdultSeats,childReservedSeats,bookingTotalCents,changeNamedSeat,selectedTableCapacity,bookingReadyForReview,tablePlacePriceCents,admissionTotalForEventCents} from "@/lib/bookingRules";
 
 export type BookingTicket = {
  id:string; name:string; description:string|null; price_cents:number;
@@ -49,17 +49,18 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  }
  const count=tickets.reduce((total,t)=>total+(quantities[t.id]??0),0);
  const party=partyCounts(tickets.map(t=>({name:t.name,quantity:quantities[t.id]??0})));
- const ticketTotal=tickets.reduce((sum,t)=>sum+(seatedPricing&&classifyTicket(t.name)==="adult"?0:t.price_cents*(quantities[t.id]??0)),0);
+ const admissionTotal=admissionTotalForEventCents(event.seating_mode,tickets.map(t=>({name:t.name,price_cents:t.price_cents,quantity:quantities[t.id]??0})));
+ const ticketTotal=admissionTotal??0;
  const adultTicketCount=party.adults;
  const childTicketCount=party.children;
  const seatsStillNeeded=!tableBooking&&seatedPricing?Math.max(0,adultTicketCount-reservedAdultSeats(adultTicketCount,seatAssignments)):0;
- const selectedSeatPrice=(key:string)=>{const table=venue?.tables.find(t=>t.id===key.split(":")[0]);return table?.seat_price_cents??null;};
+ const selectedSeatPrice=(key:string)=>{const table=venue?.tables.find(t=>t.id===key.split(":")[0]);return tablePlacePriceCents(table);};
  const seatTotal=!tableBooking?mapSelections.reduce((sum,key)=>sum+(selectedSeatPrice(key)??0),0):0;
 
  const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&mapSelections.length>adultTicketCount+childTicketCount;
  const guestDetailsComplete=guestDetailsValid(adultTicketCount,childTicketCount,guestInfo,childParents);
  const selectedPrices=mapSelections.map(key=>tableBooking?venue?.tables.find(t=>t.id===key)?.table_price_cents??null:selectedSeatPrice(key));
- const ticketPricesInvalid=tickets.some(t=>(quantities[t.id]??0)>0&&!(seatedPricing&&classifyTicket(t.name)==="adult")&&(!Number.isSafeInteger(t.price_cents)||t.price_cents<0));
+ const ticketPricesInvalid=admissionTotal===null;
  const calculatedTotal=ticketPricesInvalid?null:bookingTotalCents(ticketTotal,selectedPrices);
  const pricingIncomplete=calculatedTotal===null;
  const tableCapacity=tableBooking?selectedTableCapacity(mapSelections,venue?.tables??[]):0;
