@@ -94,7 +94,7 @@ select public.cancel_booking(:'booking_to_cancel'::uuid,'test cancellation') as 
 reset role;
 do $body$
 begin
- if (select status from public.bookings where id=:'booking_to_cancel'::uuid)<>'cancelled'
+ if (select status from public.bookings where client_request_id='77777777-7777-4777-8777-777777777777')<>'cancelled'
  then raise exception 'Cancellation did not persist';end if;
  if (select count(*) from public.bookings)<>2 then
  raise exception 'Soft cancellation unexpectedly erased the audit record';end if;
