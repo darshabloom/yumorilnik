@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local fictional booking requests (never commit guest data)
+/.yumorilnik-local/
