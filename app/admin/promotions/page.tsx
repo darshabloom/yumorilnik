@@ -13,6 +13,21 @@ type Ticket={id:string;name:string;event_id:string;price_cents:number};
 type Edit={code:string;enabled:boolean;discount_type:Type;amount:string;event_id:string;max_uses:string;applies_to:Scope;ticket_type_ids:string[];starts_at:string;ends_at:string;min_tickets:string;max_discount:string;internal_note:string};
 const blank:Edit={code:"",enabled:false,discount_type:"percentage",amount:"20",event_id:"",max_uses:"",applies_to:"all",ticket_type_ids:[],starts_at:"",ends_at:"",min_tickets:"",max_discount:"",internal_note:""};
 const localDate=(iso:string|null)=>iso?new Date(iso).toISOString().slice(0,16):"";
+function explainSaveError(e:unknown,en:boolean){
+ const value=e as {message?:unknown;details?:unknown;hint?:unknown;code?:unknown}|null;
+ const message=typeof value?.message==="string"?value.message:e instanceof Error?e.message:"";
+ const details=typeof value?.details==="string"?value.details:"";
+ const hint=typeof value?.hint==="string"?value.hint:"";
+ const reason=message||details||hint;
+ if(/TEST12 activation requires the updated checkout/i.test(reason))
+  return en?"TEST12 settings can be saved, but the code cannot be enabled until checkout is ready. Untick Enabled and save again.":"Настройки TEST12 можно сохранить, но включить код пока нельзя. Снимите галочку «Включён» и сохраните снова.";
+ if(/Admin access required|permission denied/i.test(reason))
+  return en?"Your account does not have permission to manage promo codes. Sign in as an owner or admin.":"Нет прав для изменения промокодов. Войдите как владелец или администратор.";
+ if(/Usage limit below prior redemptions/i.test(reason))
+  return en?"The maximum uses cannot be lower than the number already redeemed.":"Лимит использований не может быть меньше уже применённого количества.";
+ if(reason)return [reason,details,hint].filter((v,i,a)=>v&&a.indexOf(v)===i).join(" · ");
+ return en?"Could not save promo code. Please retry.":"Не удалось сохранить промокод. Повторите попытку.";
+}
 function toEdit(p:Promo):Edit{return {code:p.code,enabled:p.enabled,discount_type:p.discount_type,amount:p.discount_type==="percentage"?String(p.percent_off):String((p.amount_cents??0)/100),event_id:p.event_id??"",max_uses:p.max_uses===null?"":String(p.max_uses),applies_to:p.applies_to??"all",ticket_type_ids:p.ticket_type_ids??[],starts_at:localDate(p.starts_at),ends_at:localDate(p.ends_at),min_tickets:p.min_tickets===null?"":String(p.min_tickets),max_discount:p.max_discount_cents===null?"":String(p.max_discount_cents/100),internal_note:p.internal_note??""};}
 
 export default function PromotionsAdmin(){
@@ -45,7 +60,7 @@ export default function PromotionsAdmin(){
     if(ticketError)throw ticketError;
     setTickets((ticketRows??[]) as Ticket[]);
     await reload();
-   }catch(e){setError(e instanceof Error?e.message:String(e))}
+   }catch(e){setError(explainSaveError(e,en))}
    finally{setReady(true);}
   })();
  // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,6 +68,10 @@ export default function PromotionsAdmin(){
  const update=(patch:Partial<Edit>)=>setEdit(prev=>({...prev,...patch}));
  async function save(){
   setMessage("");setError("");
+  if(edit.code.trim().toUpperCase()==="TEST12"&&edit.enabled){
+   setError(en?"TEST12 is not ready to be enabled. Untick Enabled to save its settings.":"TEST12 пока нельзя включить. Снимите галочку «Включён», чтобы сохранить настройки.");
+   return;
+  }
   const amount=Number(edit.amount);
   const uses=edit.max_uses===""?null:Number(edit.max_uses);
   const minimum=edit.min_tickets===""?null:Number(edit.min_tickets);
@@ -134,9 +153,10 @@ export default function PromotionsAdmin(){
       <label className="block text-sm font-semibold">{en?"Expires (optional)":"Окончание действия"}<input type="datetime-local" value={edit.ends_at} onChange={e=>update({ends_at:e.target.value})} className="mt-1 w-full rounded-lg border border-black/30 p-3"/></label>
       <label className="block text-sm font-semibold">{en?"Maximum total discount per booking (NZ$, optional)":"Макс. скидка за заказ (NZ$)"}<input type="number" min="0" step="0.01" value={edit.max_discount} onChange={e=>update({max_discount:e.target.value})} className="mt-1 w-full rounded-lg border border-black/30 p-3"/></label>
       <label className="block text-sm font-semibold">{en?"Internal note":"Внутренняя заметка"}<input maxLength={500} value={edit.internal_note} onChange={e=>update({internal_note:e.target.value})} className="mt-1 w-full rounded-lg border border-black/30 p-3"/></label>
-      <label className="flex items-center gap-3 self-end pb-3 text-sm font-semibold"><input type="checkbox" checked={edit.enabled} onChange={e=>update({enabled:e.target.checked})}/>{en?"Enabled":"Включён"}</label>
+      <label className="flex items-center gap-3 self-end pb-3 text-sm font-semibold"><input type="checkbox" disabled={edit.code.trim().toUpperCase()==="TEST12"} checked={edit.enabled&&edit.code.trim().toUpperCase()!=="TEST12"} onChange={e=>update({enabled:e.target.checked})}/>{en?"Enabled":"Включён"}</label>
      </div>
      {edit.applies_to==="selected"&&<fieldset className="rounded-lg border border-black/20 p-4"><legend className="font-bold">{en?"Select eligible tickets":"Выберите билеты"}</legend><div className="space-y-2">{tickets.filter(t=>!edit.event_id||t.event_id===edit.event_id).map(t=><label key={t.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={edit.ticket_type_ids.includes(t.id)} onChange={e=>update({ticket_type_ids:e.target.checked?[...edit.ticket_type_ids,t.id]:edit.ticket_type_ids.filter(id=>id!==t.id)})}/><span>{t.name} · {events.find(e=>e.id===t.event_id)?.title}</span></label>)}</div></fieldset>}
+     {edit.code.trim().toUpperCase()==="TEST12"&&<p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">{en?"You can save the details of TEST12 now. Activation is locked until promo redemption and payment rules are finished.":"Настройки TEST12 можно сохранить сейчас. Включение недоступно до завершения применения промокодов и правил оплаты."}</p>}
      <button type="button" disabled={busy} onClick={()=>void save()} className="rounded-lg bg-black px-6 py-3 font-bold text-white disabled:opacity-40">{busy?(en?"Saving…":"Сохранение…"):(en?"Save promo code":"Сохранить промокод")}</button>
     </section>
    </>}
