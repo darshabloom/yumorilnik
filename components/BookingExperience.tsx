@@ -6,7 +6,7 @@ import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import type {PriceZone} from "@/lib/priceZones";
 import CustomerVenueMap,{type PublicTable,type PublicStage} from "@/components/CustomerVenueMap";
 import type {VenueFeature} from "@/components/VenueLines";
-import {partyCounts,canStartBooking,guestDetailsValid,reservedAdultSeats,childReservedSeats,bookingTotalCents,changeNamedSeat,selectedTableCapacity,bookingReadyForReview,tablePlacePriceCents,admissionTotalForEventCents} from "@/lib/bookingRules";
+import {partyCounts,canStartBooking,guestDetailsValid,reservedAdultSeats,childReservedSeats,bookingTotalCents,classifyTicket,changeNamedSeat,selectedTableCapacity,bookingReadyForReview,tablePlacePriceCents,admissionTotalForEventCents} from "@/lib/bookingRules";
 
 export type BookingTicket = {
  id:string; name:string; description:string|null; price_cents:number;
