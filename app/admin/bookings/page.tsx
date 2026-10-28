@@ -81,7 +81,7 @@ function RealAdminBookingsPage(){
 
  const eventChoices=useMemo(()=>Array.from(new Map(bookings.map(b=>[
   b.event_id,{id:b.event_id,title:(en&&b.events?.title_en?b.events.title_en:b.events?.title)??b.event_id}
- ])).values()),[bookings,en]);
+ ] as const)).values()),[bookings,en]);
  const totals=useMemo(()=>({
   confirmed:bookings.filter(b=>b.status==="confirmed").length,
   sandbox:bookings.filter(b=>b.status==="test_confirmed").length,
