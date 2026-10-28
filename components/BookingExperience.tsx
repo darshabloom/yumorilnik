@@ -87,6 +87,8 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const party=partyCounts(tickets.map(t=>({name:t.name,quantity:quantities[t.id]??0})));
  const adultTicketCount=party.adults;
  const childTicketCount=party.children;
+ const eligibleMarketingAdults=Array.from({length:adultTicketCount},(_,i)=>i).filter(i=>!adultSeatChildren[String(i)]);
+ const marketingRecipientIndex=eligibleMarketingAdults.includes(marketingAdultIndex)?marketingAdultIndex:(eligibleMarketingAdults[0]??-1);
  const baseAdmissionTotal=admissionTotalForEventCents(event.seating_mode,tickets.map(t=>({name:t.name,price_cents:t.price_cents,quantity:quantities[t.id]??0})));
  const childBaseAdmission=tickets.filter(t=>classifyTicket(t.name)==="child").reduce((sum,t)=>sum+t.price_cents*(quantities[t.id]??0),0);
  const childHoursTotal=Array.from({length:childTicketCount},(_,i)=>childcarePriceCents(childcareHours[String(adultTicketCount+i)]==="6"?"6":"3")).reduce((sum,p)=>sum+p,0);
@@ -167,7 +169,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
   setMarketingBusy(true);
   try{
    const {data,error}=await supabase.rpc("marketing_opt_in",{
-    p_client_request_id:idempotency,p_adult_guest_index:marketingAdultIndex,
+    p_client_request_id:idempotency,p_adult_guest_index:marketingRecipientIndex,
    });
    if(error)throw error;
    setMarketingResult(data===true?"subscribed":"not_subscribed");
@@ -226,7 +228,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    setSavedReference(result.reference);
    setSavedStatus(result.status==="confirmed"?"confirmed":"requested");
    setSavedEmailStatus(typeof result.confirmation_email_status==="string"?result.confirmation_email_status:null);
-   if(marketingOptIn)await saveOptionalMarketingConsent(idempotency);
+   if(marketingOptIn&&marketingRecipientIndex>=0)await saveOptionalMarketingConsent(idempotency);
   }catch(error){
    const detail=error instanceof Error?error.message:"Unknown error";
    setBookingError(localTestMode?(en?`Could not save this test booking: ${detail}`:`Не удалось сохранить тестовую заявку: ${detail}`):
@@ -338,8 +340,8 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
              </span>
            </label>
            {marketingOptIn&&adultTicketCount>0&&<label className="block text-sm font-semibold">{en?"Email invitations to":"Кому присылать приглашения"}
-             <select value={marketingAdultIndex} onChange={e=>setMarketingAdultIndex(Number(e.target.value))} className="mt-1 w-full rounded-lg border border-black/30 bg-white p-3">
-              {Array.from({length:adultTicketCount},(_,i)=><option key={i} value={i}>{guestInfo[String(i)]?.name||`${en?"Adult":"Взрослый"} ${i+1}`} · {guestInfo[String(i)]?.email}</option>)}
+             <select value={marketingRecipientIndex} onChange={e=>setMarketingAdultIndex(Number(e.target.value))} className="mt-1 w-full rounded-lg border border-black/30 bg-white p-3">
+              {eligibleMarketingAdults.map(i=><option key={i} value={i}>{guestInfo[String(i)]?.name||`${en?"Adult":"Взрослый"} ${i+1}`} · {guestInfo[String(i)]?.email}</option>)}
              </select>
              <span className="mt-1 block text-xs font-normal text-gray-600">{en?"Only this adult's email will be added, and only if this separate checkbox is ticked.":"Добавится только электронная почта этого взрослого и только при отдельном согласии."}</span>
            </label>}
