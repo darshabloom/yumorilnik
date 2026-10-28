@@ -11,7 +11,7 @@ type Access = { email: string; role: Role } | null;
 const tiles = [
   { title: "Events", ruTitle:"Мероприятия", detail: "Create events, update dates and ticket types",ruDetail:"Создавайте мероприятия, редактируйте даты и типы билетов", icon: "📅", href: "/admin/events" },
   { title: "Promo codes",ruTitle:"Промокоды", detail: "Manage discounts for any ticket type",ruDetail:"Промокоды для любых типов билетов", icon: "🏷️", href: "/admin/promotions" },
-  { title: "Bookings",ruTitle:"Заявки", detail: "Review guest requests, table choices and cancellations",ruDetail:"Просмотр заявок, гостей, столов и отмен", icon: "🎟️", href: "/admin/bookings" },
+  { title: "Bookings & seating",ruTitle:"Брони и рассадка", detail: "See ticket types, guest contacts, named seats, childcare and sandbox payments",ruDetail:"Билеты, контакты гостей, закреплённые места, присмотр и тестовые оплаты", icon: "🎟️", href: "/admin/bookings" },
   { title: "Future invitations",ruTitle:"Будущие приглашения",detail:"Manage opted-in adults and event invitation contacts",ruDetail:"Контакты для будущих приглашений по согласию",icon:"✉️",href:"/admin/contacts" },
   { title: "Check-in",ruTitle:"Регистрация", detail: "Search guests and mark arrivals",ruDetail:"Поиск гостей и отметка о приходе", icon: "✅", href: "/staff/check-in" },
   { title: "Door staff access",ruTitle:"Доступ персонала", detail: "Grant or revoke check-in access per event",ruDetail:"Выдайте или отзовите доступ для регистрации гостей",icon: "🔑",href: "/admin/check-in-staff" },
@@ -63,7 +63,7 @@ export default function AdminHome() {
         </div>
         <section className="mt-8 rounded-2xl border border-black bg-[#f5a047] p-5 sm:p-7">
           <h2 className="text-xl font-black">{en?"Your management dashboard":"Панель управления"}</h2>
-          <p className="mt-2 max-w-2xl text-sm">{en?"Administrator access is connected. The tools below will be activated as we build event management, booking search and mobile check-in.":"Доступ администратора подключён. Остальные инструменты появятся по мере разработки управления событиями, поиска заказов и регистрации гостей."}</p>
+          <p className="mt-2 max-w-2xl text-sm">{en?"Manage events and promotions, review bookings with assigned seats, or open door check-in. Real confirmations and sandbox tests are clearly separated.":"Управляйте мероприятиями и промокодами, просматривайте брони с закреплёнными местами или открывайте регистрацию гостей. Настоящие подтверждения и тестовые заказы разделены."}</p>
         </section>
         <section className="mt-6 grid gap-4 sm:grid-cols-2" aria-label="Admin tools">
           {tiles.map(tile => (
