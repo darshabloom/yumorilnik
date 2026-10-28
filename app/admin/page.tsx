@@ -10,10 +10,11 @@ type Role = "owner" | "admin";
 type Access = { email: string; role: Role } | null;
 const tiles = [
   { title: "Events", ruTitle:"Мероприятия", detail: "Create events, update dates and ticket types",ruDetail:"Создавайте мероприятия, редактируйте даты и типы билетов", icon: "📅", href: "/admin/events" },
-  { title: "Promo codes",ruTitle:"Промокоды", detail: "Configure adult-seat discounts and fixed prices",ruDetail:"Скидки и фиксированные цены мест для взрослых", icon: "🏷️", href: "/admin/promotions" },
+  { title: "Promo codes",ruTitle:"Промокоды", detail: "Manage discounts for any ticket type",ruDetail:"Промокоды для любых типов билетов", icon: "🏷️", href: "/admin/promotions" },
   { title: "Bookings",ruTitle:"Заявки", detail: "Review guest requests, table choices and cancellations",ruDetail:"Просмотр заявок, гостей, столов и отмен", icon: "🎟️", href: "/admin/bookings" },
   { title: "Future invitations",ruTitle:"Будущие приглашения",detail:"Manage opted-in adults and event invitation contacts",ruDetail:"Контакты для будущих приглашений по согласию",icon:"✉️",href:"/admin/contacts" },
-  { title: "Check-in",ruTitle:"Регистрация", detail: "Scan tickets at the venue",ruDetail:"Сканирование билетов на входе", icon: "✅", href: null },
+  { title: "Check-in",ruTitle:"Регистрация", detail: "Search guests and mark arrivals",ruDetail:"Поиск гостей и отметка о приходе", icon: "✅", href: "/staff/check-in" },
+  { title: "Door staff access",ruTitle:"Доступ персонала", detail: "Grant or revoke check-in access per event",ruDetail:"Выдайте или отзовите доступ для регистрации гостей",icon: "🔑",href: "/admin/check-in-staff" },
   { title: "Website content",ruTitle:"Содержимое сайта", detail: "Update images, homepage and videos",ruDetail:"Обновление изображений, главной страницы и видео", icon: "✏️", href: null },
 ];
 
@@ -70,7 +71,7 @@ export default function AdminHome() {
               <span aria-hidden="true" className="text-3xl">{tile.icon}</span>
               <h2 className="mt-3 text-xl font-black">{en?tile.title:tile.ruTitle}</h2>
               <p className="mt-2 text-sm text-gray-700">{en?tile.detail:tile.ruDetail}</p>
-              {tile.href ? <Link href={tile.href} className="mt-5 inline-block rounded-lg bg-black px-4 py-3 text-sm font-bold text-white">{tile.href==="/admin/bookings"?(en?"Manage requests →":"Просмотр заявок →"):tile.href==="/admin/contacts"?(en?"Manage contacts →":"Контакты →"):(en?"Manage events →":"Управлять мероприятиями →")}</Link> : <span className="mt-5 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold">{en?"Coming next":"Скоро"}</span>}
+              {tile.href ? <Link href={tile.href} className="mt-5 inline-block rounded-lg bg-black px-4 py-3 text-sm font-bold text-white">{tile.href==="/admin/bookings"?(en?"Manage bookings →":"Управлять бронями →"):tile.href==="/admin/contacts"?(en?"Manage contacts →":"Контакты →"):tile.href==="/staff/check-in"?(en?"Open check-in →":"Открыть регистрацию →"):tile.href==="/admin/check-in-staff"?(en?"Manage staff →":"Управлять доступом →"):tile.href==="/admin/promotions"?(en?"Manage codes →":"Управлять кодами →"):(en?"Manage events →":"Управлять мероприятиями →")}</Link> : <span className="mt-5 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold">{en?"Coming next":"Скоро"}</span>}
             </article>
           ))}
         </section>
