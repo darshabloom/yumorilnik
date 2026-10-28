@@ -21,6 +21,7 @@ type Guest={
  accompanying_adult_index:number|null;
  guardian_index:number|null;
  is_child_with_adult_seat:boolean;
+ childcare_hours:number|null;
 };
 type Selection={
  guest_index:number|null;
@@ -90,7 +91,7 @@ export async function POST(request:NextRequest){
   if(claimError||!claim){skipped++;continue;}
   try{
    const {data:row,error:bookingError}=await db.from("bookings")
-    .select("id,booking_reference,event_id,status,total_cents,currency,promo_code,events(title,title_en,event_date),booking_guests(guest_index,category,full_name,email,accompanying_adult_index,guardian_index,is_child_with_adult_seat),booking_selections(guest_index,table_label,seat_number)")
+    .select("id,booking_reference,event_id,status,total_cents,currency,promo_code,events(title,title_en,event_date),booking_guests(guest_index,category,full_name,email,accompanying_adult_index,guardian_index,is_child_with_adult_seat,childcare_hours),booking_selections(guest_index,table_label,seat_number)")
     .eq("id",delivery.booking_id).maybeSingle();
    if(bookingError||!row)throw new Error("Booking record unavailable");
    const booking=row as unknown as Booking;
@@ -108,7 +109,7 @@ export async function POST(request:NextRequest){
     reference:booking.booking_reference,
     eventDateText:booking.events?.event_date??"See event details / Проверьте информацию о мероприятии",
     adults:[{name:person.full_name,email:person.email}],
-    children:children.map(g=>({name:g.full_name,accompanyingAdultEmail:person.email!})),
+    children:children.map(g=>({name:g.full_name,accompanyingAdultEmail:person.email!,childcareHours:g.childcare_hours,adultPricedSeat:g.is_child_with_adult_seat})),
     places,promoCode:booking.promo_code,totalCents:booking.total_cents,
     currency:booking.currency||"NZD",
    };
