@@ -33,6 +33,12 @@ export function testEmailAllowed(email:string){
    .split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
  return entries.length>0&&entries.includes(email.trim().toLowerCase());
 }
+export function testAccessCodeAllowed(candidate:string){
+ const secret=process.env.STRIPE_TEST_ACCESS_CODE??"";
+ if(secret.length<16||candidate.length!==secret.length)return false;
+ const lhs=Buffer.from(candidate,"utf8"),rhs=Buffer.from(secret,"utf8");
+ return lhs.length===rhs.length&&timingSafeEqual(lhs,rhs);
+}
 export function checkoutSiteOrigin(request:Request){
  const origin=new URL(request.url).origin;
  const hostname=new URL(origin).hostname;
