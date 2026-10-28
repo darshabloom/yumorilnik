@@ -19,6 +19,8 @@ type Guest={
  full_name:string;
  email:string|null;
  accompanying_adult_index:number|null;
+ guardian_index:number|null;
+ is_child_with_adult_seat:boolean;
 };
 type Selection={
  guest_index:number|null;
@@ -88,15 +90,15 @@ export async function POST(request:NextRequest){
   if(claimError||!claim){skipped++;continue;}
   try{
    const {data:row,error:bookingError}=await db.from("bookings")
-    .select("id,booking_reference,event_id,status,total_cents,currency,promo_code,events(title,title_en,event_date),booking_guests(guest_index,category,full_name,email,accompanying_adult_index),booking_selections(guest_index,table_label,seat_number)")
+    .select("id,booking_reference,event_id,status,total_cents,currency,promo_code,events(title,title_en,event_date),booking_guests(guest_index,category,full_name,email,accompanying_adult_index,guardian_index,is_child_with_adult_seat),booking_selections(guest_index,table_label,seat_number)")
     .eq("id",delivery.booking_id).maybeSingle();
    if(bookingError||!row)throw new Error("Booking record unavailable");
    const booking=row as unknown as Booking;
    if(booking.status!=="confirmed"||booking.total_cents!==0)throw new Error("Not a confirmed free booking");
-   const person=booking.booking_guests.find(g=>g.guest_index===delivery.guest_index&&g.category==="adult");
+   const person=booking.booking_guests.find(g=>g.guest_index===delivery.guest_index&&g.category==="adult"&&!g.is_child_with_adult_seat);
    if(!person||!person.email||person.email.toLowerCase()!==delivery.recipient_email.toLowerCase())
     throw new Error("Recipient does not match this booking");
-   const children=booking.booking_guests.filter(g=>g.category==="child"&&g.accompanying_adult_index===person.guest_index);
+   const children=booking.booking_guests.filter(g=>(g.category==="child"&&g.accompanying_adult_index===person.guest_index)||(g.is_child_with_adult_seat&&g.guardian_index===person.guest_index));
    const namedGuests=[person,...children];
    const places=booking.booking_selections
     .filter(seat=>seat.guest_index===null||namedGuests.some(g=>g.guest_index===seat.guest_index))
@@ -117,7 +119,7 @@ export async function POST(request:NextRequest){
     method:"POST",
     headers:{"Authorization":`Bearer ${resendKey}`,"Content-Type":"application/json"},
     body:JSON.stringify({
-     from,to:[person.email],subject:en.subject,
+     from:`Yumorilnik Tickets <${from}>`,reply_to:"yumorilnik@gmail.com",to:[person.email],subject:en.subject,
      text:en.text+"\n\n---\n\n"+ru.text,
     }),
    });
