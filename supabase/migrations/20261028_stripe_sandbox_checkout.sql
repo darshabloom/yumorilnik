@@ -87,6 +87,7 @@ declare
  v_child_ticket uuid;
  v_adult_count integer;
  v_eligible_sum bigint:=0;
+ v_expected_total bigint;
  v_eligible_count integer:=0;
  v_discount bigint:=0;
  v_unit record;
@@ -124,8 +125,23 @@ begin
  v_result:=yumorilnik_internal.submit_family_booking_impl(
     p_event_id,p_client_request_id,p_tickets,p_guests,p_selections);
  select * into strict v_booking from public.bookings where client_request_id=p_client_request_id;
- if v_booking.total_cents is null or v_booking.total_cents<1 then
-  raise exception 'Checkout requires complete positive ticket and seat prices' using errcode='22023';
+ if v_booking.total_cents is null or v_booking.total_cents<1 or v_booking.total_cents>10000000 then
+  raise exception 'Checkout requires valid positive ticket and seat prices' using errcode='22023';
+ end if;
+ if exists(select 1 from public.booking_items i join public.ticket_types t
+   on t.id=i.ticket_type_id where i.booking_id=v_booking.id
+   and lower(t.currency)<>'nzd') then
+  raise exception 'This sandbox accepts NZD tickets only' using errcode='22023';
+ end if;
+ select
+  coalesce((select sum(s.price_cents) from public.booking_selections s
+   where s.booking_id=v_booking.id and s.guest_index is not null),0)
+  +coalesce((select sum(g.childcare_price_cents) from public.booking_guests g
+   where g.booking_id=v_booking.id and g.category='child'),0)
+ into v_expected_total;
+ if v_expected_total is distinct from v_booking.total_cents then
+  raise exception 'The stored ticket and seat components do not match the booking total'
+   using errcode='22023';
  end if;
  select count(*) into v_adult_count from public.booking_guests g
  where g.booking_id=v_booking.id and g.category='adult';
