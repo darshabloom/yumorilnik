@@ -1,6 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {createClient} from "@supabase/supabase-js";
 import {bookingConfirmationHtml} from "@/lib/bookingConfirmationTemplate";
+import {sampleQrTicketPdf} from "@/lib/sampleQrTicketPdf";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const respond=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"no-store"}});
@@ -38,13 +39,13 @@ export async function POST(req:NextRequest){
   html=bookingConfirmationHtml({eventTitle:event?.title??"Yumorilnik event",eventDate:String(event?.event_date??"To be confirmed"),
    reference:booking.booking_reference,venue:event?.location??null,eventUrl:event?.slug?"https://yumorilnik.com/events/"+encodeURIComponent(event.slug):null,guests:guests.map(g=>{const seat=selections.find(x=>x.guest_index===g.guest_index);
     return {name:g.full_name,ticket:g.is_child_with_adult_seat?"Child · adult-priced seat":items.find(i=>i.category===g.category)?.ticket_name??(g.category==="child"?"Childcare":"Adult ticket"),
-      table:seat?.table_label??null,seat:seat?.seat_number??null,childcareHours:g.childcare_hours??null};}),isTest:true});
+      table:seat?.table_label??null,seat:seat?.seat_number??null,childcareHours:g.childcare_hours??null};}),isTest:true,ticketUrl:"https://yumorilnik.com/tickets/sample"});
  }else{
   const {data:event}=await db.from("events").select("title,event_date,location,slug").eq("id","3f6fa4d1-aaca-4326-9c01-5774cffca2f5").maybeSingle();
-  html=bookingConfirmationHtml({eventTitle:event?.title??"Новогодник",eventDate:String(event?.event_date??"To be confirmed"),reference:"TEST-YMR-EXAMPLE",venue:event?.location??null,eventUrl:event?.slug?"https://yumorilnik.com/events/"+encodeURIComponent(event.slug):null,guests:[{name:"Sample Guest",ticket:"Adult-priced seat",table:"Table A",seat:1},{name:"Sample Child",ticket:"Childcare",childcareHours:3}],isTest:true});
+  html=bookingConfirmationHtml({eventTitle:event?.title??"Новогодник",eventDate:String(event?.event_date??"To be confirmed"),reference:"TEST-YMR-EXAMPLE",venue:event?.location??null,eventUrl:event?.slug?"https://yumorilnik.com/events/"+encodeURIComponent(event.slug):null,guests:[{name:"Sample Guest",ticket:"Adult-priced seat",table:"Table A",seat:1},{name:"Sample Child",ticket:"Childcare",childcareHours:3}],isTest:true,ticketUrl:"https://yumorilnik.com/tickets/sample"});
  }
  try{
-  const res=await fetch("https://api.resend.com/emails",{method:"POST",headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},body:JSON.stringify({from:sender,to:[user.email],subject:"[TEST] Юморильник — booking confirmation preview",html})});
+  const res=await fetch("https://api.resend.com/emails",{method:"POST",headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},body:JSON.stringify({from:sender,to:[user.email],subject:"[TEST] Юморильник — booking confirmation preview",html,attachments:[{filename:"Yumorilnik-SAMPLE-INVALID-Ticket.pdf",content:sampleQrTicketPdf().toString("base64"),content_type:"application/pdf"}]})});
   const data=await res.json() as {id?:string;message?:string;name?:string};
   if(!res.ok)return respond({error:"Email provider rejected the test: "+(data.message??data.name??"unknown error")},502);
   return respond({ok:true,to:user.email,messageId:data.id??null});
