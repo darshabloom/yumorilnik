@@ -1,6 +1,6 @@
 import {timingSafeEqual} from "node:crypto";
 import {NextRequest,NextResponse} from "next/server";
-import {NYE_EVENT_ID,stripeCall,testCheckoutEnabled,testServices,validatePaidSession,type StripeTestSession} from "@/lib/stripeTestCheckout";
+import {NYE_EVENT_ID,assertYumorilnikStripeAccount,stripeCall,testCheckoutEnabled,testServices,validatePaidSession,type StripeTestSession} from "@/lib/stripeTestCheckout";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 function same(a:string,b:string){
@@ -17,6 +17,8 @@ export async function POST(request:NextRequest){
  let db:ReturnType<typeof testServices>["db"],stripe:string;
  try{({db,stripe}=testServices())}
  catch{return json({error:"Sandbox credentials not configured"},503)}
+ try{await assertYumorilnikStripeAccount(stripe)}
+ catch{return json({error:"Separate Yumorilnik Stripe test account is not configured"},503)}
  const {data,error}=await db.from("booking_test_checkouts")
   .select("booking_id,stripe_session_id,state,expires_at,created_at")
   .eq("event_id",NYE_EVENT_ID).in("state",["creating","open"])
