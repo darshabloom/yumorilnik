@@ -11,6 +11,12 @@ export async function GET(req:NextRequest){
  const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
  const {data:role}=await db.from("admin_users").select("role").eq("user_id",user.id).maybeSingle();
  if(!role||!["owner","admin"].includes(role.role))return NextResponse.json({error:"Organiser access required"},{status:403});
+ if(req.nextUrl.searchParams.get("sample")==="true"){
+  try{
+   const buffer=await createTicketPdf({bookingId:"00000000-0000-4000-8000-000000000000",reference:"TEST-YMR-CYRILLIC",event:{title:"Новогодник — Юморильник",event_date:"2026-12-31",event_time:"19:00",location:"Окленд, Новая Зеландия"},guests:[{guest_index:0,full_name:"Марина Иванова",category:"adult"},{guest_index:1,full_name:"Дарья Петрова",category:"child",childcare_hours:3}],seats:[{guest_index:0,table_label:"А",seat_number:1}],isTest:true});
+   return new NextResponse(new Uint8Array(buffer),{headers:{"Content-Type":"application/pdf","Content-Disposition":"attachment; filename=\"yumorilnik-cyrillic-sample.pdf\"","Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
+  }catch{return NextResponse.json({error:"Cyrillic sample PDF failed"},{status:503})}
+ }
  const id=req.nextUrl.searchParams.get("bookingId");
  if(!id||! /^[0-9a-f-]{36}$/i.test(id))return NextResponse.json({error:"Invalid booking"},{status:400});
  const {data:booking,error}=await db.from("bookings").select("id,booking_reference,status,events(title,event_date,event_time,location),booking_guests(guest_index,full_name,category,is_child_with_adult_seat,childcare_hours),booking_selections(guest_index,table_label,seat_number)").eq("id",id).maybeSingle();
