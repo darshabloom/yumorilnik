@@ -1,12 +1,12 @@
 import {NextRequest,NextResponse} from "next/server";
-import {checkoutSiteOrigin,NYE_EVENT_ID,stripeCall,testCheckoutEnabled,testEmailAllowed,testServices,type StripeTestSession} from "@/lib/stripeTestCheckout";
+import {checkoutSiteOrigin,NYE_EVENT_ID,stripeCall,testCheckoutEnabled,testEmailAllowed,testAccessCodeAllowed,testServices,type StripeTestSession} from "@/lib/stripeTestCheckout";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const json=(value:unknown,status=200)=>NextResponse.json(value,{status,headers:{"Cache-Control":"no-store"}});
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type CheckoutPayload={
  p_event_id:string;p_client_request_id:string;
- p_tickets:unknown[];p_guests:unknown[];p_selections:unknown[];p_promo_code?:string;
+ p_tickets:unknown[];p_guests:unknown[];p_selections:unknown[];p_promo_code?:string;p_test_access_code?:string;
 };
 type Prepared={
  booking_id:string;reference:string;amount_cents:number;currency:string;
@@ -19,7 +19,8 @@ function isPayload(data:unknown):data is CheckoutPayload{
   &&Array.isArray(p.p_tickets)&&p.p_tickets.length>0&&p.p_tickets.length<=20
   &&Array.isArray(p.p_guests)&&p.p_guests.length>0&&p.p_guests.length<=20
   &&Array.isArray(p.p_selections)&&p.p_selections.length<=20
-  &&(p.p_promo_code===undefined||typeof p.p_promo_code==="string"&&p.p_promo_code.length<=32);
+  &&(p.p_promo_code===undefined||typeof p.p_promo_code==="string"&&p.p_promo_code.length<=32)
+  &&typeof p.p_test_access_code==="string"&&p.p_test_access_code.length<=256;
 }
 function adultEmail(people:unknown[]){
  for(const person of people){
@@ -48,6 +49,8 @@ export async function POST(request:NextRequest){
   if(!isPayload(data))return json({error:"Invalid booking request"},400);
   body=data;
  }catch{return json({error:"Invalid request JSON"},400)}
+ if(!testAccessCodeAllowed(body.p_test_access_code??""))
+  return json({error:"Sandbox access code is incorrect"},403);
  const email=adultEmail(body.p_guests);
  if(!testEmailAllowed(email))return json({error:"This email is not authorised for sandbox checkout"},403);
  let stripe:string;
