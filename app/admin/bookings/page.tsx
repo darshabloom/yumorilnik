@@ -148,7 +148,7 @@ function RealAdminBookingsPage(){
      <select value={eventFilter} onChange={e=>setEventFilter(e.target.value)} className="mt-2 h-12 w-full rounded-lg border border-black/30 bg-white px-3"><option value="all">{en?"All events":"Все мероприятия"}</option>{eventChoices.map(e=><option value={e.id} key={e.id}>{e.title}</option>)}</select>
     </label>
     <label className="block text-sm font-bold">{en?"Status":"Статус"}
-     <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="mt-2 h-12 w-full rounded-lg border border-black/30 bg-white px-3">
+     <select value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);if(e.target.value==="cancelled")setShowCancelled(true);}} className="mt-2 h-12 w-full rounded-lg border border-black/30 bg-white px-3">
       <option value="all">{en?"All statuses":"Все статусы"}</option>
       <option value="confirmed">{en?"Confirmed · real":"Подтверждённые · настоящие"}</option>
       <option value="test_confirmed">{en?"Sandbox tests":"Тестовые брони"}</option>
@@ -157,7 +157,7 @@ function RealAdminBookingsPage(){
      </select>
     </label>
     <div className="flex flex-wrap items-center gap-3">
-     <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={showCancelled} onChange={e=>setShowCancelled(e.target.checked||statusFilter==="cancelled")} className="h-5 w-5"/>{en?"Show cancelled":"Показать отменённые"}</label>
+     <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={showCancelled} onChange={e=>setShowCancelled(e.target.checked)} className="h-5 w-5"/>{en?"Show cancelled":"Показать отменённые"}</label>
      <button type="button" onClick={()=>{setLoading(true);setError("");void load().catch(err=>setError(err instanceof Error?err.message:"Unable to reload")).finally(()=>setLoading(false));}} className="min-h-12 rounded-lg border border-black px-4 font-semibold">{en?"Refresh":"Обновить"}</button>
     </div>
    </div>
