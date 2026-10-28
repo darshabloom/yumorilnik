@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useRef,useState} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {supabase} from "@/lib/supabaseClient";
@@ -17,6 +17,37 @@ export default function StaffCheckin(){
  const [guests,setGuests]=useState<Guest[]>([]);
  const [isAdmin,setIsAdmin]=useState(false);
  const [ticketCode,setTicketCode]=useState(""),[scanResult,setScanResult]=useState("");
+ const [cameraOn,setCameraOn]=useState(false);
+ const videoRef=useRef<HTMLVideoElement|null>(null),streamRef=useRef<MediaStream|null>(null),scanLoopRef=useRef<number|null>(null);
+ function stopCamera(){
+  if(scanLoopRef.current!==null)cancelAnimationFrame(scanLoopRef.current);
+  scanLoopRef.current=null;streamRef.current?.getTracks().forEach(track=>track.stop());streamRef.current=null;setCameraOn(false);
+ }
+ useEffect(()=>()=>{streamRef.current?.getTracks().forEach(track=>track.stop());if(scanLoopRef.current!==null)cancelAnimationFrame(scanLoopRef.current)},[]);
+ async function startCamera(){
+  setError("");
+  try{
+   if(!navigator.mediaDevices?.getUserMedia)throw Error("Camera requires HTTPS and browser camera permission");
+   const Detector=(window as unknown as {BarcodeDetector?:new(options:{formats:string[]})=>{detect:(source:HTMLVideoElement)=>Promise<Array<{rawValue:string}>>}}).BarcodeDetector;
+   if(!Detector)throw Error("QR camera scanning is unsupported in this browser. Use Chrome on Android or paste the ticket code.");
+   const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});
+   streamRef.current=stream;setCameraOn(true);
+   const video=videoRef.current;
+   if(!video){stopCamera();throw Error("Camera preview unavailable")}
+   video.srcObject=stream;await video.play();
+   const detector=new Detector({formats:["qr_code"]});
+   const scan=async()=>{
+    if(!streamRef.current)return;
+    try{
+     const codes=await detector.detect(video);
+     const raw=codes.find(c=>c.rawValue.startsWith("ymt1."))?.rawValue;
+     if(raw){setTicketCode(raw);stopCamera();setScanResult(en?"QR read. Tap Validate & check in.":"QR прочитан. Нажмите Проверить и зарегистрировать.");return}
+    }catch{}
+    if(streamRef.current)scanLoopRef.current=requestAnimationFrame(()=>{void scan()});
+   };
+   void scan();
+  }catch(e){stopCamera();setError(explain(e))}
+ }
  const [query,setQuery]=useState(""),[error,setError]=useState(""),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
  async function refresh(eventId:string){
   const {data,error:fetchError}=await supabase.rpc("staff_list_event_guests",{p_event_id:eventId});
@@ -90,7 +121,7 @@ export default function StaffCheckin(){
       <input className="mt-1 w-full rounded-lg border border-black/30 p-3" value={query} onChange={e=>setQuery(e.target.value)} placeholder={en?"Name or YMR-…":"Имя или YMR-…"}/>
      </label>
     </div>
-    <section className="rounded-xl border border-black/20 bg-white p-4"><h2 className="font-bold">{en?"Ticket QR code validation":"Проверка QR-кода билета"}</h2><p className="mt-1 text-sm text-gray-600">{en?"Paste or scan a guest ticket credential. This marks a real confirmed guest as arrived; duplicate scans are rejected.":"Вставьте или отсканируйте код билета. Повторный проход не допускается."}</p><div className="mt-3 flex flex-wrap gap-2"><input aria-label={en?"Ticket code":"Код билета"} value={ticketCode} onChange={e=>setTicketCode(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-black/30 p-3" placeholder="ymt1.…" /><button type="button" disabled={busy||!selected||!ticketCode.trim()} onClick={()=>void validateTicket()} className="rounded-lg bg-black px-4 py-3 font-semibold text-white disabled:opacity-50">{en?"Validate & check in":"Проверить и зарегистрировать"}</button></div>{scanResult&&<p role="status" className="mt-3 rounded bg-green-100 p-3 font-semibold">{scanResult}</p>}</section>
+    <section className="rounded-xl border border-black/20 bg-white p-4"><h2 className="font-bold">{en?"Ticket QR code validation":"Проверка QR-кода билета"}</h2><p className="mt-1 text-sm text-gray-600">{en?"Paste or scan a guest ticket credential. This marks a real confirmed guest as arrived; duplicate scans are rejected.":"Вставьте или отсканируйте код билета. Повторный проход не допускается."}</p><div className="mt-3 flex flex-wrap gap-2"><input aria-label={en?"Ticket code":"Код билета"} value={ticketCode} onChange={e=>setTicketCode(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-black/30 p-3" placeholder="ymt1.…" /><button type="button" disabled={busy||!selected||!ticketCode.trim()} onClick={()=>void validateTicket()} className="rounded-lg bg-black px-4 py-3 font-semibold text-white disabled:opacity-50">{en?"Validate & check in":"Проверить и зарегистрировать"}</button></div><div className="mt-3 flex gap-2"><button type="button" onClick={()=>void (cameraOn?stopCamera():startCamera())} className="rounded border border-black px-4 py-2 font-semibold">{cameraOn?(en?"Stop camera":"Остановить камеру"):(en?"Scan QR with camera":"Сканировать QR камерой")}</button></div><video ref={videoRef} playsInline muted className={cameraOn?"mt-3 max-h-72 w-full rounded-lg bg-black object-contain":"hidden"} />{scanResult&&<p role="status" className="mt-3 rounded bg-green-100 p-3 font-semibold">{scanResult}</p>}</section>
     <div className="flex flex-wrap items-center justify-between gap-3"><p className="font-bold">{en?"Arrived":"Пришли"}: {arrived}/{guests.length}</p><button type="button" onClick={()=>void refresh(selected).catch(e=>setError(explain(e)))} className="rounded-lg border border-black px-4 py-2 font-semibold">{en?"Refresh":"Обновить"}</button></div>
     {filtered.length===0?<p className="rounded-lg bg-white p-4">{en?"No matching confirmed guests.":"Нет подходящих подтверждённых гостей."}</p>:<div className="space-y-3">{filtered.map(g=><article key={`${g.booking_id}:${g.guest_index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-black/15 bg-white p-4">
       <div className="min-w-0 flex-1 space-y-1"><p className="break-words font-bold">{g.full_name} {g.is_child?<span className="text-sm font-normal">· {en?"Child":"Ребёнок"}</span>:null}</p>
