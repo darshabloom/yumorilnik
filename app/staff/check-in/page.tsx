@@ -16,6 +16,7 @@ export default function StaffCheckin(){
  const [events,setEvents]=useState<Event[]>([]),[selected,setSelected]=useState("");
  const [guests,setGuests]=useState<Guest[]>([]);
  const [isAdmin,setIsAdmin]=useState(false);
+ const [ticketCode,setTicketCode]=useState(""),[scanResult,setScanResult]=useState("");
  const [query,setQuery]=useState(""),[error,setError]=useState(""),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
  async function refresh(eventId:string){
   const {data,error:fetchError}=await supabase.rpc("staff_list_event_guests",{p_event_id:eventId});
@@ -59,6 +60,16 @@ export default function StaffCheckin(){
   }catch(e){setError(explain(e))}
   finally{setBusy(false)}
  }
+ async function validateTicket(){
+  if(busy||!ticketCode.trim())return;
+  setBusy(true);setError("");setScanResult("");
+  try{const {data:{session}}=await supabase.auth.getSession();if(!session)throw Error("Sign in required");
+   const res=await fetch("/api/tickets/credentials",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token},body:JSON.stringify({action:"check",credential:ticketCode.trim(),eventId:selected})});
+   const result=await res.json() as {ok?:boolean;name?:string;error?:string};
+   if(!res.ok)throw Error(result.error??"Ticket invalid");
+   setScanResult((en?"Checked in: ":"Зарегистрирован: ")+(result.name??""));setTicketCode("");await refresh(selected);
+  }catch(e){setError(explain(e))}finally{setBusy(false)}
+ }
  async function changeEvent(id:string){setSelected(id);setQuery("");setError("");try{await refresh(id)}catch(e){setError(explain(e));setGuests([])}}
  async function signOut(){await supabase.auth.signOut();router.replace("/staff/login");}
  const arrived=guests.filter(g=>g.checked_in_at).length;
@@ -79,6 +90,7 @@ export default function StaffCheckin(){
       <input className="mt-1 w-full rounded-lg border border-black/30 p-3" value={query} onChange={e=>setQuery(e.target.value)} placeholder={en?"Name or YMR-…":"Имя или YMR-…"}/>
      </label>
     </div>
+    <section className="rounded-xl border border-black/20 bg-white p-4"><h2 className="font-bold">{en?"Ticket QR code validation":"Проверка QR-кода билета"}</h2><p className="mt-1 text-sm text-gray-600">{en?"Paste or scan a guest ticket credential. This marks a real confirmed guest as arrived; duplicate scans are rejected.":"Вставьте или отсканируйте код билета. Повторный проход не допускается."}</p><div className="mt-3 flex flex-wrap gap-2"><input aria-label={en?"Ticket code":"Код билета"} value={ticketCode} onChange={e=>setTicketCode(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-black/30 p-3" placeholder="ymt1.…" /><button type="button" disabled={busy||!selected||!ticketCode.trim()} onClick={()=>void validateTicket()} className="rounded-lg bg-black px-4 py-3 font-semibold text-white disabled:opacity-50">{en?"Validate & check in":"Проверить и зарегистрировать"}</button></div>{scanResult&&<p role="status" className="mt-3 rounded bg-green-100 p-3 font-semibold">{scanResult}</p>}</section>
     <div className="flex flex-wrap items-center justify-between gap-3"><p className="font-bold">{en?"Arrived":"Пришли"}: {arrived}/{guests.length}</p><button type="button" onClick={()=>void refresh(selected).catch(e=>setError(explain(e)))} className="rounded-lg border border-black px-4 py-2 font-semibold">{en?"Refresh":"Обновить"}</button></div>
     {filtered.length===0?<p className="rounded-lg bg-white p-4">{en?"No matching confirmed guests.":"Нет подходящих подтверждённых гостей."}</p>:<div className="space-y-3">{filtered.map(g=><article key={`${g.booking_id}:${g.guest_index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-black/15 bg-white p-4">
       <div className="min-w-0 flex-1 space-y-1"><p className="break-words font-bold">{g.full_name} {g.is_child?<span className="text-sm font-normal">· {en?"Child":"Ребёнок"}</span>:null}</p>
