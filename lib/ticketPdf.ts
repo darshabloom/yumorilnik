@@ -11,7 +11,7 @@ export async function createTicketPdf(input:{bookingId:string;reference:string;e
  const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
  const fontBytes=await readFile(path.join(process.cwd(),"assets","ticket-font.ttf"));
  const font=await pdf.embedFont(fontBytes,{subset:true}),bold=font;
- const safe=(value:unknown)=>String(value??"").replace(/[\\u0000-\\u001f]/g," ").slice(0,95);
+ const safe=(value:unknown)=>String(value??"").replace(/\p{Cc}/gu," ").slice(0,95);
  for(const guest of input.guests){
   const page=pdf.addPage([595,842]);const {height}=page.getSize();
   const write=(s:string,y:number,size=14,em=false)=>page.drawText(safe(s),{x:48,y,size,font:em?bold:font,color:rgb(.12,.12,.12)});
