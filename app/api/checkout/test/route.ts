@@ -82,7 +82,7 @@ export async function POST(request:NextRequest){
  if(hold.state!=="creating")return json({error:"Booking is not available for payment"},409);
  const fields=new URLSearchParams();
  fields.set("mode","payment");
- fields.set("payment_method_types[0]","card");
+ fields.set("allowed_payment_method_types[0]","card");
  fields.set("client_reference_id",hold.booking_id);
  fields.set("customer_email",email);
  fields.set("line_items[0][price_data][currency]","nzd");
