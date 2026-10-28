@@ -7,7 +7,7 @@ import {supabase} from "@/lib/supabaseClient";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import LocalDemoBookings from "@/components/LocalDemoBookings";
 
-type Guest={id:string;guest_index:number;category:"adult"|"child";full_name:string;email:string|null;phone:string|null;accompanying_adult_index:number|null;checked_in_at:string|null};
+type Guest={id:string;guest_index:number;category:"adult"|"child";full_name:string;email:string|null;phone:string|null;accompanying_adult_index:number|null;guardian_index:number|null;is_child_with_adult_seat:boolean;childcare_hours:number|null;childcare_price_cents:number|null;checked_in_at:string|null};
 type Item={id:string;ticket_name:string;category:string;quantity:number;unit_admission_cents:number};
 type Selection={id:string;table_label:string;seat_number:number|null;guest_index:number|null;price_cents:number|null};
 type EventSummary={title:string;title_en:string|null;event_date:string|null};
@@ -53,7 +53,7 @@ function RealAdminBookingsPage(){
   }
   setAllowed(true);
   const {data,error:fetchError}=await supabase.from("bookings")
-   .select("id,event_id,booking_reference,status,created_at,cancelled_at,cancellation_reason,total_cents,currency,promo_code,confirmation_email_status,events(title,title_en,event_date),booking_items(id,ticket_name,category,quantity,unit_admission_cents),booking_guests(id,guest_index,category,full_name,email,phone,accompanying_adult_index,checked_in_at),booking_selections(id,table_label,seat_number,guest_index,price_cents)")
+   .select("id,event_id,booking_reference,status,created_at,cancelled_at,cancellation_reason,total_cents,currency,promo_code,confirmation_email_status,events(title,title_en,event_date),booking_items(id,ticket_name,category,quantity,unit_admission_cents),booking_guests(id,guest_index,category,full_name,email,phone,accompanying_adult_index,guardian_index,is_child_with_adult_seat,childcare_hours,childcare_price_cents,checked_in_at),booking_selections(id,table_label,seat_number,guest_index,price_cents)")
    .order("created_at",{ascending:false}).limit(250);
   if(fetchError)throw fetchError;
   setBookings((data??[]) as unknown as BookingRow[]);
@@ -142,12 +142,14 @@ function RealAdminBookingsPage(){
        <section><h3 className="font-bold">{en?"Named guests and contacts":"Гости и контакты"}</h3>
         <div className="mt-2 grid gap-3 sm:grid-cols-2">{[...booking.booking_guests].sort((a,b)=>a.guest_index-b.guest_index).map(guest=>{
          const seat=booking.booking_selections.find(s=>s.guest_index===guest.guest_index);
-         const parent=booking.booking_guests.find(g=>g.guest_index===guest.accompanying_adult_index);
+         const parent=booking.booking_guests.find(g=>g.guest_index===(guest.guardian_index??guest.accompanying_adult_index));
          return <div key={guest.id} className="rounded-lg border border-black/15 p-3">
-          <p className="font-bold">{guest.full_name} · {guest.category==="adult"?(en?"Adult":"Взрослый"):(en?"Child":"Ребёнок")}</p>
+          <p className="font-bold">{guest.full_name} · {guest.is_child_with_adult_seat?(en?"Child · adult-priced table seat":"Ребёнок · место по взрослому тарифу"):guest.category==="adult"?(en?"Adult":"Взрослый"):(en?"Child":"Ребёнок")}</p>
           {guest.email&&<p className="break-all text-sm">{en?"Email":"Почта"}: {guest.email}</p>}
           {guest.phone&&<p className="text-sm">{en?"Phone":"Телефон"}: {guest.phone}</p>}
           {parent&&<p className="text-sm">{en?"Accompanying adult":"Сопровождающий взрослый"}: {parent.full_name}</p>}
+          {guest.childcare_hours&&<p className="text-sm font-semibold">{en?"Childcare":"Присмотр"}: {guest.childcare_hours} {en?"hours":"часов"} · NZ${((guest.childcare_price_cents??0)/100).toFixed(2)}</p>}
+          {guest.is_child_with_adult_seat&&<p className="text-sm font-semibold">{en?"Adult seat price only · childcare on the day":"Только место по взрослому тарифу · присмотр в день мероприятия"}</p>}
           <p className="mt-1 text-sm">{seat?`${seat.table_label} · ${en?"Seat":"Место"} ${seat.seat_number}`:(en?"No individually assigned seat":"Без отдельного закреплённого места")}</p>
          </div>;
         })}</div>
