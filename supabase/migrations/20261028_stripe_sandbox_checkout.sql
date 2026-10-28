@@ -1,3 +1,4 @@
+begin;
 -- Yumorilnik SANDBOX ONLY Stripe Checkout.
 -- Does not enable a payment method, real bookings, emails, or Stripe live mode.
 -- Run ONLY in Supabase project vzzabkviwyarrdkevqco, after the 20261028 family migrations.
@@ -48,12 +49,12 @@ returns boolean language sql security definer set search_path='' as $body$
  )
  and not exists(
   select 1 from public.booking_items mine
-  join public.ticket_types type on type.id=mine.ticket_type_id
+  join public.ticket_types tt on tt.id=mine.ticket_type_id
   where mine.booking_id=p_booking_id
-    and type.quantity_total is not null
+    and tt.quantity_total is not null
     and (
      greatest(
-      coalesce(type.quantity_sold,0),
+      coalesce(tt.quantity_sold,0),
       coalesce((select sum(confirmed.quantity)
         from public.booking_items confirmed
         join public.bookings b on b.id=confirmed.booking_id
@@ -67,7 +68,7 @@ returns boolean language sql security definer set search_path='' as $body$
        where held.ticket_type_id=mine.ticket_type_id
         and held.booking_id<>p_booking_id and hb.status='requested'
         and checkout.state in ('creating','open')),0)
-     + mine.quantity > type.quantity_total
+     + mine.quantity > tt.quantity_total
     )
  );
 $body$;
@@ -403,3 +404,4 @@ begin
 end;$body$;
 revoke all on function public.abandon_unbound_test_checkout(uuid) from public,anon,authenticated;
 grant execute on function public.abandon_unbound_test_checkout(uuid) to service_role;
+commit;
