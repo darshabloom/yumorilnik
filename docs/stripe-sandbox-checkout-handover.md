@@ -10,7 +10,7 @@ Date: 28 October 2026. Branch: feature/stripe-sandbox-checkout-20261028.
 - Stripe: separate **Yumorilnik** test account. The currently connected Matroshka sandbox (acct_1SXo5CPIwTIma6Ev) is blocked by code. No live-mode keys accepted.
 - One-time NZD Checkout, Stripe-hosted UI and card-only test payments.
 - Child without assigned adult seat: 3h NZ$30 / 6h NZ$60; child with adult-priced table seat pays only the table-seat price. Actual guardian recorded.
-- Promotions: validated against admin-configured booking_promotions. Supports percent_off, per-ticket amount_off and fixed_price, for all/adult/child/selected ticket types, with limits, time windows and caps. TEST12 explicitly excluded.
+- Promotions: validated against admin-configured booking_promotions. Supports percent_off, per-ticket amount_off and fixed_price, for all/adult/child/selected ticket types, with limits, time windows and caps. TEST12 explicitly excluded. **Sandbox redemptions do not increment the real times_used counter; cancelled sandbox orders no longer count against sandbox usage limits.**
 - Real booking feature flag remains OFF. Even a *paid* Stripe sandbox Checkout ends at bookings.status='test_confirmed', **not** 'confirmed'; does not emit confirmation email or permit staff check-in. The result page always says it is not a valid ticket.
 - Seats are held in separate booking_test_checkouts, state 'creating' or 'open'. Concurrent holds and confirmed/test-confirmed reservations on the same seat are prohibited by database advisory-lock checks. Holds are not released merely because a local timer passed; a verified Stripe expiration or a 90-minute unbound-session recovery is required.
 
@@ -53,7 +53,7 @@ Creates:
 - bookings.status='test_confirmed' (never a live ticket)
 - admin cancellation guard against cancelling active Stripe holds
 
-Price is always recalculated from existing Yumorilnik ticket and table rows on the server; no customer-submitted amount is used. A 100% discount skips Stripe but still creates only a sandbox record.
+Price is always recalculated from existing Yumorilnik ticket and table rows on the server; no customer-submitted amount is used. The database cross-checks summed assigned-seat and childcare prices against the canonical total and rejects non-NZD ticket currencies. A 100% discount skips Stripe but still creates only a sandbox record.
 
 Suggested post-apply read-only SQL:
 \`\`\`sql
