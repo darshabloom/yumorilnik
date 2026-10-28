@@ -24,3 +24,4 @@ export default function TestEmailPage(){
  {message&&<p role="status" className="mt-4 rounded bg-green-50 p-3">{message}</p>}
  {error&&<p role="alert" className="mt-4 rounded bg-red-50 p-3">{error}</p>}
  </section></main>;
+}
