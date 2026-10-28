@@ -37,3 +37,7 @@ Status: **PARTIALLY COMPLETE — do not enable public sales**.
 - [ ] Yumorilnik Cyrillic PDF download runtime check still outstanding.
 - [ ] Phase B: audit live payment implementation before setting `NEXT_PUBLIC_REAL_BOOKINGS_ENABLED=true`; existing client `submit_test12_booking` RPC does not establish a production Stripe checkout flow.
 - [ ] Matryoshka production Stripe variables and cross-site order linking are not ready; do not enable food checkout.
+
+## Customer browser verification
+- [x] User supplied incognito screenshot on 29 October 2026 confirming matryoshka.nz loads the approved redesigned homepage over HTTPS with no Vercel login or certificate warning.
+- [ ] Runtime PDF Cyrillic check remains a Phase A release gate.
