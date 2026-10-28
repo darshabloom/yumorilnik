@@ -104,7 +104,7 @@ export default function PromotionsAdmin(){
    });
    if(saveError)throw saveError;
    await reload();setEdit(blank);
-   setMessage(en?"Promotion saved. Paid-code redemption is not live yet.":"Промокод сохранён. Оплата и применение платных скидок ещё не подключены.");
+   setMessage(en?"Promotion saved. It will work only in the protected Stripe sandbox when enabled.":"Промокод сохранён. Он работает только в защищённом тестовом Stripe после настройки.");
   }catch(e){setError(e instanceof Error?e.message:String(e))}
   finally{setBusy(false)}
  }
@@ -118,8 +118,8 @@ export default function PromotionsAdmin(){
    <Link href="/admin" className="underline">{en?"← Admin dashboard":"← Панель администратора"}</Link>
    <h1 className="text-3xl font-black">{en?"Promo codes":"Промокоды"}</h1>
    <p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">{en?
-    "Codes can target all tickets, adults, children or selected ticket types. Codes are configuration-only until checkout redemption is updated. TEST12 remains disabled.":
-    "Промокоды могут действовать на все билеты, взрослых, детей или выбранные типы. Применение кодов при бронировании пока не подключено. TEST12 остаётся выключенным."}</p>
+    "Codes can target all tickets, adults, children or selected ticket types. Codes can be redeemed in the protected Stripe sandbox once it is configured, but not in real payments. TEST12 remains disabled.":
+    "Промокоды могут действовать на все билеты, взрослых, детей или выбранные типы. Коды работают только в защищённом тестовом Stripe после настройки; настоящие платежи не подключены. TEST12 остаётся выключенным."}</p>
    {error&&<p role="alert" className="rounded bg-red-100 p-3 text-red-900">{error}</p>}
    {message&&<p role="status" className="rounded bg-green-100 p-3 text-green-900">{message}</p>}
    {!ready?<p>{en?"Loading…":"Загрузка…"}</p>:<>
