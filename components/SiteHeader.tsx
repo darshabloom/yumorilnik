@@ -3,17 +3,25 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSiteLanguage, type SiteLanguage } from "@/lib/useSiteLanguage";
+import { supabase } from "@/lib/supabaseClient";
 
 type Language = SiteLanguage;
 
 const labels = {
-  ru: { home: "Главная", events: "Афиша", about: "О нас", contact: "Контакты", tickets: "Купить билеты", menu: "Открыть меню", close: "Закрыть меню" },
-  en: { home: "Home", events: "Events", about: "About", contact: "Contact", tickets: "Book tickets", menu: "Open menu", close: "Close menu" },
+  ru: { home: "Главная", events: "Афиша", about: "О нас", contact: "Контакты", tickets: "Купить билеты", menu: "Открыть меню", close: "Закрыть меню", signIn: "Войти", account: "Мой аккаунт" },
+  en: { home: "Home", events: "Events", about: "About", contact: "Contact", tickets: "Book tickets", menu: "Open menu", close: "Close menu", signIn: "Sign in", account: "My account" },
 };
 
 export default function SiteHeader() {
   const language = useSiteLanguage();
   const [open, setOpen] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void supabase.auth.getUser().then(({data}) => { if(active)setSignedIn(Boolean(data.user)); }).catch(() => {});
+    const {data:{subscription}} = supabase.auth.onAuthStateChange((_event,session) => setSignedIn(Boolean(session?.user)));
+    return () => { active=false; subscription.unsubscribe(); };
+  }, []);
 
   useEffect(() => { document.documentElement.lang = language; }, [language]);
 
@@ -28,7 +36,6 @@ export default function SiteHeader() {
     { href: "/events", label: t.events },
     { href: "/about", label: t.about },
     { href: "/contact", label: t.contact },
-    { href: "/staff/login", label: language==="en"?"Staff":"Персонал" },
   ];
 
   return (
@@ -44,6 +51,7 @@ export default function SiteHeader() {
               {label}
             </Link>
           ))}
+          <Link href={signedIn?"/account":"/login"} className="rounded-lg border border-black px-4 py-2 font-bold hover:bg-black hover:text-[#f5a047]">{signedIn?t.account:t.signIn}</Link>
           <Link href="/events" className="border-2 border-black px-4 py-2 font-bold transition-colors hover:bg-black hover:text-[#f5a047]">
             {t.tickets}
           </Link>
@@ -86,6 +94,7 @@ export default function SiteHeader() {
             {label}
           </Link>
         ))}
+        <Link href={signedIn?"/account":"/login"} onClick={() => setOpen(false)} className="rounded px-3 py-3 text-lg font-semibold hover:bg-black/10">{signedIn?t.account:t.signIn}</Link>
         <Link href="/events" onClick={() => setOpen(false)} className="mt-2 bg-black px-4 py-3 text-center font-bold text-[#f5a047]">
           {t.tickets}
         </Link>
