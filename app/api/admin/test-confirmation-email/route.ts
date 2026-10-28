@@ -41,7 +41,7 @@ export async function POST(req:NextRequest){
    reference:booking.booking_reference,venue:event?.location??null,eventUrl:event?.slug?"https://yumorilnik.com/events/"+encodeURIComponent(event.slug):null,guests:guests.map(g=>{const seat=selections.find(x=>x.guest_index===g.guest_index);
     return {name:g.full_name,ticket:g.is_child_with_adult_seat?"Child · adult-priced seat":items.find(i=>i.category===g.category)?.ticket_name??(g.category==="child"?"Childcare":"Adult ticket"),
       table:seat?.table_label??null,seat:seat?.seat_number??null,childcareHours:g.childcare_hours??null};}),isTest:true});
-  const pdf=await createTicketPdf({bookingId:booking.id,reference:booking.booking_reference,event:{title:event?.title??"Yumorilnik",event_date:String(event?.event_date??""),event_time:event?.event_time??null,location:event?.location??null},guests:guests,seats:selections,isTest:booking.status!=="confirmed"});
+  const pdf=await createTicketPdf({bookingId:booking.id,reference:booking.booking_reference,event:{title:event?.title??"Yumorilnik",event_date:String(event?.event_date??""),event_time:event?.event_time??null,location:event?.location??null},guests:guests,seats:selections,isTest:true});
   pdfAttachment={filename:"yumorilnik-ticket-preview.pdf",content:pdf.toString("base64")};
  }else{
   const {data:event}=await db.from("events").select("title,event_date,location,slug").eq("id","3f6fa4d1-aaca-4326-9c01-5774cffca2f5").maybeSingle();
