@@ -4,7 +4,7 @@ export type ConfirmationMessageInput={
  eventName:string;
  eventDateText:string;
  adults:{name:string;email:string}[];
- children:{name:string;accompanyingAdultEmail:string}[];
+ children:{name:string;accompanyingAdultEmail:string;childcareHours?:number|null;adultPricedSeat?:boolean}[];
  places:{guestName:string;table:string;seat:number|null}[];
  promoCode:string|null;
  totalCents:number;
@@ -24,6 +24,8 @@ export function bookingConfirmationEmail(input:ConfirmationMessageInput){
   `${en?"Date / time":"Дата / время"}: ${input.eventDateText}`,
   `${en?"Guests":"Гости"}: ${attendees.join(", ")}`,
   ...input.places.map(place=>`${place.guestName}: ${place.table}${place.seat===null?"":` · ${en?"seat":"место"} ${place.seat}`}`),
+  ...input.children.filter(c=>c.childcareHours).map(c=>`${c.name}: ${en?"Childcare":"Присмотр"} — ${c.childcareHours} ${en?"hours":"часов"}`),
+  ...input.children.filter(c=>c.adultPricedSeat).map(c=>`${c.name}: ${en?"adult-priced table seat; babysitting arranged at the event":"место по взрослому тарифу; присмотр согласовывается на мероприятии"}`),
   `${en?"Promo code":"Промокод"}: ${input.promoCode??"—"}`,
   `${en?"Paid":"Оплачено"}: ${amount}`,
   "",
