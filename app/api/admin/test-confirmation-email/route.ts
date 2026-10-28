@@ -27,21 +27,21 @@ export async function POST(req:NextRequest){
  let html:string;
  if(bookingId){
   const {data:booking,error:bookingError}=await db.from("bookings")
-   .select("id,booking_reference,status,event_id,events(title,event_date),booking_guests(guest_index,full_name,category,is_child_with_adult_seat,childcare_hours),booking_selections(guest_index,table_label,seat_number),booking_items(ticket_name,category,quantity)")
+   .select("id,booking_reference,status,event_id,events(title,event_date,location,slug),booking_guests(guest_index,full_name,category,is_child_with_adult_seat,childcare_hours),booking_selections(guest_index,table_label,seat_number),booking_items(ticket_name,category,quantity)")
    .eq("id",bookingId).maybeSingle();
   if(bookingError||!booking)return respond({error:"Booking not found"},404);
   if(!["confirmed","test_confirmed"].includes(booking.status))return respond({error:"Choose a confirmed or sandbox-paid booking"},400);
-  const event=booking.events as unknown as {title?:string;event_date?:string}|null;
+  const event=booking.events as unknown as {title?:string;event_date?:string;location?:string;slug?:string}|null;
   const guests=(booking.booking_guests??[]) as {guest_index:number;full_name:string;category:string;is_child_with_adult_seat?:boolean;childcare_hours?:number|null}[];
   const selections=(booking.booking_selections??[]) as {guest_index:number|null;table_label:string;seat_number:number|null}[];
   const items=(booking.booking_items??[]) as {ticket_name:string;category:string;quantity:number}[];
   html=bookingConfirmationHtml({eventTitle:event?.title??"Yumorilnik event",eventDate:String(event?.event_date??"To be confirmed"),
-   reference:booking.booking_reference,guests:guests.map(g=>{const seat=selections.find(x=>x.guest_index===g.guest_index);
+   reference:booking.booking_reference,venue:event?.location??null,eventUrl:event?.slug?"https://yumorilnik.com/events/"+encodeURIComponent(event.slug):null,guests:guests.map(g=>{const seat=selections.find(x=>x.guest_index===g.guest_index);
     return {name:g.full_name,ticket:g.is_child_with_adult_seat?"Child · adult-priced seat":items.find(i=>i.category===g.category)?.ticket_name??(g.category==="child"?"Childcare":"Adult ticket"),
       table:seat?.table_label??null,seat:seat?.seat_number??null,childcareHours:g.childcare_hours??null};}),isTest:true});
  }else{
-  const {data:event}=await db.from("events").select("title,event_date").eq("id","3f6fa4d1-aaca-4326-9c01-5774cffca2f5").maybeSingle();
-  html=bookingConfirmationHtml({eventTitle:event?.title??"Новогодник",eventDate:String(event?.event_date??"To be confirmed"),reference:"TEST-YMR-EXAMPLE",guests:[{name:"Sample Guest",ticket:"Adult-priced seat",table:"Table A",seat:1},{name:"Sample Child",ticket:"Childcare",childcareHours:3}],isTest:true});
+  const {data:event}=await db.from("events").select("title,event_date,location,slug").eq("id","3f6fa4d1-aaca-4326-9c01-5774cffca2f5").maybeSingle();
+  html=bookingConfirmationHtml({eventTitle:event?.title??"Новогодник",eventDate:String(event?.event_date??"To be confirmed"),reference:"TEST-YMR-EXAMPLE",venue:event?.location??null,eventUrl:event?.slug?"https://yumorilnik.com/events/"+encodeURIComponent(event.slug):null,guests:[{name:"Sample Guest",ticket:"Adult-priced seat",table:"Table A",seat:1},{name:"Sample Child",ticket:"Childcare",childcareHours:3}],isTest:true});
  }
  try{
   const res=await fetch("https://api.resend.com/emails",{method:"POST",headers:{"Authorization":"Bearer "+apiKey,"Content-Type":"application/json"},body:JSON.stringify({from:sender,to:[user.email],subject:"[TEST] Юморильник — booking confirmation preview",html})});
