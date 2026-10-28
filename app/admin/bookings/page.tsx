@@ -37,6 +37,8 @@ function RealAdminBookingsPage(){
  const [selectedId,setSelectedId]=useState<string|null>(null);
  const [search,setSearch]=useState("");
  const [showCancelled,setShowCancelled]=useState(false);
+ const [eventFilter,setEventFilter]=useState("all");
+ const [statusFilter,setStatusFilter]=useState("all");
  const [confirmingId,setConfirmingId]=useState<string|null>(null);
  const [reason,setReason]=useState("");
  const [busy,setBusy]=useState(false);
@@ -77,14 +79,31 @@ function RealAdminBookingsPage(){
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[router]);
 
+ const eventChoices=useMemo(()=>Array.from(new Map(bookings.map(b=>[
+  b.event_id,{id:b.event_id,title:(en&&b.events?.title_en?b.events.title_en:b.events?.title)??b.event_id}
+ ])).values()),[bookings,en]);
+ const totals=useMemo(()=>({
+  confirmed:bookings.filter(b=>b.status==="confirmed").length,
+  sandbox:bookings.filter(b=>b.status==="test_confirmed").length,
+  awaiting:bookings.filter(b=>b.status==="requested").length,
+ }),[bookings]);
  const visible=useMemo(()=>bookings.filter(booking=>{
   if(!showCancelled&&booking.status==="cancelled")return false;
+  if(eventFilter!=="all"&&booking.event_id!==eventFilter)return false;
+  if(statusFilter!=="all"&&booking.status!==statusFilter)return false;
   const q=search.trim().toLowerCase();
   if(!q)return true;
   return [booking.booking_reference,booking.events?.title??"",booking.events?.title_en??"",
    ...booking.booking_guests.flatMap(g=>[g.full_name,g.email??"",g.phone??""])]
    .some(value=>value.toLowerCase().includes(q));
- }),[bookings,search,showCancelled]);
+ }),[bookings,search,showCancelled,eventFilter,statusFilter]);
+ const allocatedSeats=useMemo(()=>visible.filter(b=>b.status==="confirmed"||b.status==="test_confirmed")
+  .flatMap(b=>b.booking_selections.filter(s=>s.seat_number!==null&&s.guest_index!==null).map(s=>({
+   key:s.id,table:s.table_label,seat:s.seat_number,
+   guest:b.booking_guests.find(g=>g.guest_index===s.guest_index)?.full_name??"—",
+   reference:b.booking_reference,isSandbox:b.status==="test_confirmed",
+  })))
+  .sort((a,b)=>a.table.localeCompare(b.table,undefined,{numeric:true})||(a.seat??0)-(b.seat??0)),[visible]);
  const selected=bookings.find(b=>b.id===selectedId)??null;
 
  async function cancelBooking(booking:BookingRow){
