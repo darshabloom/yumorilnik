@@ -1,15 +1,20 @@
-import {PDFDocument,StandardFonts,rgb} from "pdf-lib";
+import {PDFDocument,rgb} from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+import {readFile} from "node:fs/promises";
+import path from "node:path";
 import QRCode from "qrcode";
 import {issueTicketCredential} from "@/lib/ticketCredential";
 type Guest={guest_index:number;full_name:string;category:string;is_child_with_adult_seat?:boolean|null;childcare_hours?:number|null};
 type Seat={guest_index:number|null;table_label:string;seat_number:number|null};
 type Event={title:string;event_date:string;event_time?:string|null;location?:string|null};
 export async function createTicketPdf(input:{bookingId:string;reference:string;event:Event;guests:Guest[];seats:Seat[];isTest:boolean}){
- const pdf=await PDFDocument.create();const font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
- const latin=(value:unknown)=>String(value??"").replace(/[^\x20-\x7E]/g,"?");
+ const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
+ const fontBytes=await readFile(path.join(process.cwd(),"assets","ticket-font.ttf"));
+ const font=await pdf.embedFont(fontBytes,{subset:true}),bold=font;
+ const safe=(value:unknown)=>String(value??"").replace(/[\\u0000-\\u001f]/g," ").slice(0,95);
  for(const guest of input.guests){
   const page=pdf.addPage([595,842]);const {height}=page.getSize();
-  const write=(s:string,y:number,size=14,em=false)=>page.drawText(latin(s).slice(0,95),{x:48,y,size,font:em?bold:font,color:rgb(.12,.12,.12)});
+  const write=(s:string,y:number,size=14,em=false)=>page.drawText(safe(s),{x:48,y,size,font:em?bold:font,color:rgb(.12,.12,.12)});
   page.drawRectangle({x:0,y:height-132,width:595,height:132,color:rgb(.96,.64,.22)});
   write("YUMORILNIK",height-65,28,true);write(input.isTest?"TEST ONLY - NOT VALID FOR ENTRY":"EVENT ADMISSION TICKET",height-105,14,true);
   write(input.event.title,660,19,true);write("Date: "+input.event.event_date+" "+(input.event.event_time??""),622);
