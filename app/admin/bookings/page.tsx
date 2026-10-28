@@ -193,6 +193,7 @@ function RealAdminBookingsPage(){
        </div>
       </div>
       <button type="button" className="mt-4 min-h-11 rounded-lg border border-black px-4 font-bold" onClick={()=>{setSelectedId(selectedId===booking.id?null:booking.id);setConfirmingId(null);setReason("");}}>{selectedId===booking.id?(en?"Hide details":"Скрыть детали"):(en?"View guests and seats":"Гости и места")}</button>
+      <Link href={"/admin/ticket-preview/"+encodeURIComponent(booking.id)} className="ml-2 inline-block rounded-lg border border-black px-4 py-3 text-sm font-bold">{en?"Ticket preview":"Просмотр билета"}</Link>
       {selectedId===booking.id&&<div className="mt-5 space-y-5 border-t border-black/15 pt-5">
        <section><h3 className="font-bold">{en?"Admission tickets":"Входные билеты"}</h3>
         {booking.booking_items.map(item=><p key={item.id} className="mt-2 text-sm">{item.ticket_name} × {item.quantity} · {money(item.unit_admission_cents*item.quantity,booking.currency,en)}</p>)}
