@@ -9,6 +9,7 @@ type Seat={guest_index:number|null;table_label:string;seat_number:number|null};
 type Booking={booking_reference:string;status:string;events:{title:string;event_date:string;event_time:string|null;location:string|null;slug:string}|null;booking_guests:Guest[];booking_selections:Seat[]};
 export default function TicketPreview(){
  const {id}=useParams<{id:string}>(),router=useRouter(),en=useSiteLanguage()==="en";
+ const [codes,setCodes]=useState<Record<number,string>>({});
  const [booking,setBooking]=useState<Booking|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState("");
  useEffect(()=>{let live=true;void(async()=>{try{
   const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace("/login");return}
@@ -18,6 +19,16 @@ export default function TicketPreview(){
   if(readError)throw readError;if(!data)throw Error("Booking not found");
   if(live)setBooking(data as unknown as Booking);
  }catch(e){if(live)setError(e instanceof Error?e.message:String(e))}finally{if(live)setLoading(false)}})();return()=>{live=false}},[id,router]);
+ async function requestCode(index:number){
+  try{
+   const {data:{session}}=await supabase.auth.getSession();
+   if(!session)throw Error("Authentication required");
+   const response=await fetch("/api/tickets/credentials",{method:"POST",headers:{"Authorization":"Bearer "+session.access_token,"Content-Type":"application/json"},body:JSON.stringify({action:"issue",bookingId:id,guestIndex:index})});
+   const data=await response.json() as {credential?:string;error?:string};
+   if(!response.ok||!data.credential)throw Error(data.error??"Unavailable");
+   setCodes(previous=>({...previous,[index]:data.credential!}));
+  }catch(e){setError(e instanceof Error?e.message:"Unable to issue code")}
+ }
  return <main className="min-h-screen bg-[#fff2db] px-5 py-8 text-black"><section className="mx-auto max-w-3xl rounded-2xl border border-black bg-white p-6 print:border-0 print:p-0">
  <div className="print:hidden"><Link href="/admin/bookings" className="underline">{en?"← Bookings":"← Брони"}</Link></div>
  <h1 className="mt-4 text-3xl font-black">Юморильник · {en?"Ticket preview":"Просмотр билета"}</h1>
@@ -33,6 +44,7 @@ export default function TicketPreview(){
  <p>{seat?`${en?"Table":"Стол"} ${seat.table_label} · ${en?"seat":"место"} ${seat.seat_number??"—"}`:(en?"No assigned seat":"Без закреплённого места")}</p>
  {g.childcare_hours&&<p>{en?"Childcare":"Присмотр"}: {g.childcare_hours}h</p>}
  <p>{g.checked_in_at?(en?"Checked in":"Зарегистрирован"):(en?"Not checked in":"Не зарегистрирован")}</p>
+ {booking.status==="confirmed"&&<div className="mt-3 print:hidden"><button type="button" className="rounded border px-3 py-2" onClick={()=>void requestCode(g.guest_index)}>{en?"Get check-in credential":"Получить код регистрации"}</button>{codes[g.guest_index]&&<p className="mt-2 break-all text-xs">{codes[g.guest_index]}</p>}</div>}
  </article>})}</div>
  <div className="mt-6 print:hidden"><button type="button" onClick={()=>window.print()} className="rounded-lg border border-black px-5 py-3 font-semibold">{en?"Print preview":"Распечатать просмотр"}</button></div>
  </>}
