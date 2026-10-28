@@ -155,7 +155,10 @@ begin
   if v_promo.max_uses is not null and
    v_promo.times_used+
    (select count(*) from public.booking_test_checkouts c
-     where c.promotion_code=v_code and c.state in('creating','open','test_paid'))
+     join public.bookings redeemed on redeemed.id=c.booking_id
+     where c.promotion_code=v_code and
+      (c.state in('creating','open') or
+       (c.state='test_paid' and redeemed.status='test_confirmed')))
    >=v_promo.max_uses
   then raise exception 'Promotion usage limit reached' using errcode='22023';end if;
 
@@ -286,9 +289,11 @@ begin
    (v_promo.max_uses is not null and
     v_promo.times_used+
     (select count(*) from public.booking_test_checkouts other_checkout
+     join public.bookings redeemed on redeemed.id=other_checkout.booking_id
      where other_checkout.promotion_code=v_hold.promotion_code
       and other_checkout.booking_id<>p_booking_id
-      and other_checkout.state='test_paid') >= v_promo.max_uses)
+      and other_checkout.state='test_paid'
+      and redeemed.status='test_confirmed') >= v_promo.max_uses)
   then
    update public.booking_test_checkouts set state='needs_review',
      review_reason='Promotion unavailable after payment',updated_at=now()
