@@ -233,6 +233,17 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
     (en?"The request could not be saved. Please try again or contact Marina.":"Не удалось сохранить заявку. Повторите попытку или свяжитесь с Мариной."));
   }finally{setSavingBooking(false)}
  }
+ if(accessChoice==="choose")return <main className="flex min-h-[75vh] items-center justify-center bg-[#fff2db] px-4 py-12 text-black">
+  <section className="w-full max-w-lg space-y-5 rounded-2xl border-2 border-black bg-white p-6 shadow-[5px_5px_0_#171717] sm:p-9">
+   <Link href={`/events/${event.slug}`} className="text-sm font-semibold underline">{en?"← Event details":"← О мероприятии"}</Link>
+   <h1 className="text-2xl font-black">{en?"How would you like to continue?":"Как хотите продолжить?"}</h1>
+   <p className="text-sm text-gray-700">{en?"Sign in with Google to keep your details, or continue as a guest. An account is not required to book tickets.":"Войдите через Google, чтобы сохранить свои данные, или продолжите как гость. Для заказа билетов аккаунт не нужен."}</p>
+   {accessError&&<p role="alert" className="rounded-lg bg-red-100 p-3 text-sm text-red-900">{accessError}</p>}
+   <button type="button" disabled={accessBusy} onClick={()=>void chooseGoogle()} className="w-full rounded-lg border-2 border-black bg-white px-4 py-4 font-bold disabled:opacity-50">{en?"Continue with Google":"Продолжить через Google"}</button>
+   <button type="button" onClick={()=>setAccessChoice("guest")} className="w-full rounded-lg bg-black px-4 py-4 font-bold text-white">{en?"Continue as guest":"Продолжить как гость"}</button>
+   <p className="text-xs text-gray-600">{en?"Guest checkout still requires booking contact details. Seats are not reserved until confirmation.":"При оформлении без регистрации всё равно нужны контактные данные. Места закрепляются только после подтверждения."}</p>
+  </section>
+ </main>;
  return <main className="min-h-screen bg-[#fffaf1] pb-36 text-black">
    <div className="relative bg-[#fffaf1]">
      {(event.booking_image_url||event.image_url)?<img src={event.booking_image_url||event.image_url||""} alt="" className="h-32 w-full sm:h-44 lg:h-48" style={{objectFit:event.booking_image_fit==="contain"?"contain":"cover",objectPosition:`${event.booking_image_position_x??50}% ${event.booking_image_position_y??50}%`}}/>:<div className="h-40 w-full bg-[#f5a047]/30"/>}
@@ -329,6 +340,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
        {!savedReference&&<button type="button" onClick={()=>setStep("guests")} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Edit guest details":"Изменить данные гостей"}</button>}
      </section>:<div className="mt-6 flex flex-col gap-8">
        {step==="tickets"&&<section aria-labelledby="tickets-title" className="space-y-3">
+         {nyeChildcare&&<p role="note" className="rounded-lg border border-orange-300 bg-orange-50 px-4 py-3 text-sm font-semibold">{en?"Want your child to have an assigned seat at the table? Book them as an adult.":"Хотите, чтобы у ребёнка было закреплённое место за столом? Оформите для него взрослый билет."}</p>}
          <h2 id="tickets-title" className="text-xl font-bold">{en?"How many tickets?":"Сколько билетов?"}</h2>
          <p className="text-sm text-gray-600">{en?"Choose the number of adults and children attending. You will choose seats on the next screen.":"Выберите количество взрослых и детей. Места можно будет выбрать на следующем экране."}</p>
          {count>0&&!canContinueTickets&&<p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">{ticketPricesInvalid?(en?"A ticket price is invalid. The organiser needs to correct it before booking can continue.":"Цена билета некорректна. Организатор должен исправить её перед продолжением."):(en?"Please include an adult for every child booking, and use Adult/Child ticket types for this journey.":"Для заказа с детьми добавьте хотя бы одного взрослого. Используйте типы билетов «Взрослый» и «Детский».")}</p>}
@@ -341,8 +353,8 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
                 {ticket.description&&<p className="mt-1 text-sm text-gray-600">{ticket.description}</p>}
                 <p className="mt-1 font-semibold">{seatedPricing&&/adult|взросл/i.test(ticket.name)?(en?"Choose a table seat to see the adult price":"Выберите место за столом, чтобы увидеть цену взрослого билета"):format.format(ticket.price_cents/100)}</p>
                 {seatedPricing&&/child|детск|ребён|ребен/i.test(ticket.name)&&<div className="mt-2 rounded-lg bg-[#f7f5f1] p-3 text-sm leading-5 text-gray-700">
-                  <strong className="block">{en?"Child admission":"Детский вход"}</strong>
-                  <p className="mt-1">{en?"There will be spare seats at the venue for children. No table seat selection or extra seat charge is needed.":"На мероприятии будут дополнительные места для детей. Выбирать место за столом и доплачивать за него не нужно."}</p>
+                  <strong className="block">{nyeChildcare?(en?"Childcare ticket — 3 or 6 hours":"Детский билет — 3 или 6 часов"):(en?"Child admission":"Детский вход")}</strong>
+                  <p className="mt-1">{nyeChildcare?(en?"In Guest details, choose 3 hours (NZ$30) or 6 hours (NZ$60) for each child. Spare seating is provided. For an assigned table seat, book an adult-priced ticket.":"В данных гостей выберите 3 часа (NZ$30) или 6 часов (NZ$60) для каждого ребёнка. Дополнительные места предоставляются. Для закреплённого места за столом оформите взрослый билет."): (en?"There will be spare seats at the venue for children. No table seat selection or extra seat charge is needed.":"На мероприятии будут дополнительные места для детей. Выбирать место за столом и доплачивать за него не нужно.")}</p>
                 </div>}
                 {remaining===0?<p className="text-sm text-red-700">{en?"Sold out":"Нет в наличии"}</p>:ticket.show_remaining&&<p className="mt-1 text-xs text-gray-600">{en?"Tickets remaining: ":"Осталось билетов: "}{remaining}</p>}
               </div>
