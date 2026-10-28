@@ -386,21 +386,22 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
        {!savedReference&&<button type="button" onClick={()=>setStep("guests")} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Edit guest details":"Изменить данные гостей"}</button>}
      </section>:<div className="mt-6 flex flex-col gap-8">
        {step==="tickets"&&<section aria-labelledby="tickets-title" className="space-y-3">
-         {nyeChildcare&&<p role="note" className="rounded-lg border border-orange-300 bg-orange-50 px-4 py-3 text-sm font-semibold">{en?"Want your child to have an assigned seat at the table? Book them as an adult.":"Хотите, чтобы у ребёнка было закреплённое место за столом? Оформите для него взрослый билет."}</p>}
+         {nyeChildcare&&<p role="note" className="rounded-lg border border-orange-300 bg-orange-50 px-4 py-3 text-sm font-semibold">{en?"If you want your child to have an assigned seat, book them as an adult. Otherwise, choose a child ticket for babysitting (without an assigned table seat).":"Если ребёнку нужно закреплённое место за столом, оформите билет по взрослому тарифу. Если место не нужно, выберите детский билет с присмотром (без закреплённого места за столом)."}</p>}
          <h2 id="tickets-title" className="text-xl font-bold">{en?"How many tickets?":"Сколько билетов?"}</h2>
          <p className="text-sm text-gray-600">{en?"Choose the number of adults and children attending. You will choose seats on the next screen.":"Выберите количество взрослых и детей. Места можно будет выбрать на следующем экране."}</p>
          {count>0&&!canContinueTickets&&<p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">{ticketPricesInvalid?(en?"A ticket price is invalid. The organiser needs to correct it before booking can continue.":"Цена билета некорректна. Организатор должен исправить её перед продолжением."):(en?"Please include an adult for every child booking, and use Adult/Child ticket types for this journey.":"Для заказа с детьми добавьте хотя бы одного взрослого. Используйте типы билетов «Взрослый» и «Детский».")}</p>}
          {tickets.length===0?<p className="rounded-xl border border-black/15 bg-white p-5">{en?"No tickets have been added yet.":"Билеты пока не добавлены."}</p>:<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{tickets.map(ticket=>{
             const quantity=quantities[ticket.id]??0;
             const remaining=ticket.quantity_total==null?max:Math.max(0,ticket.quantity_total-(ticket.quantity_sold??0));
+            const nyChildTicket=nyeChildcare&&classifyTicket(ticket.name)==="child";
             return <div key={ticket.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-black/15 bg-white px-4 py-3">
               <div className="min-w-0 flex-1">
                 <h3 className="text-base font-semibold">{ticket.name}</h3>
-                {ticket.description&&<p className="mt-1 text-sm text-gray-600">{ticket.description}</p>}
-                <p className="mt-1 font-semibold">{seatedPricing&&/adult|взросл/i.test(ticket.name)?(en?"Choose a table seat to see the adult price":"Выберите место за столом, чтобы увидеть цену взрослого билета"):format.format(ticket.price_cents/100)}</p>
+                {!nyChildTicket&&ticket.description&&<p className="mt-1 text-sm text-gray-600">{ticket.description}</p>}
+                {!nyChildTicket&&<p className="mt-1 font-semibold">{seatedPricing&&/adult|взросл/i.test(ticket.name)?(en?"Choose a table seat to see the adult price":"Выберите место за столом, чтобы увидеть цену взрослого билета"):format.format(ticket.price_cents/100)}</p>}
                 {seatedPricing&&/child|детск|ребён|ребен/i.test(ticket.name)&&<div className="mt-2 rounded-lg bg-[#f7f5f1] p-3 text-sm leading-5 text-gray-700">
-                  <strong className="block">{nyeChildcare?(en?"Childcare ticket — 3 or 6 hours":"Детский билет — 3 или 6 часов"):(en?"Child admission":"Детский вход")}</strong>
-                  <p className="mt-1">{nyeChildcare?(en?"In Guest details, choose 3 hours (NZ$30) or 6 hours (NZ$60) for each child. Spare seating is provided. For an assigned table seat, book an adult-priced ticket.":"В данных гостей выберите 3 часа (NZ$30) или 6 часов (NZ$60) для каждого ребёнка. Дополнительные места предоставляются. Для закреплённого места за столом оформите взрослый билет."): (en?"There will be spare seats at the venue for children. No table seat selection or extra seat charge is needed.":"На мероприятии будут дополнительные места для детей. Выбирать место за столом и доплачивать за него не нужно.")}</p>
+                  <strong className="block">{nyeChildcare?(en?"Babysitting · no assigned seat":"Присмотр за ребёнком · без закреплённого места"):(en?"Child admission":"Детский вход")}</strong>
+                  <p className="mt-1">{nyeChildcare?(en?"For an assigned table seat, select an adult ticket instead.":"Для закреплённого места за столом выберите взрослый билет."): (en?"There will be spare seats at the venue for children. No table seat selection or extra seat charge is needed.":"На мероприятии будут дополнительные места для детей. Выбирать место за столом и доплачивать за него не нужно.")}</p>
                 </div>}
                 {remaining===0?<p className="text-sm text-red-700">{en?"Sold out":"Нет в наличии"}</p>:ticket.show_remaining&&<p className="mt-1 text-xs text-gray-600">{en?"Tickets remaining: ":"Осталось билетов: "}{remaining}</p>}
               </div>
