@@ -28,6 +28,7 @@ export default function SiteHeader() {
     { href: "/events", label: t.events },
     { href: "/about", label: t.about },
     { href: "/contact", label: t.contact },
+    { href: "/staff/login", label: language==="en"?"Staff":"Персонал" },
   ];
 
   return (
