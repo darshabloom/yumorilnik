@@ -396,7 +396,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
             const nyChildTicket=nyeChildcare&&classifyTicket(ticket.name)==="child";
             return <div key={ticket.id} className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-xl border border-black/15 bg-white px-4 py-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-base font-semibold">{ticket.name}</h3>
+                <h3 className="text-base font-semibold">{nyeChildcare&&classifyTicket(ticket.name)==="child"?(en?"Child · babysitting":"Детский билет · присмотр"):nyeChildcare&&classifyTicket(ticket.name)==="adult"?(en?"Adult-priced seat":"Место по взрослому тарифу"):ticket.name}</h3>
                 {!nyChildTicket&&ticket.description&&<p className="mt-1 text-sm text-gray-600">{ticket.description}</p>}
                 {!nyChildTicket&&<p className="mt-1 font-semibold">{seatedPricing&&/adult|взросл/i.test(ticket.name)?(en?"Choose a table seat to see the adult price":"Выберите место за столом, чтобы увидеть цену взрослого билета"):format.format(ticket.price_cents/100)}</p>}
                 {seatedPricing&&/child|детск|ребён|ребен/i.test(ticket.name)&&<div className="mt-2 rounded-lg bg-[#f7f5f1] p-3 text-sm leading-5 text-gray-700">
