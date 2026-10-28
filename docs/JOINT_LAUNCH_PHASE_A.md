@@ -11,7 +11,7 @@ Status: **PARTIALLY COMPLETE — do not enable public sales**.
 - [x] Yumorilnik CI workflow updated to reconcile and commit PDF dependency lockfile automatically on branch pushes.
 
 ## Phase A remaining release gates
-- [ ] Confirm CI successfully committed updated package-lock.json (its old root dependency list is still visible as of this check).
+- [x] CI updated package-lock.json with pdf-lib, qrcode, @pdf-lib/fontkit, and @types/qrcode; root dependencies verified after commit.
 - [ ] Render and inspect an actual ticket PDF with a Russian name. Build success and font download are not equivalent to PDF render success.
 - [ ] Confirm no accidental exposure of guest data in PDF routes, and verify customer access separately.
 - [ ] **Public site accessibility:** Yumorilnik Vercel SSO protection currently has deploymentType=all. Do not open sales until a public unauthenticated visit on custom domain succeeds.
