@@ -121,7 +121,7 @@ export async function POST(request:NextRequest){
    const en=bookingConfirmationEmail({...common,language:"en",eventName:booking.events?.title_en||booking.events?.title||"Yumorilnik event"});
    const ru=bookingConfirmationEmail({...common,language:"ru",eventName:booking.events?.title||"Мероприятие Юморильника"});
    const foodLink=createFoodOrderLink(booking.id,person.email);
-   const foodDetails=foodLink?"\n\nPre-order food / Предзаказ еды:\n"+foodLink+"\nOrders are linked to this confirmed event booking. / Заказ будет привязан к подтверждённой брони.":"";
+   const foodDetails=foodLink?["", "", "Pre-order food / Предзаказ еды:", foodLink, "Orders are linked to this confirmed event booking."].join(String.fromCharCode(10)):"";
    const response=await fetch("https://api.resend.com/emails",{
     method:"POST",
     headers:{"Authorization":`Bearer ${resendKey}`,"Content-Type":"application/json"},
