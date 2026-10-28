@@ -23,3 +23,10 @@ Status: **PARTIALLY COMPLETE — do not enable public sales**.
 1. No Supabase SQL is needed merely to confirm builds.
 2. Before enabling public traffic, decide the intended public Matryoshka domain and check Yumorilnik's unauthenticated accessibility. The assistant can propose a Vercel protection change, but should not silently expose an unfinished sales flow.
 3. After UI/API preview tests, owner must confirm event data, menu, fulfilment and legal/payment details.
+
+## Public-domain verification update — 29 Oct 2026
+- [x] User independently confirmed yumorilnik.com now opens publicly in incognito after Vercel SSO protection changed to all_except_custom_domains.
+- [x] matryoshka.nz DNS now resolves to 76.76.21.21; Vercel reports misconfigured=false and project domain verified=true.
+- [x] www.matryoshka.nz CNAME resolves to cname.vercel-dns.com; Vercel reports misconfigured=false and project domain verified=true. Vercel has a 308 redirect to matryoshka.nz.
+- [ ] Verify Matryoshka public site loads over HTTPS from an unauthenticated browser and displays the intended release.
+- [ ] Generate and inspect PDF with Cyrillic names via organiser-only endpoint.
