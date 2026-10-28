@@ -29,6 +29,14 @@ export default function TicketPreview(){
    setCodes(previous=>({...previous,[index]:data.credential!}));
   }catch(e){setError(e instanceof Error?e.message:"Unable to issue code")}
  }
+ async function downloadPdf(){
+  try{const {data:{session}}=await supabase.auth.getSession();if(!session)throw Error("Sign in required");
+   const res=await fetch("/api/admin/ticket-pdf?bookingId="+encodeURIComponent(id),{headers:{"Authorization":"Bearer "+session.access_token}});
+   if(!res.ok){const detail=await res.json() as {error?:string};throw Error(detail.error??"PDF unavailable")}
+   const blob=await res.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");
+   a.href=url;a.download="yumorilnik-tickets.pdf";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }catch(e){setError(e instanceof Error?e.message:"Unable to download PDF")}
+ }
  return <main className="min-h-screen bg-[#fff2db] px-5 py-8 text-black"><section className="mx-auto max-w-3xl rounded-2xl border border-black bg-white p-6 print:border-0 print:p-0">
  <div className="print:hidden"><Link href="/admin/bookings" className="underline">{en?"← Bookings":"← Брони"}</Link></div>
  <h1 className="mt-4 text-3xl font-black">Юморильник · {en?"Ticket preview":"Просмотр билета"}</h1>
@@ -46,7 +54,7 @@ export default function TicketPreview(){
  <p>{g.checked_in_at?(en?"Checked in":"Зарегистрирован"):(en?"Not checked in":"Не зарегистрирован")}</p>
  {booking.status==="confirmed"&&<div className="mt-3 print:hidden"><button type="button" className="rounded border px-3 py-2" onClick={()=>void requestCode(g.guest_index)}>{en?"Get check-in credential":"Получить код регистрации"}</button>{codes[g.guest_index]&&<p className="mt-2 break-all text-xs">{codes[g.guest_index]}</p>}</div>}
  </article>})}</div>
- <div className="mt-6 print:hidden"><button type="button" onClick={()=>window.print()} className="rounded-lg border border-black px-5 py-3 font-semibold">{en?"Print preview":"Распечатать просмотр"}</button></div>
+ <div className="mt-6 flex flex-wrap gap-3 print:hidden"><button type="button" className="rounded-lg bg-black px-5 py-3 font-semibold text-white" onClick={()=>void downloadPdf()}>{en?"Download ticket PDF":"Скачать билеты PDF"}</button><button type="button" onClick={()=>window.print()} className="rounded-lg border border-black px-5 py-3 font-semibold">{en?"Print preview":"Распечатать просмотр"}</button></div>
  </>}
  </section></main>;
 }
