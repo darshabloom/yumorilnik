@@ -1,3 +1,4 @@
+import {createFoodOrderLink} from "@/lib/matryoshkaTicketLink";
 import {timingSafeEqual} from "node:crypto";
 import {createClient} from "@supabase/supabase-js";
 import {NextRequest,NextResponse} from "next/server";
@@ -119,12 +120,14 @@ export async function POST(request:NextRequest){
    // Bilingual until a booking-language field is designed and agreed.
    const en=bookingConfirmationEmail({...common,language:"en",eventName:booking.events?.title_en||booking.events?.title||"Yumorilnik event"});
    const ru=bookingConfirmationEmail({...common,language:"ru",eventName:booking.events?.title||"Мероприятие Юморильника"});
+   const foodLink=createFoodOrderLink(booking.id,person.email);
+   const foodDetails=foodLink?"\n\nPre-order food / Предзаказ еды:\n"+foodLink+"\nOrders are linked to this confirmed event booking. / Заказ будет привязан к подтверждённой брони.":"";
    const response=await fetch("https://api.resend.com/emails",{
     method:"POST",
     headers:{"Authorization":`Bearer ${resendKey}`,"Content-Type":"application/json"},
     body:JSON.stringify({
      from:`Yumorilnik Tickets <${from}>`,reply_to:"yumorilnik@gmail.com",to:[person.email],subject:en.subject,
-     text:en.text+"\n\n---\n\n"+ru.text,
+     text:en.text+"\n\n---\n\n"+ru.text+foodDetails,
     }),
    });
    const provider=await response.json() as {id?:string;message?:string};
