@@ -33,6 +33,15 @@ export function testEmailAllowed(email:string){
    .split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
  return entries.length>0&&entries.includes(email.trim().toLowerCase());
 }
+export async function assertYumorilnikStripeAccount(secret:string){
+ const expected=process.env.STRIPE_TEST_ACCOUNT_ID;
+ if(!expected||!/^acct_[A-Za-z0-9]+$/.test(expected)||
+   expected==="acct_1SXo5CPIwTIma6Ev")
+  throw new Error("A separate Yumorilnik Stripe test account is required");
+ const account=await stripeCall<{id:string;livemode?:boolean}>(secret,"GET","account");
+ if(account.id!==expected||account.id==="acct_1SXo5CPIwTIma6Ev")
+  throw new Error("Stripe account does not belong to Yumorilnik sandbox");
+}
 export function testAccessCodeAllowed(candidate:string){
  const secret=process.env.STRIPE_TEST_ACCESS_CODE??"";
  if(secret.length<16||candidate.length!==secret.length)return false;
