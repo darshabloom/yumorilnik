@@ -12,7 +12,7 @@ type Item={id:string;ticket_name:string;category:string;quantity:number;unit_adm
 type Selection={id:string;table_label:string;seat_number:number|null;guest_index:number|null;price_cents:number|null};
 type EventSummary={title:string;title_en:string|null;event_date:string|null};
 type BookingRow={
- id:string;event_id:string;booking_reference:string;status:"requested"|"confirmed"|"cancelled";
+ id:string;event_id:string;booking_reference:string;status:"requested"|"confirmed"|"cancelled"|"test_confirmed";
  created_at:string;cancelled_at:string|null;cancellation_reason:string|null;
  total_cents:number|null;currency:string;promo_code?:string|null;confirmation_email_status?:string|null;
  events:EventSummary|null;
@@ -141,7 +141,7 @@ function RealAdminBookingsPage(){
         <p className="text-lg font-black">{money(booking.total_cents,booking.currency,en)}</p>
         {booking.promo_code&&<p className="text-xs font-semibold">{en?"Promo":"Промокод"}: {booking.promo_code}</p>}
         {booking.confirmation_email_status&&booking.confirmation_email_status!=="not_queued"&&<p className="text-xs text-gray-700">{en?"Confirmation email":"Письмо с подтверждением"}: {booking.confirmation_email_status==="sent"?(en?"sent":"отправлено"):booking.confirmation_email_status==="failed"?(en?"failed":"ошибка"):(en?"pending":"ожидает отправки")}</p>}
-        <p className={booking.status==="cancelled"?"text-sm font-semibold text-red-700":"text-sm font-semibold text-amber-700"}>{booking.status==="cancelled"?(en?"Cancelled":"Отменена"):booking.status==="confirmed"?(en?"Confirmed (free)":"Подтверждено (бесплатно)"):(en?"Awaiting review":"Ожидает проверки")}</p>
+        <p className={booking.status==="cancelled"?"text-sm font-semibold text-red-700":"text-sm font-semibold text-amber-700"}>{booking.status==="cancelled"?(en?"Cancelled":"Отменена"):booking.status==="test_confirmed"?(en?"SANDBOX ONLY · not a real ticket":"ТОЛЬКО ТЕСТ · не настоящий билет"):booking.status==="confirmed"?(en?"Confirmed":"Подтверждено"):(en?"Awaiting review":"Ожидает проверки")}</p>
        </div>
       </div>
       <button type="button" className="mt-4 min-h-11 rounded-lg border border-black px-4 font-bold" onClick={()=>{setSelectedId(selectedId===booking.id?null:booking.id);setConfirmingId(null);setReason("");}}>{selectedId===booking.id?(en?"Hide details":"Скрыть детали"):(en?"View guests and seats":"Гости и места")}</button>
