@@ -13,6 +13,7 @@ const tiles = [
   { title: "Promo codes",ruTitle:"Промокоды", detail: "Manage discounts for any ticket type",ruDetail:"Промокоды для любых типов билетов", icon: "🏷️", href: "/admin/promotions" },
   { title: "Bookings & seating",ruTitle:"Брони и рассадка", detail: "See ticket types, guest contacts, named seats, childcare and sandbox payments",ruDetail:"Билеты, контакты гостей, закреплённые места, присмотр и тестовые оплаты", icon: "🎟️", href: "/admin/bookings" },
   { title: "Future invitations",ruTitle:"Будущие приглашения",detail:"Manage opted-in adults and event invitation contacts",ruDetail:"Контакты для будущих приглашений по согласию",icon:"✉️",href:"/admin/contacts" },
+  { title: "Test booking email",ruTitle:"Тест письма", detail: "Send a sample booking confirmation to your organiser email",ruDetail:"Отправить образец подтверждения брони на почту организатора",icon:"✉️",href:"/admin/test-email" },
   { title: "Check-in",ruTitle:"Регистрация", detail: "Search guests and mark arrivals",ruDetail:"Поиск гостей и отметка о приходе", icon: "✅", href: "/staff/check-in" },
   { title: "Door staff access",ruTitle:"Доступ персонала", detail: "Grant or revoke check-in access per event",ruDetail:"Выдайте или отзовите доступ для регистрации гостей",icon: "🔑",href: "/admin/check-in-staff" },
   { title: "Website content",ruTitle:"Содержимое сайта", detail: "Update images, homepage and videos",ruDetail:"Обновление изображений, главной страницы и видео", icon: "✏️", href: null },
