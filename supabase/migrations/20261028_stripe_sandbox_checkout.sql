@@ -2,6 +2,8 @@
 -- Does not enable a payment method, real bookings, emails, or Stripe live mode.
 -- Run ONLY in Supabase project vzzabkviwyarrdkevqco, after the 20261028 family migrations.
 -- No customer-supplied prices or discounts can be trusted.
+-- Test promo redemptions are recorded in booking_test_checkouts only; they do
+-- not increment public.booking_promotions.times_used (real usage counter).
 alter table public.bookings drop constraint if exists bookings_status_check;
 alter table public.bookings add constraint bookings_status_check
  check (status in ('requested','confirmed','cancelled','test_confirmed'));
@@ -153,7 +155,7 @@ begin
   if v_promo.max_uses is not null and
    v_promo.times_used+
    (select count(*) from public.booking_test_checkouts c
-     where c.promotion_code=v_code and c.state in('creating','open'))
+     where c.promotion_code=v_code and c.state in('creating','open','test_paid'))
    >=v_promo.max_uses
   then raise exception 'Promotion usage limit reached' using errcode='22023';end if;
 
@@ -218,9 +220,8 @@ begin
  if v_due=0 then
   -- Fully discounted SANDBOX bookings are NOT real tickets and emit NO emails.
   if v_code is null then raise exception 'Zero-price booking requires a promotion' using errcode='22023';end if;
-  update public.booking_promotions set times_used=times_used+1 where code=v_code
-   and (max_uses is null or times_used<max_uses);
-  if not found then raise exception 'Promotion limit reached' using errcode='22023';end if;
+  -- SANDBOX redemptions do not consume real booking_promotions.times_used.
+  -- Active test holds and test_paid rows are counted separately.
   update public.bookings set status='test_confirmed',confirmed_at=now() where id=v_booking.id;
  end if;
  return pg_catalog.jsonb_build_object('booking_id',v_booking.id,
@@ -282,7 +283,12 @@ begin
  if v_hold.promotion_code is not null then
   select * into v_promo from public.booking_promotions where code=v_hold.promotion_code for update;
   if not found or not v_promo.enabled or
-   (v_promo.max_uses is not null and v_promo.times_used>=v_promo.max_uses)
+   (v_promo.max_uses is not null and
+    v_promo.times_used+
+    (select count(*) from public.booking_test_checkouts other_checkout
+     where other_checkout.promotion_code=v_hold.promotion_code
+      and other_checkout.booking_id<>p_booking_id
+      and other_checkout.state='test_paid') >= v_promo.max_uses)
   then
    update public.booking_test_checkouts set state='needs_review',
      review_reason='Promotion unavailable after payment',updated_at=now()
@@ -290,8 +296,7 @@ begin
    return pg_catalog.jsonb_build_object('state','needs_review',
      'reference',v_booking.booking_reference);
   end if;
-  update public.booking_promotions set times_used=times_used+1
-  where code=v_hold.promotion_code;
+  -- Test redemptions must never increment the real promo usage counter.
  end if;
  update public.booking_test_checkouts set state='test_paid',
    stripe_payment_intent_id=p_intent_id,updated_at=now()
