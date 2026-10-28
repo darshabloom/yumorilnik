@@ -46,7 +46,7 @@ export default function TicketPreview(){
  {booking.events?.location&&<p>{booking.events.location}</p>}
  {booking.events?.slug&&<Link href={"/events/"+encodeURIComponent(booking.events.slug)} className="underline print:hidden">{en?"Event details":"Информация о мероприятии"}</Link>}
  <p className="mt-4">{en?"Booking reference":"Номер брони"}: <strong>{booking.booking_reference}</strong></p>
- <p className="mt-2 font-bold text-red-800">{booking.status==="test_confirmed"?(en?"SANDBOX — INVALID FOR ENTRY":"ТЕСТ — НЕДЕЙСТВИТЕЛЬНЫЙ БИЛЕТ"):booking.status!=="confirmed"?(en?"NOT AN ACTIVE TICKET":"БИЛЕТ НЕДЕЙСТВИТЕЛЕН"):(en?"ORGANISER PREVIEW — QR VALIDATION NOT YET ENABLED":"ПРОСМОТР ОРГАНИЗАТОРА — QR ЕЩЁ НЕ ПОДКЛЮЧЁН")}</p>
+ <p className="mt-2 font-bold text-red-800">{booking.status==="test_confirmed"?(en?"SANDBOX — INVALID FOR ENTRY":"ТЕСТ — НЕДЕЙСТВИТЕЛЬНЫЙ БИЛЕТ"):booking.status!=="confirmed"?(en?"NOT AN ACTIVE TICKET":"БИЛЕТ НЕДЕЙСТВИТЕЛЕН"):(en?"VALID ADMISSION TICKET — PRESENT QR AT STAFF CHECK-IN":"ДЕЙСТВИТЕЛЬНЫЙ БИЛЕТ — ПОКАЖИТЕ QR-КОД ПРИ ВХОДЕ")}</p>
  <div className="mt-5 space-y-3">{booking.booking_guests.map(g=>{const seat=booking.booking_selections.find(s=>s.guest_index===g.guest_index);return <article key={g.guest_index} className="rounded-lg border p-4">
  <p className="font-bold">{g.full_name}</p><p>{g.is_child_with_adult_seat?(en?"Child in adult-priced seat":"Ребёнок на взрослом месте"):g.category==="child"?(en?"Childcare":"Присмотр"):(en?"Adult":"Взрослый")}</p>
  <p>{seat?`${en?"Table":"Стол"} ${seat.table_label} · ${en?"seat":"место"} ${seat.seat_number??"—"}`:(en?"No assigned seat":"Без закреплённого места")}</p>
