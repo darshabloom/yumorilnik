@@ -112,7 +112,7 @@ function RealAdminBookingsPage(){
    <Link href="/admin" className="text-sm font-bold underline">{en?"← Admin dashboard":"← Панель управления"}</Link>
    <div>
     <h1 className="mt-3 text-3xl font-black">{en?"Booking requests":"Заявки на бронирование"}</h1>
-    <p className="mt-2 max-w-4xl text-sm text-gray-700">{en?"These are customer requests, not confirmed reservations. No payments or tickets have been issued, and selected places are not held. Cancellation removes a request from the active list but retains its history.":"Это заявки клиентов, а не подтверждённые брони. Оплата не получена, билеты не выпущены, места не закреплены. Отмена убирает заявку из активного списка, но сохраняет историю."}</p>
+    <p className="mt-2 max-w-4xl text-sm text-gray-700">{en?"This list includes booking requests, confirmed reservations and Stripe sandbox tests. SANDBOX ONLY records are not real event tickets. Cancelling a booking retains its history.":"Здесь показаны заявки, подтверждённые брони и тесты Stripe. Записи «ТОЛЬКО ТЕСТ» не являются действительными билетами. История отмен сохраняется."}</p>
    </div>
    {error&&<p role="alert" className="rounded-lg bg-red-100 p-4 text-red-800">{error}</p>}
    {message&&<p role="status" className="rounded-lg bg-green-100 p-4 text-green-900">{message}</p>}
