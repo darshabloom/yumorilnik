@@ -15,6 +15,7 @@ export default function StaffCheckin(){
  const en=useSiteLanguage()==="en",router=useRouter();
  const [events,setEvents]=useState<Event[]>([]),[selected,setSelected]=useState("");
  const [guests,setGuests]=useState<Guest[]>([]);
+ const [isAdmin,setIsAdmin]=useState(false);
  const [query,setQuery]=useState(""),[error,setError]=useState(""),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
  async function refresh(eventId:string){
   const {data,error:fetchError}=await supabase.rpc("staff_list_event_guests",{p_event_id:eventId});
@@ -26,6 +27,11 @@ export default function StaffCheckin(){
    try{
     const {data:{user}}=await supabase.auth.getUser();
     if(!user){router.replace("/staff/login");return;}
+    // Admins, including Marina, automatically have check-in access in the
+    // database. Only show full administration links after a role check.
+    const {data:adminRole}=await supabase.from("admin_users")
+     .select("role").eq("user_id",user.id).maybeSingle();
+    if(adminRole&&["owner","admin"].includes(adminRole.role))setIsAdmin(true);
     const {data,error:accessError}=await supabase.rpc("staff_available_events");
     if(accessError)throw accessError;
     const allowed=(data??[]) as Event[];
@@ -61,8 +67,8 @@ export default function StaffCheckin(){
    <div className="flex flex-wrap items-center justify-between gap-3"><div>
     <Link href="/" className="text-sm font-semibold underline">{en?"← Website":"← На сайт"}</Link>
     <h1 className="mt-3 text-3xl font-black">{en?"Event check-in":"Регистрация гостей"}</h1>
-   </div><button type="button" onClick={()=>void signOut()} className="rounded-lg border border-black px-4 py-2 font-semibold">{en?"Sign out":"Выйти"}</button></div>
-   <p className="rounded-lg border border-black/20 bg-white p-3 text-sm">{en?"Staff view only. No payments, personal contact information or administrative settings are available here.":"Только для персонала. Нет доступа к оплатам, личным контактам или настройкам администрации."}</p>
+   </div><div className="flex flex-wrap items-center gap-2">{isAdmin&&<><Link href="/admin/bookings" className="rounded-lg border border-black bg-white px-4 py-2 text-sm font-semibold">{en?"Bookings & seats":"Брони и места"}</Link><Link href="/admin" className="rounded-lg border border-black bg-white px-4 py-2 text-sm font-semibold">{en?"Admin dashboard":"Панель управления"}</Link></>}<button type="button" onClick={()=>void signOut()} className="rounded-lg border border-black px-4 py-2 font-semibold">{en?"Sign out":"Выйти"}</button></div></div>
+   <p className="rounded-lg border border-black/20 bg-white p-3 text-sm">{isAdmin?(en?"Marina's check-in view: only real confirmed guests appear here. For test payments, contact details, tickets and all seating assignments, open Bookings & seats.":"Регистрация для Марины: здесь только гости с настоящей подтверждённой бронью. Тестовые оплаты, контакты, билеты и рассадку смотрите в разделе «Брони и места»."):(en?"Staff check-in displays only real confirmed guests. Payment amounts, contact details and sandbox tests are not available here.":"Регистрация показывает только гостей с настоящей подтверждённой бронью. Суммы оплаты, контакты и тестовые заказы здесь недоступны.")}</p>
    {error&&<p role="alert" className="rounded bg-red-100 p-3 text-sm text-red-800">{error}</p>}
    {loading?<p>{en?"Checking access…":"Проверяем доступ…"}</p>:events.length===0?<p className="rounded-lg bg-white p-4">{en?"No event check-in access yet. Ask Marina to grant you access after signing in.":"Нет доступа к мероприятиям. После входа попросите Марину назначить вам доступ."}</p>:<>
     <div className="grid gap-3 rounded-xl border border-black/15 bg-white p-4 sm:grid-cols-2">
