@@ -32,6 +32,7 @@ export default function TestCheckoutResult({sessionId}:{sessionId:string}){
    <p className="rounded-lg border border-amber-400 bg-amber-50 p-4 font-semibold">{en?
     "SANDBOX ONLY: No real payment was collected. This is not a valid event ticket or seat reservation.":
     "ТОЛЬКО ТЕСТ: Настоящие деньги не списаны. Это не действующий билет и не бронь места."}</p>
+   {!sessionId&&<p role="alert" className="rounded-lg bg-amber-50 p-4 text-sm">{en?"No Stripe session identifier was supplied. Return to the event and restart the test checkout.":"Не указан номер сессии Stripe. Вернитесь к мероприятию и начните тестовую оплату заново."}</p>}
    {result?.reference&&<p>{en?"Test reference":"Тестовый номер"}: <strong>{result.reference}</strong></p>}
    {result?.state==="needs_review"&&<p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800">{en?
     "The test payment was received but booking reconciliation needs administrator review. No ticket was issued.":
