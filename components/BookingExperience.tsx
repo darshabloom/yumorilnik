@@ -136,17 +136,18 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
     setSeatFeedback("");
    setActiveSeatGuest("0");
  }
- const guestErrorLabel=(problem:{guestIndex:number;field:"name"|"email"|"phone"|"parent"})=>{
-  const isChild=problem.guestIndex>=adultTicketCount;
+ const guestErrorLabel=(problem:{guestIndex:number;field:"name"|"email"|"phone"|"parent"|"duration"})=>{
+  const isChild=problem.guestIndex>=adultTicketCount||adultSeatChildren[String(problem.guestIndex)]===true;
   const index=problem.guestIndex;
-  const person=isChild?`${en?"Child":"Ребёнок"} ${index-adultTicketCount+1}`:`${en?"Adult":"Взрослый"} ${index+1}`;
+  const person=isChild?`${en?"Child":"Ребёнок"} ${index>=adultTicketCount?index-adultTicketCount+1:index+1}`:`${en?"Adult":"Взрослый"} ${index+1}`;
   const enteredName=guestInfo[String(index)]?.name.trim();
   const who=enteredName?`${person} (${enteredName})`:person;
   const message={
    name:en?"please enter a full name.":"укажите имя и фамилию.",
    email:en?"please enter a valid email address (e.g. name@example.com).":"укажите правильный email (например, name@example.com).",
    phone:en?"please enter a phone number.":"укажите номер телефона.",
-   parent:en?"please select a parent or accompanying adult.":"выберите родителя или сопровождающего взрослого.",
+   parent:en?"please select an accompanying adult who is not marked as a child.":"выберите сопровождающего взрослого, не отмеченного как ребёнок.",
+   duration:en?"please choose 3 or 6 hours of childcare.":"выберите 3 или 6 часов присмотра.",
   }[problem.field];
   return `${who}: ${message}`;
  };
@@ -215,6 +216,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
     eventId:event.id!,clientRequestId:idempotency,
     tickets:tickets.map(t=>({id:t.id,quantity:quantities[t.id]??0})),
     guestInfo,childParents,adultCount:adultTicketCount,childCount:childTicketCount,
+    adultSeatChildren,childcareHours,
     wholeTable:tableBooking,selectedKeys:mapSelections,seatAssignments,
    });
    const {data,error}=await supabase.rpc("submit_test12_booking",{...payload,p_promo_code:promoCode.trim()});
