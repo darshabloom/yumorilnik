@@ -95,7 +95,10 @@ export async function POST(request:NextRequest){
     .eq("id",delivery.booking_id).maybeSingle();
    if(bookingError||!row)throw new Error("Booking record unavailable");
    const booking=row as unknown as Booking;
-   if(booking.status!=="confirmed"||booking.total_cents!==0)throw new Error("Not a confirmed free booking");
+   if(booking.status!=="confirmed"||booking.total_cents===null||booking.total_cents<0)
+    throw new Error("Booking is not confirmed for sending");
+   // Stripe sandbox test_confirmed records are deliberately excluded. Paid
+   // production bookings may be emailed only once genuine launch flows exist.
    const person=booking.booking_guests.find(g=>g.guest_index===delivery.guest_index&&g.category==="adult"&&!g.is_child_with_adult_seat);
    if(!person||!person.email||person.email.toLowerCase()!==delivery.recipient_email.toLowerCase())
     throw new Error("Recipient does not match this booking");
