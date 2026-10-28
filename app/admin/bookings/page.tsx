@@ -52,11 +52,21 @@ function RealAdminBookingsPage(){
    router.replace("/admin/login");return;
   }
   setAllowed(true);
-  const {data,error:fetchError}=await supabase.from("bookings")
+  const current=await supabase.from("bookings")
    .select("id,event_id,booking_reference,status,created_at,cancelled_at,cancellation_reason,total_cents,currency,promo_code,confirmation_email_status,events(title,title_en,event_date),booking_items(id,ticket_name,category,quantity,unit_admission_cents),booking_guests(id,guest_index,category,full_name,email,phone,accompanying_adult_index,guardian_index,is_child_with_adult_seat,childcare_hours,childcare_price_cents,checked_in_at),booking_selections(id,table_label,seat_number,guest_index,price_cents)")
    .order("created_at",{ascending:false}).limit(250);
-  if(fetchError)throw fetchError;
-  setBookings((data??[]) as unknown as BookingRow[]);
+  if(current.error&&/guardian_index|is_child_with_adult_seat|childcare_hours|childcare_price_cents/i.test(current.error.message)){
+   // Safe during staged deployment: keep existing admin bookings available until
+   // the Yumorilnik-only family metadata migration has been applied.
+   const fallback=await supabase.from("bookings")
+    .select("id,event_id,booking_reference,status,created_at,cancelled_at,cancellation_reason,total_cents,currency,promo_code,confirmation_email_status,events(title,title_en,event_date),booking_items(id,ticket_name,category,quantity,unit_admission_cents),booking_guests(id,guest_index,category,full_name,email,phone,accompanying_adult_index,checked_in_at),booking_selections(id,table_label,seat_number,guest_index,price_cents)")
+    .order("created_at",{ascending:false}).limit(250);
+   if(fallback.error)throw fallback.error;
+   setBookings((fallback.data??[]) as unknown as BookingRow[]);
+  }else{
+   if(current.error)throw current.error;
+   setBookings((current.data??[]) as unknown as BookingRow[]);
+  }
  }
  useEffect(()=>{
   let active=true;
