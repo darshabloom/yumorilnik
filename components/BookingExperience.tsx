@@ -45,8 +45,10 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [savedReference,setSavedReference]=useState<string|null>(null);
  const requestId=useRef<string|null>(null);
  const realBookingsEnabled=process.env.NEXT_PUBLIC_REAL_BOOKINGS_ENABLED==="true";
- const localTestMode=process.env.NODE_ENV==="development"&&!realBookingsEnabled;
- const requestsEnabled=localTestMode||realBookingsEnabled;
+ const stripeSandboxEnabled=process.env.NEXT_PUBLIC_STRIPE_TEST_CHECKOUT_ENABLED==="true"&&
+   event.id===NEW_YEARS_2026_EVENT_ID;
+ const localTestMode=process.env.NODE_ENV==="development"&&!realBookingsEnabled&&!stripeSandboxEnabled;
+ const requestsEnabled=localTestMode||realBookingsEnabled||stripeSandboxEnabled;
  const language=useSiteLanguage();
  const en=language==="en";
  const nyeChildcare=event.id===NEW_YEARS_2026_EVENT_ID;
@@ -177,7 +179,9 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
   finally{setMarketingBusy(false)}
  }
  async function submitBookingRequest(){
-  if(!requestsEnabled||(!localTestMode&&!event.id)||!canReview||!bookingConsent||savingBooking||savedReference||(!localTestMode&&promoCode.trim()!=="TEST12"))return;
+  if(!requestsEnabled||(!localTestMode&&!event.id)||!canReview||!bookingConsent||savingBooking||savedReference||
+   (stripeSandboxEnabled&&pricingIncomplete)||
+   (!stripeSandboxEnabled&&!localTestMode&&promoCode.trim()!=="TEST12"))return;
   const idempotency=requestId.current??window.crypto.randomUUID();
   requestId.current=idempotency;
   setSavingBooking(true);setBookingError("");
@@ -221,6 +225,26 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
     adultSeatChildren,childcareHours,
     wholeTable:tableBooking,selectedKeys:mapSelections,seatAssignments,
    });
+   if(stripeSandboxEnabled){
+    // The server recomputes prices and promotions from Supabase. Client totals
+    // are only previews, never a trusted charge amount.
+    const response=await fetch("/api/checkout/test",{
+     method:"POST",headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({...payload,p_promo_code:promoCode.trim()||null}),
+    });
+    const result=await response.json() as {url?:string;state?:string;reference?:string;error?:string};
+    if(!response.ok)throw new Error(result.error??"Unable to prepare sandbox payment");
+    if(result.state==="test_confirmed"&&result.reference){
+     setSavedReference(result.reference);
+     setSavedStatus("confirmed");
+     return;
+    }
+    if(result.state!=="open"||!result.url||
+       new URL(result.url).hostname!=="checkout.stripe.com")
+     throw new Error("Stripe did not provide a secure test Checkout page");
+    window.location.assign(result.url);
+    return;
+   }
    const {data,error}=await supabase.rpc("submit_test12_booking",{...payload,p_promo_code:promoCode.trim()});
    if(error)throw error;
    const result=data as {reference?:unknown;status?:unknown;confirmation_email_status?:unknown}|null;
@@ -231,7 +255,8 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    if(marketingOptIn&&marketingRecipientIndex>=0)await saveOptionalMarketingConsent(idempotency);
   }catch(error){
    const detail=error instanceof Error?error.message:"Unknown error";
-   setBookingError(localTestMode?(en?`Could not save this test booking: ${detail}`:`Не удалось сохранить тестовую заявку: ${detail}`):
+   setBookingError(stripeSandboxEnabled?(en?`Sandbox checkout: ${detail}`:`Тестовая оплата: ${detail}`):
+    localTestMode?(en?`Could not save this test booking: ${detail}`:`Не удалось сохранить тестовую заявку: ${detail}`):
     (en?"The request could not be saved. Please try again or contact Marina.":"Не удалось сохранить заявку. Повторите попытку или свяжитесь с Мариной."));
   }finally{setSavingBooking(false)}
  }
