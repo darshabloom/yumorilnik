@@ -30,3 +30,10 @@ Status: **PARTIALLY COMPLETE — do not enable public sales**.
 - [x] www.matryoshka.nz CNAME resolves to cname.vercel-dns.com; Vercel reports misconfigured=false and project domain verified=true. Vercel has a 308 redirect to matryoshka.nz.
 - [ ] Verify Matryoshka public site loads over HTTPS from an unauthenticated browser and displays the intended release.
 - [ ] Generate and inspect PDF with Cyrillic names via organiser-only endpoint.
+
+## Production release update — 29 October 2026
+- [x] Matryoshka redesigned/event-menu branch `27415840b306b2442c2eaa87a51c1722599628b1` successfully deployed to production as `dpl_1BGeFAcxqsectbsTdJDKsueW3Uam`; `matryoshka.nz` and `www.matryoshka.nz` assigned and Vercel READY.
+- [ ] User to verify redesigned homepage in an incognito browser.
+- [ ] Yumorilnik Cyrillic PDF download runtime check still outstanding.
+- [ ] Phase B: audit live payment implementation before setting `NEXT_PUBLIC_REAL_BOOKINGS_ENABLED=true`; existing client `submit_test12_booking` RPC does not establish a production Stripe checkout flow.
+- [ ] Matryoshka production Stripe variables and cross-site order linking are not ready; do not enable food checkout.
