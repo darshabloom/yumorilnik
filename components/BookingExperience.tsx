@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {NEW_YEARS_2026_EVENT_ID,childcarePriceCents} from "@/lib/newYearsBooking";
 import {supabase} from "@/lib/supabaseClient";
 import {buildBookingSubmission} from "@/lib/bookingSubmission";
 import type {DemoBookingDraft} from "@/lib/localDemoBookings";
@@ -23,6 +24,11 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [guestInfo,setGuestInfo]=useState<Record<string,{name:string;email:string;phone:string}>>({});
  const [guestErrors,setGuestErrors]=useState(false);
  const [childParents,setChildParents]=useState<Record<string,string>>({});
+ const [adultSeatChildren,setAdultSeatChildren]=useState<Record<string,boolean>>({});
+ const [childcareHours,setChildcareHours]=useState<Record<string,string>>({});
+ const [accessChoice,setAccessChoice]=useState<"choose"|"guest"|"google">("choose");
+ const [accessBusy,setAccessBusy]=useState(false);
+ const [accessError,setAccessError]=useState("");
  const [seatAssignments,setSeatAssignments]=useState<Record<string,string>>({});
  const [activeSeatGuest,setActiveSeatGuest]=useState<string>("0");
  const [seatFeedback,setSeatFeedback]=useState("");
@@ -43,6 +49,18 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const requestsEnabled=localTestMode||realBookingsEnabled;
  const language=useSiteLanguage();
  const en=language==="en";
+ const nyeChildcare=event.id===NEW_YEARS_2026_EVENT_ID;
+ useEffect(()=>{
+  let active=true;
+  void supabase.auth.getUser().then(({data})=>{if(active&&data.user)setAccessChoice("google");}).catch(()=>{});
+  return()=>{active=false};
+ },[]);
+ async function chooseGoogle(){
+  setAccessBusy(true);setAccessError("");
+  const {error}=await supabase.auth.signInWithOAuth({provider:"google",
+   options:{redirectTo:`${window.location.origin}${window.location.pathname}`}});
+  if(error){setAccessError(error.message);setAccessBusy(false);}
+ }
  const tableBooking=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
  const seatedPricing=event.seating_mode!=="general_admission";
  const seatingMode=tableBooking?"whole_table":"individual_seats";
@@ -67,16 +85,20 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  }
  const count=tickets.reduce((total,t)=>total+(quantities[t.id]??0),0);
  const party=partyCounts(tickets.map(t=>({name:t.name,quantity:quantities[t.id]??0})));
- const admissionTotal=admissionTotalForEventCents(event.seating_mode,tickets.map(t=>({name:t.name,price_cents:t.price_cents,quantity:quantities[t.id]??0})));
- const ticketTotal=admissionTotal??0;
  const adultTicketCount=party.adults;
  const childTicketCount=party.children;
+ const baseAdmissionTotal=admissionTotalForEventCents(event.seating_mode,tickets.map(t=>({name:t.name,price_cents:t.price_cents,quantity:quantities[t.id]??0})));
+ const childBaseAdmission=tickets.filter(t=>classifyTicket(t.name)==="child").reduce((sum,t)=>sum+t.price_cents*(quantities[t.id]??0),0);
+ const childHoursTotal=Array.from({length:childTicketCount},(_,i)=>childcarePriceCents(childcareHours[String(adultTicketCount+i)]==="6"?"6":"3")).reduce((sum,p)=>sum+p,0);
+ const admissionTotal=baseAdmissionTotal===null?null:nyeChildcare?baseAdmissionTotal-childBaseAdmission+childHoursTotal:baseAdmissionTotal;
+ const ticketTotal=admissionTotal??0;
  const seatsStillNeeded=!tableBooking&&seatedPricing?Math.max(0,adultTicketCount-reservedAdultSeats(adultTicketCount,seatAssignments)):0;
  const selectedSeatPrice=(key:string)=>{const table=venue?.tables.find(t=>t.id===key.split(":")[0]);return tablePlacePriceCents(table);};
  const seatTotal=!tableBooking?mapSelections.reduce((sum,key)=>sum+(selectedSeatPrice(key)??0),0):0;
 
  const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&mapSelections.length>adultTicketCount;
- const guestProblems=guestValidationProblems(adultTicketCount,childTicketCount,guestInfo,childParents);
+ const guestProblems=guestValidationProblems(adultTicketCount,childTicketCount,guestInfo,childParents,
+  {adultSeatChildren,childcareHours,requireChildcareHours:nyeChildcare});
  const guestDetailsComplete=guestProblems.length===0;
  const selectedPrices=mapSelections.map(key=>tableBooking?venue?.tables.find(t=>t.id===key)?.table_price_cents??null:selectedSeatPrice(key));
  const ticketPricesInvalid=admissionTotal===null;
@@ -106,6 +128,8 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    setQuantities(prev=>({...prev,[ticket.id]:next}));
    setGuestInfo({});
    setChildParents({});
+   setAdultSeatChildren({});
+   setChildcareHours({});
    setGuestErrors(false);
    setMapSelections([]);
    setSeatAssignments({});
