@@ -135,14 +135,43 @@ function RealAdminBookingsPage(){
    </div>
    {error&&<p role="alert" className="rounded-lg bg-red-100 p-4 text-red-800">{error}</p>}
    {message&&<p role="status" className="rounded-lg bg-green-100 p-4 text-green-900">{message}</p>}
-   <div className="grid gap-3 rounded-xl border border-black/10 bg-white p-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">
-    <label className="block text-sm font-bold">{en?"Search reference, event, guest or contact":"Поиск по номеру, мероприятию, гостю или контакту"}
+   <section className="grid gap-3 sm:grid-cols-3" aria-label={en?"Booking status overview":"Сводка броней"}>
+    <div className="rounded-xl border border-black/15 bg-white p-4"><p className="text-sm text-gray-700">{en?"Real confirmed bookings":"Настоящие подтверждённые брони"}</p><p className="text-3xl font-black">{totals.confirmed}</p></div>
+    <div className="rounded-xl border border-orange-300 bg-orange-50 p-4"><p className="text-sm text-gray-700">{en?"Sandbox test bookings (not tickets)":"Тестовые брони (не билеты)"}</p><p className="text-3xl font-black">{totals.sandbox}</p></div>
+    <div className="rounded-xl border border-black/15 bg-white p-4"><p className="text-sm text-gray-700">{en?"Pending requests":"Заявки без подтверждения"}</p><p className="text-3xl font-black">{totals.awaiting}</p></div>
+   </section>
+   <div className="grid gap-3 rounded-xl border border-black/10 bg-white p-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] xl:items-end">
+    <label className="block text-sm font-bold">{en?"Search reference, guest or contact":"Поиск по номеру, гостю или контакту"}
      <input value={search} onChange={e=>setSearch(e.target.value)} type="search" className="mt-2 h-12 w-full rounded-lg border border-black/30 px-3 text-base" placeholder={en?"Search bookings":"Поиск заявок"}/>
     </label>
-    <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={showCancelled} onChange={e=>setShowCancelled(e.target.checked)} className="h-5 w-5"/>{en?"Show cancelled":"Показать отменённые"}</label>
-    <button type="button" onClick={()=>{setLoading(true);setError("");void load().catch(err=>setError(err instanceof Error?err.message:"Unable to reload")).finally(()=>setLoading(false));}} className="min-h-12 rounded-lg border border-black px-4 font-semibold">{en?"Refresh":"Обновить"}</button>
+    <label className="block text-sm font-bold">{en?"Event":"Мероприятие"}
+     <select value={eventFilter} onChange={e=>setEventFilter(e.target.value)} className="mt-2 h-12 w-full rounded-lg border border-black/30 bg-white px-3"><option value="all">{en?"All events":"Все мероприятия"}</option>{eventChoices.map(e=><option value={e.id} key={e.id}>{e.title}</option>)}</select>
+    </label>
+    <label className="block text-sm font-bold">{en?"Status":"Статус"}
+     <select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="mt-2 h-12 w-full rounded-lg border border-black/30 bg-white px-3">
+      <option value="all">{en?"All statuses":"Все статусы"}</option>
+      <option value="confirmed">{en?"Confirmed · real":"Подтверждённые · настоящие"}</option>
+      <option value="test_confirmed">{en?"Sandbox tests":"Тестовые брони"}</option>
+      <option value="requested">{en?"Pending":"Ожидают подтверждения"}</option>
+      <option value="cancelled">{en?"Cancelled":"Отменённые"}</option>
+     </select>
+    </label>
+    <div className="flex flex-wrap items-center gap-3">
+     <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={showCancelled} onChange={e=>setShowCancelled(e.target.checked||statusFilter==="cancelled")} className="h-5 w-5"/>{en?"Show cancelled":"Показать отменённые"}</label>
+     <button type="button" onClick={()=>{setLoading(true);setError("");void load().catch(err=>setError(err instanceof Error?err.message:"Unable to reload")).finally(()=>setLoading(false));}} className="min-h-12 rounded-lg border border-black px-4 font-semibold">{en?"Refresh":"Обновить"}</button>
+    </div>
    </div>
-   <p className="text-sm text-gray-600">{visible.length} {en?"requests shown (latest 250 loaded)":"заявок показано (загружены последние 250)"}</p>
+   <p className="text-sm text-gray-600">{visible.length} {en?"bookings shown from the latest 250 records":"броней показано из последних 250 записей"}</p>
+   <details className="rounded-xl border border-black/15 bg-white p-4">
+    <summary className="cursor-pointer font-bold">{en?"Seat allocation overview":"Обзор рассадки"} · {allocatedSeats.length} {en?"assigned seats":"закреплённых мест"}</summary>
+    <p className="mt-2 text-sm text-gray-700">{en?"Shows assigned seats in the filtered, loaded bookings. Sandbox bookings are labelled TEST and are not valid tickets. This is not a live venue availability map.":"Показаны закреплённые места из загруженных броней с учётом фильтров. Тестовые брони помечены «ТЕСТ» и не являются действительными билетами. Это не карта доступности мест в реальном времени."}</p>
+    {allocatedSeats.length===0?<p className="mt-3 text-sm">{en?"No assigned seats for the selected filters.":"Нет закреплённых мест по выбранным фильтрам."}</p>:<div className="mt-3 grid max-h-80 gap-2 overflow-y-auto sm:grid-cols-2">
+     {allocatedSeats.map(s=><div key={s.key} className="rounded-lg border border-black/15 p-3 text-sm">
+      <p className="font-bold">{en?"Table":"Стол"} {s.table} · {en?"Seat":"Место"} {s.seat} {s.isSandbox&&<span className="ml-1 rounded bg-orange-100 px-2 py-1 text-xs">{en?"TEST":"ТЕСТ"}</span>}</p>
+      <p>{s.guest}</p><p className="font-mono text-xs text-gray-600">{s.reference}</p>
+     </div>)}
+    </div>}
+   </details>
    {visible.length===0?<div className="rounded-xl bg-white p-8 text-center text-gray-700">{en?"No matching booking requests.":"Подходящих заявок нет."}</div>:<div className="grid gap-3">
     {visible.map(booking=>{
      const adults=booking.booking_guests.filter(g=>g.category==="adult").length;
@@ -183,8 +212,15 @@ function RealAdminBookingsPage(){
          </div>;
         })}</div>
        </section>
-       <section><h3 className="font-bold">{en?"Selected tables / places":"Выбранные столы / места"}</h3>
-        {booking.booking_selections.length===0?<p className="text-sm text-gray-600">{en?"General admission, no reserved places":"Без закреплённых мест"}</p>:booking.booking_selections.map(s=><p key={s.id} className="mt-2 text-sm">{s.table_label}{s.seat_number!==null?` · ${en?"seat":"место"} ${s.seat_number}`:""} · {money(s.price_cents,booking.currency,en)}</p>)}
+       <section><h3 className="font-bold">{en?"Seat allocations by guest":"Рассадка по гостям"}</h3>
+        {booking.booking_selections.length===0?<p className="text-sm text-gray-600">{en?"General admission, no reserved places":"Без закреплённых мест"}</p>:<div className="mt-2 grid gap-2 sm:grid-cols-2">{booking.booking_selections.map(s=>{
+         const seatedGuest=booking.booking_guests.find(g=>g.guest_index===s.guest_index);
+         return <p key={s.id} className="rounded-lg border border-black/10 p-3 text-sm">
+          <strong>{en?"Table":"Стол"} {s.table_label}{s.seat_number!==null?` · ${en?"Seat":"Место"} ${s.seat_number}`:""}</strong>
+          <span className="block">{seatedGuest?.full_name??(en?"Unassigned":"Не назначено")}</span>
+          <span className="block text-gray-600">{money(s.price_cents,booking.currency,en)}</span>
+         </p>;
+        })}</div>}
        </section>
        {booking.status==="cancelled"?<p className="rounded bg-red-50 p-3 text-sm">{en?"Cancelled":"Отменена"}: {booking.cancellation_reason??"—"}</p>:<div className="space-y-3">
         {confirmingId!==booking.id?<button type="button" onClick={()=>{setConfirmingId(booking.id);setReason("");}} className="min-h-11 rounded-lg border border-red-700 px-4 font-bold text-red-800">{en?"Cancel / remove from active list":"Отменить / убрать из активных"}</button>:<div className="max-w-xl rounded-lg border border-red-400 bg-red-50 p-4">
