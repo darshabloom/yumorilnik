@@ -11,7 +11,7 @@ export function partyCounts(tickets:{name:string;quantity:number}[]):PartyCounts
 export function canStartBooking(counts:PartyCounts):boolean{
  return counts.adults+counts.children>0&&counts.other===0&&(counts.children===0||counts.adults>0);
 }
-export type GuestField="name"|"email"|"phone"|"parent";
+export type GuestField="name"|"email"|"phone"|"parent"|"duration";
 export type GuestValidationProblem={guestIndex:number;field:GuestField};
 
 /** Return each actual missing field rather than showing a generic error after
@@ -21,6 +21,11 @@ export function guestValidationProblems(
  children:number,
  guestInfo:Record<string,{name:string;email:string;phone:string}>,
  parents:Record<string,string>,
+ options?:{
+  adultSeatChildren?:Record<string,boolean>;
+  childcareHours?:Record<string,string>;
+  requireChildcareHours?:boolean;
+ },
 ):GuestValidationProblem[]{
  const result:GuestValidationProblem[]=[];
  if(!Number.isInteger(adults)||!Number.isInteger(children)||adults<0||children<0||adults+children<=0){
@@ -29,13 +34,19 @@ export function guestValidationProblems(
  for(let i=0;i<adults+children;i++){
   const guest=guestInfo[String(i)];
   if(!guest?.name.trim())result.push({guestIndex:i,field:"name"});
-  if(i<adults){
+  const markedChild=i<adults&&options?.adultSeatChildren?.[String(i)]===true;
+  if(i<adults&&!markedChild){
    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guest?.email.trim()??""))result.push({guestIndex:i,field:"email"});
    if(!(guest?.phone.trim()))result.push({guestIndex:i,field:"phone"});
   }else{
    const raw=parents[String(i)];
-   if(raw===undefined||raw===""||!Number.isInteger(Number(raw))||Number(raw)<0||Number(raw)>=adults){
+   if(raw===undefined||raw===""||!Number.isInteger(Number(raw))||Number(raw)<0||Number(raw)>=adults||
+      (markedChild&&Number(raw)===i)||options?.adultSeatChildren?.[raw]===true){
     result.push({guestIndex:i,field:"parent"});
+   }
+   if(i>=adults&&options?.requireChildcareHours&&
+     !["3","6"].includes(options.childcareHours?.[String(i)]??"")){
+    result.push({guestIndex:i,field:"duration"});
    }
   }
  }
