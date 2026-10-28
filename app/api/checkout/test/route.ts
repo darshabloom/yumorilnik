@@ -1,5 +1,5 @@
 import {NextRequest,NextResponse} from "next/server";
-import {checkoutSiteOrigin,NYE_EVENT_ID,stripeCall,testCheckoutEnabled,testEmailAllowed,testAccessCodeAllowed,testServices,type StripeTestSession} from "@/lib/stripeTestCheckout";
+import {checkoutSiteOrigin,assertYumorilnikStripeAccount,NYE_EVENT_ID,stripeCall,testCheckoutEnabled,testEmailAllowed,testAccessCodeAllowed,testServices,type StripeTestSession} from "@/lib/stripeTestCheckout";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const json=(value:unknown,status=200)=>NextResponse.json(value,{status,headers:{"Cache-Control":"no-store"}});
@@ -57,6 +57,8 @@ export async function POST(request:NextRequest){
  let db:ReturnType<typeof testServices>["db"];
  try{({stripe,db}=testServices())}
  catch{return json({error:"Yumorilnik sandbox credentials are not fully configured"},503)}
+ try{await assertYumorilnikStripeAccount(stripe)}
+ catch{return json({error:"Separate Yumorilnik Stripe test account is not configured"},503)}
  const {data,error}=await db.rpc("prepare_test_checkout",{
   p_event_id:body.p_event_id,p_client_request_id:body.p_client_request_id,
   p_tickets:body.p_tickets,p_guests:body.p_guests,p_selections:body.p_selections,
