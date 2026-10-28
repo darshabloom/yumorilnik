@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
+import {NEW_YEARS_2026_EVENT_ID} from "@/lib/newYearsBooking";
 
 type Event = {id:string;slug:string;title:string;image_url:string|null;booking_image_url:string|null;booking_image_fit:string;booking_image_position_x:number;booking_image_position_y:number;seating_mode:string;table_booking_mode:string;adult_seat_required:boolean;pricing_model:string;child_unseated_price_cents:number};
 type Ticket = {id:string;event_id:string;name:string;description:string|null;price_cents:number;currency:string;quantity_total:number;quantity_sold:number;is_active:boolean;show_remaining:boolean};
@@ -160,6 +161,7 @@ export default function TicketEditor(){
    </div>
    <div className="px-5 py-8 sm:px-10 lg:px-[6vw]">
      <h1 className="text-3xl font-black sm:text-5xl">{event.title}</h1>
+     {event.id===NEW_YEARS_2026_EVENT_ID&&<p className="mt-5 rounded-lg border border-amber-400 bg-amber-50 p-4 text-sm">{en?"For this event, the Child ticket base price NZ$30 covers 3 hours of childcare. Customers select 3 hours (NZ$30) or 6 hours (NZ$60) per child in guest details. Children with adult-priced table seats pay only the table price. Do not create another Child ticket type for 6 hours.":"Для этого мероприятия детский билет NZ$30 включает 3 часа присмотра. В данных гостей выбирают 3 часа (NZ$30) или 6 часов (NZ$60). Для ребёнка с местом по взрослому тарифу оплачивается только место. Не создавайте отдельный детский билет на 6 часов."}</p>}
      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
        <section>
          <div className="mb-5 flex items-center justify-between gap-3">
