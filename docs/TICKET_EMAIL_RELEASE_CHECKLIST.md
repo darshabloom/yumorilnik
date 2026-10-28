@@ -11,8 +11,8 @@ Status: **staged in GitHub, not deployed**. Do not enable live bookings or autom
 - Test email attachments are always marked invalid and have no admission QR.
 
 ## Known blockers before a deployment
-1. Update `package-lock.json` after adding `pdf-lib`, `qrcode`, and `@types/qrcode`. Run `npm install` and commit the updated lockfile.
-2. Add a licensed Unicode TTF/OTF font (with Cyrillic glyphs), register it with `@pdf-lib/fontkit`, and embed it in `lib/ticketPdf.ts`. Current Helvetica implementation substitutes non-ASCII names with question marks; not acceptable for real Russian-language tickets.
+1. GitHub Actions now generates a reconciled lockfile artifact. Download, review and commit the actual `package-lock.json`; it has not been committed yet.
+2. Noto Sans Unicode embedding has been added via a build-time font download and `@pdf-lib/fontkit`; confirm the downloaded asset is included in both serverless functions and that a rendered Cyrillic sample is legible.
 3. Run `npm ci && npm run build`, plus PDF generation regression tests.
 4. Test organiser-only email PDF delivery in Resend with a sandbox booking.
 5. Verify QR check-in with a real confirmed fixture, a duplicate scan, wrong-event code, forged code and forbidden role. Do not use sandbox bookings to issue admission codes.
@@ -29,3 +29,8 @@ Status: **staged in GitHub, not deployed**. Do not enable live bookings or autom
 
 ## Live safety switches
 `NEXT_PUBLIC_REAL_BOOKINGS_ENABLED=false` and `BOOKING_EMAILS_ENABLED=false` in production. Confirm both before every deployment.
+
+## Recent GitHub-only work
+- Added `@pdf-lib/fontkit`, a Noto Sans font preparation script, and Next.js server file tracing for PDF functions.
+- Organiser-only test confirmation emails attach a sample PDF without an admission QR credential.
+- `.github/workflows/ticket-release-validation.yml` attempts a build and uploads the updated lockfile; does not deploy or push lockfile changes.
