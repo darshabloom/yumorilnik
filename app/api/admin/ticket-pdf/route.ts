@@ -1,0 +1,24 @@
+import {NextRequest,NextResponse} from "next/server";
+import {createClient} from "@supabase/supabase-js";
+import {createTicketPdf} from "@/lib/ticketPdf";
+export const runtime="nodejs";export const dynamic="force-dynamic";
+export async function GET(req:NextRequest){
+ const token=req.headers.get("authorization")?.match(/^Bearer (.+)$/)?.[1];if(!token)return NextResponse.json({error:"Unauthorised"},{status:401});
+ const url=process.env.NEXT_PUBLIC_SUPABASE_URL,pub=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,secret=process.env.SUPABASE_SECRET_KEY??process.env.SUPABASE_SERVICE_ROLE_KEY;
+ if(!url||!pub||!secret)return NextResponse.json({error:"Not configured"},{status:503});
+ const userDb=createClient(url,pub,{auth:{persistSession:false,autoRefreshToken:false}});
+ const {data:{user}}=await userDb.auth.getUser(token);if(!user)return NextResponse.json({error:"Sign in required"},{status:401});
+ const db=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
+ const {data:role}=await db.from("admin_users").select("role").eq("user_id",user.id).maybeSingle();
+ if(!role||!["owner","admin"].includes(role.role))return NextResponse.json({error:"Organiser access required"},{status:403});
+ const id=req.nextUrl.searchParams.get("bookingId");
+ if(!id||! /^[0-9a-f-]{36}$/i.test(id))return NextResponse.json({error:"Invalid booking"},{status:400});
+ const {data:booking,error}=await db.from("bookings").select("id,booking_reference,status,events(title,event_date,event_time,location),booking_guests(guest_index,full_name,category,is_child_with_adult_seat,childcare_hours),booking_selections(guest_index,table_label,seat_number)").eq("id",id).maybeSingle();
+ if(error||!booking)return NextResponse.json({error:"Booking not found"},{status:404});
+ if(!["confirmed","test_confirmed"].includes(booking.status))return NextResponse.json({error:"Only confirmed or sandbox paid bookings may be previewed"},{status:409});
+ try{
+  const event=booking.events as unknown as {title:string;event_date:string;event_time:string|null;location:string|null};
+  const buffer=await createTicketPdf({bookingId:booking.id,reference:booking.booking_reference,event,guests:booking.booking_guests??[],seats:booking.booking_selections??[],isTest:booking.status!=="confirmed"});
+  return new NextResponse(new Uint8Array(buffer),{headers:{"Content-Type":"application/pdf","Content-Disposition":"attachment; filename=\"yumorilnik-tickets.pdf\"","Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
+ }catch{return NextResponse.json({error:"Ticket PDF generation failed"},{status:503})}
+}
