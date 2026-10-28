@@ -1,5 +1,5 @@
 import {NextRequest,NextResponse} from "next/server";
-import {NYE_EVENT_ID,stripeCall,testCheckoutEnabled,testServices,validatePaidSession,verifyStripeSignature,type StripeTestSession} from "@/lib/stripeTestCheckout";
+import {NYE_EVENT_ID,assertYumorilnikStripeAccount,stripeCall,testCheckoutEnabled,testServices,validatePaidSession,verifyStripeSignature,type StripeTestSession} from "@/lib/stripeTestCheckout";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const reply=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"no-store"}});
@@ -26,6 +26,7 @@ export async function POST(request:NextRequest){
   return reply({received:true,ignored:true});
  try{
   const {db,stripe}=testServices();
+  await assertYumorilnikStripeAccount(stripe);
   const session=await stripeCall<StripeTestSession>(
    stripe,"GET","checkout/sessions/"+encodeURIComponent(sessionObject.id));
   const bookingId=session.metadata?.booking_id, eventId=session.metadata?.event_id;
