@@ -20,14 +20,14 @@ export async function POST(request:NextRequest){
  // Stripe sends other events too. They are always acknowledged but cannot confirm bookings.
  if(!["checkout.session.completed","checkout.session.expired","checkout.session.async_payment_succeeded"].includes(event.type))
   return reply({received:true,ignored:true});
- if(event.livemode||event.data?.object?.object!=="checkout.session"||
-     typeof event.data.object.id!=="string"||
-     !event.data.object.id.startsWith("cs_test_"))
+ const sessionObject=event.data?.object;
+ if(event.livemode||sessionObject?.object!=="checkout.session"||
+    typeof sessionObject.id!=="string"||!sessionObject.id.startsWith("cs_test_"))
   return reply({received:true,ignored:true});
  try{
   const {db,stripe}=testServices();
   const session=await stripeCall<StripeTestSession>(
-   stripe,"GET","checkout/sessions/"+encodeURIComponent(event.data.object.id));
+   stripe,"GET","checkout/sessions/"+encodeURIComponent(sessionObject.id));
   const bookingId=session.metadata?.booking_id, eventId=session.metadata?.event_id;
   if(!bookingId||eventId!==NYE_EVENT_ID||session.livemode)
    return reply({received:true,ignored:true});
