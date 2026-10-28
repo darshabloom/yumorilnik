@@ -39,10 +39,10 @@ returns boolean language sql security definer set search_path='' as $body$
     and (taken.seat_number is null or mine.seat_number is null
       or taken.seat_number=mine.seat_number)
   join public.bookings competing on competing.id=taken.booking_id and competing.event_id=p_event_id
-  left join public.booking_test_checkouts hold on hold.booking_id=competing.id
+  left join public.booking_test_checkouts other_hold on other_hold.booking_id=competing.id
   where mine.booking_id=p_booking_id and
    (competing.status in ('confirmed','test_confirmed')
-      or hold.state in ('creating','open'))
+      or other_hold.state in ('creating','open'))
  )
  and not exists(
   select 1 from public.booking_items mine
@@ -198,6 +198,9 @@ begin
  end if;
 
  v_due:=v_booking.total_cents-v_discount;
+ if v_due>0 and v_due<50 then
+  raise exception 'Discounted amount is below the Stripe minimum of NZD 0.50'
+   using errcode='22023';end if;
  update public.bookings set original_total_cents=v_booking.total_cents,
   total_cents=v_due,promo_code=v_code where id=v_booking.id;
 
@@ -350,3 +353,27 @@ begin
  return v_updated=1;
 end;$body$;
 -- Keep existing authenticated public.cancel_booking wrapper unchanged.
+
+-- Recovery of an unbound hold is allowed only after Stripe's maximum configured
+-- session lifetime plus a conservative grace period, never by client cancellation.
+create or replace function public.abandon_unbound_test_checkout(p_booking_id uuid)
+returns boolean language plpgsql security definer set search_path='' as $body$
+declare v_event uuid;v_changed integer;
+begin
+ select event_id into v_event from public.booking_test_checkouts where booking_id=p_booking_id;
+ if v_event is null then return false;end if;
+ perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_event::text,0));
+ update public.booking_test_checkouts set state='expired',
+  updated_at=now(),review_reason='Unbound sandbox session timed out after grace period'
+ where booking_id=p_booking_id and state='creating'
+   and stripe_session_id is null and created_at<now()-interval '90 minutes';
+ get diagnostics v_changed=row_count;
+ if v_changed=1 then
+  update public.bookings set status='cancelled',cancelled_at=now(),
+   cancellation_reason='Unbound Stripe sandbox Checkout timed out'
+  where id=p_booking_id and status='requested';
+ end if;
+ return v_changed=1;
+end;$body$;
+revoke all on function public.abandon_unbound_test_checkout(uuid) from public,anon,authenticated;
+grant execute on function public.abandon_unbound_test_checkout(uuid) to service_role;
