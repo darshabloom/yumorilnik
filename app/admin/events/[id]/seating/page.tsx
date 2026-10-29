@@ -7,6 +7,7 @@ import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import {VenueLines, type VenueFeature, type Point} from "@/components/VenueLines";
 import CustomerVenueMap from "@/components/CustomerVenueMap";
 import {type PriceZone,zonePoints,zoneForTable,} from "@/lib/priceZones";
+import {seatAxisPosition} from "@/lib/seatingSeatSpacing";
 
 type TableItem={id:string;event_id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id:string|null;is_active:boolean;shape:string;seat_gap_top?:number;seat_gap_right?:number;seat_gap_bottom?:number;seat_gap_left?:number};
 type EventItem={id:string;title:string;seating_mode:string;table_booking_mode:string};
@@ -17,10 +18,6 @@ function compactTableSize(t:TableItem){
  const pitch=14, padding=20, thickness=22;
  return {width:Math.max(thickness,Math.max(0,Math.max(t.seats_top,t.seats_bottom)-1)*pitch+padding),
          height:Math.max(thickness,Math.max(0,Math.max(t.seats_left,t.seats_right)-1)*pitch+padding)};
-}
-function seatAxisPosition(length:number,count:number,index:number){
- // Spread chairs along the ACTUAL table, with symmetric end padding.
- return count<=1?length/2:8+(length-16)*index/(count-1);
 }
 function shortTableLabel(label:string){return label.replace(/^Table\s+/i,"").replace(/^Стол\s+/i,"")||label;}
 
