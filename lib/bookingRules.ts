@@ -41,7 +41,7 @@ export function guestValidationProblems(
    if(!(guest?.phone.trim()))result.push({guestIndex:i,field:"phone"});
   }else{
    const ageRaw=options?.childAges?.[String(i)]??"";
-   if(!/^\d{1,2}$/.test(ageRaw)||Number(ageRaw)>17)result.push({guestIndex:i,field:"age"});
+   if(options?.childAges && (!/^\d{1,2}$/.test(ageRaw)||Number(ageRaw)>17))result.push({guestIndex:i,field:"age"});
    const raw=parents[String(i)];
    if(raw===undefined||raw===""||!Number.isInteger(Number(raw))||Number(raw)<0||Number(raw)>=adults||
       (markedChild&&Number(raw)===i)||options?.adultSeatChildren?.[raw]===true){
