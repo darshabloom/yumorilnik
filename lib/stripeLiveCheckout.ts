@@ -1,7 +1,9 @@
 import {createClient} from "@supabase/supabase-js";
 import {NYE_EVENT_ID,stripeCall,checkoutSiteOrigin,verifyStripeSignature,type StripeTestSession} from "@/lib/stripeTestCheckout";
 export {NYE_EVENT_ID,stripeCall,checkoutSiteOrigin,verifyStripeSignature};
-export type StripeLiveSession=StripeTestSession;
+export type StripeLiveSession=Omit<StripeTestSession,"metadata">&{
+ metadata:({booking_id?:string;event_id?:string;reference?:string;site?:string;payment_kind?:string})|null;
+};
 const projectRef="vzzabkviwyarrdkevqco";
 export function liveConfigured(){
  return process.env.STRIPE_LIVE_CHECKOUT_ENABLED==="true"&&
@@ -28,5 +30,6 @@ export function validateLivePaidSession(s:StripeLiveSession,bookingId:string,eve
   s.status==="complete"&&s.payment_status==="paid"&&s.currency==="nzd"&&
   Number.isSafeInteger(s.amount_total)&&Number(s.amount_total)>0&&
   !!s.payment_intent?.startsWith("pi_")&&s.client_reference_id===bookingId&&
-  s.metadata?.booking_id===bookingId&&s.metadata?.event_id===eventId;
+  s.metadata?.booking_id===bookingId&&s.metadata?.event_id===eventId&&
+  s.metadata?.site==="yumorilnik"&&s.metadata?.payment_kind==="event_ticket";
 }
