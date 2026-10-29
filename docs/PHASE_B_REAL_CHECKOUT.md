@@ -105,3 +105,11 @@ ORDER BY table_name;
 - Live holds deliberately remain blocking until explicitly expired/closed, even if timestamp passed, to prevent sold seats being offered while payment may be completing; expiry reconciliation remains launch gate.
 - Step 2 script grants execute only to service_role on shared function and retains test checker signature/privileges, and includes read-only verification (expected true,true,false,false,true,true,0).
 - **Not yet applied or verified by user**. Never turn on live payment flags until live RPCs + actual payment, cancellation/refund and email delivery verification.
+
+## 29 October — Step 2 verified; Step 3 SQL ready for organiser to apply
+- Step 2 SQL verification returned: shared_check_exists=true, sandbox_check_exists=true, anon_can_execute=false, authenticated_can_execute=false, service_can_execute=true, live_table_rls_enabled=true, live_rows=0.
+- Step 3 migration prepared at `docs/PHASE_B_STEP3_LIVE_CHECKOUT_RPCS.sql` using verbatim **test checkout RPC SQL** previously supplied in user export to preserve schema, canonical family pricing, seat holds and promotion rules. **NOT APPLIED YET**.
+- It adds service-role-only functions: prepare_live_checkout, bind_live_checkout_session, complete_live_checkout_session, expire_live_checkout_session, abandon_unbound_live_checkout. Successful paid confirmation transitions requested→confirmed, paid state, and increments eligible live promo times_used exactly once; discrepancies transition to needs_review without issuing a confirmed booking.
+- Preparation calculates seat and childcare total server-side, applies capped eligible promo discounts, refuses old TEST12, refuses free and <NZD 0.50 live checkout, and checks shared cross-channel seat/stock inventory with event advisory lock.
+- SQL file reviewed statically: five SECURITY DEFINER functions, five explicit revoke/grant pairs, one transaction, required references and existing routes' matching signatures. **Actual Postgres execution/behavior, Stripe key permissions, paid/expired races, fulfilment and refunds UNVERIFIED**.
+- Next: organiser runs Step 3 in Yumorilnik SQL Editor, returns per-function permission/definer verification table. Afterward implement fail-closed Stripe key capability validation and idempotent ticket fulfilment, and exercise controlled non-production integration paths before live money.
