@@ -17,10 +17,11 @@ function seatPositions(table:PublicTable):Seat[]{
  const output:Seat[]=[];
  const sides=[{side:"top",n:table.seats_top},{side:"right",n:table.seats_right},{side:"bottom",n:table.seats_bottom},{side:"left",n:table.seats_left}];
  for(const {side,n} of sides)for(let i=0;i<n;i++){
-  const pitch=14,span=Math.max(0,n-1)*pitch,index=output.length+1;
+  const index=output.length+1;
+  const axis=(length:number)=>n<=1?length/2:8+(length-16)*i/(n-1);
   output.push({key:table.id+":"+index,label:String(index),tableId:table.id,
-   x:side==="top"||side==="bottom"?(table.width-span)/2+i*pitch:side==="left"?-SEAT_DISTANCE:table.width+SEAT_DISTANCE,
-   y:side==="left"||side==="right"?(table.height-span)/2+i*pitch:side==="top"?-SEAT_DISTANCE:table.height+SEAT_DISTANCE});
+   x:side==="top"||side==="bottom"?axis(table.width):side==="left"?-SEAT_DISTANCE:table.width+SEAT_DISTANCE,
+   y:side==="left"||side==="right"?axis(table.height):side==="top"?-SEAT_DISTANCE:table.height+SEAT_DISTANCE});
  }
  return output;
 }
