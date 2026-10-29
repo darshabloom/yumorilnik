@@ -142,6 +142,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
   gesture.current={x:view.x,y:view.y,w:view.w,h:view.h,cx:(p.cx-rect.left)/rect.width,cy:(p.cy-rect.top)/rect.height,distance:p.distance};
  }
  const money=(cents:number)=>new Intl.NumberFormat("en-NZ",{style:"currency",currency:"NZD"}).format(cents/100);
+ const tablesNeedPriceSync=tables.some(t=>t.is_active&&mode==="individual_seats"&&t.seat_price_cents===null&&!!zoneForTable(t,zones));
  const tablePriceGroups=useMemo(()=>{
   const groups=new Map<string,{price:number|null;labels:string[]}>();
   for(const table of tables.filter(t=>t.is_active)){
@@ -166,8 +167,8 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
     <h3 className="font-bold">{en?"Seating price guide (NZD)":"Стоимость мест (NZD)"}</h3>
     <p className="mt-1 text-sm text-gray-600">{mode==="individual_seats"?(en?"Prices are per numbered seat, not per whole table.":"Цены указаны за одно пронумерованное место, а не за весь стол."):(en?"Prices are per whole table.":"Цены указаны за стол целиком.")}</p>
     {zones.length>0&&<div className="mt-3 flex flex-wrap gap-3">{zones.map(z=><div key={z.id} className="flex items-center gap-2 text-sm"><span className="h-4 w-4 shrink-0 rounded border border-black/20" style={{backgroundColor:z.color}}/><span>{z.name}: <strong>{money(z.price_cents)}</strong></span></div>)}</div>}
-    <div className="mt-3 grid gap-2 sm:grid-cols-2">{tablePriceGroups.map(group=><div key={group.price??"unset"} className="rounded-lg border border-black/10 bg-[#fff8f1] px-3 py-2 text-sm"><strong>{group.price===null?(en?"Price not set":"Цена не указана"):money(group.price)}</strong><span className="ml-2 text-gray-700">{en?"Tables":"Столы"} {group.labels.join(", ")}</span></div>)}</div>
-    <p className="mt-2 text-xs text-gray-600">{en?"Table-specific prices shown above are used for checkout; zone colours help identify sections.":"При оформлении заказа применяются цены конкретных столов, указанные выше. Цвета показывают зоны зала."}</p>
+    <div className="mt-3 grid gap-2 sm:grid-cols-2">{tablePriceGroups.map(group=><div key={group.price??"unset"} className="rounded-lg border border-black/10 bg-[#fff8f1] px-3 py-2 text-sm"><strong>{group.price===null?(en?"Price not set":"Цена не указана"):money(group.price)}</strong><span className="ml-2 text-gray-700"> · {group.labels.join(", ")}</span></div>)}</div>
+    <p className="mt-2 text-xs text-gray-600">{tablesNeedPriceSync?(en?"Zone prices are shown for reference, but the organiser still needs to apply them to tables before checkout is available.":"Цены зон показаны для справки, но перед оплатой организатор должен применить их к столам."):en?"These saved seat prices are used for checkout; zone colours identify sections.":"Сохранённые цены мест используются при оплате; цвета показывают зоны зала."}</p>
    </section>
    <div className="grid items-start gap-4">
    <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#F6F5F1]":"relative h-[48svh] min-h-[310px] overflow-hidden rounded-xl border border-black/15 bg-[#F6F5F1] lg:h-[min(78vh,880px)]"}>
