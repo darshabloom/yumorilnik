@@ -91,3 +91,10 @@ ORDER BY table_name;
 - Staged `docs/PHASE_B_LIVE_SCHEMA_DRAFT.sql`; it is NOT an approved or applied migration and lacks RPCs/cross-channel availability predicates.
 - Production Vercel deployment of gated code is READY, but no live charges or paid tickets have been tested.
 - Hard activation blockers: secure live Stripe account access and keys, tested SQL RPCs with cross-channel seat safety, automatic email fulfilment, price/time reconciliation, paid and refund integration tests.
+
+## 29 Oct continuation: live account registered; shared conflict SQL drafted
+- Expected live Stripe account ID set in Vercel production: `acct_1UVPnsAsETLeG4m9`. Live secret and webhook secret are stored as sensitive production env vars. Do not output secrets.
+- Supabase MCP project enumeration still shows only Matryoshka `aplkqpmkjwmnnthsmxvx`; Yumorilnik `vzzabkviwyarrdkevqco` is not accessible for SQL execution/verification.
+- Review-only `docs/PHASE_B_SHARED_AVAILABILITY_DRAFT.sql` now models cross-channel seat collision and finite ticket inventory. It has NOT been applied. Existing sandbox RPC checks must also be changed to invoke the shared function before activating live checkout.
+- Restricted Stripe keys: confirm whether the selected key permissions support `GET /v1/account` (current account guard), Checkout Session create/retrieve/expire, and Payment Intents retrieval. Fail closed; never relax the account check based on a 403 without alternative secure ownership verification.
+- Implementation remains incomplete: live prepare/bind/complete/expire RPCs and idempotent fulfilment, expiry/recovery and real-money E2E. No activation flags.
