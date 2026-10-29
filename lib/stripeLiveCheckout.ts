@@ -13,7 +13,7 @@ export function liveServices(){
  const stripe=process.env.STRIPE_SECRET_KEY;
  const account=process.env.STRIPE_LIVE_ACCOUNT_ID;
  if(!url||new URL(url).hostname!==projectRef+".supabase.co"||!key||
-  !stripe?.startsWith("sk_live_")||!account?.startsWith("acct_")||
+  !stripe||!(/^(sk|rk)_live_/).test(stripe)||!account?.startsWith("acct_")||
   account==="acct_1SXo5CPIwTIma6Ev"||account==="acct_1UVPo4AcPL3j1y7u")
   throw new Error("Yumorilnik live credentials unavailable");
  return {db:createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}}),stripe,account};
