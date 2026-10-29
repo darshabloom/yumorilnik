@@ -14,15 +14,15 @@ const W=1000,H=700;
 function seats(t:TableItem){return t.seats_top+t.seats_bottom+t.seats_left+t.seats_right}
 function compactTableSize(t:TableItem){
  // Each seat gets a consistent pitch, rather than stretching across an oversized table.
- const pitch=17, margin=12, thickness=23;
- return {width:Math.max(thickness,Math.max(t.seats_top,t.seats_bottom)*pitch+margin),
-         height:Math.max(thickness,Math.max(t.seats_left,t.seats_right)*pitch+margin)};
+ const pitch=14, margin=20, thickness=22;
+ return {width:Math.max(thickness,Math.max(0,Math.max(t.seats_top,t.seats_bottom)-1)*pitch+margin),
+         height:Math.max(thickness,Math.max(0,Math.max(t.seats_left,t.seats_right)-1)*pitch+margin)};
 }
 function shortTableLabel(label:string){return label.replace(/^Table\s+/i,"").replace(/^Стол\s+/i,"")||label;}
 
 function SeatMarkers({t}:{t:TableItem}){
  const dots:{x:number;y:number;label:string}[]=[];
- function add(n:number,side:string){for(let i=0;i<n;i++){const f=(i+1)/(n+1);dots.push({x:side==="top"||side==="bottom"?f*t.width:side==="left"?-7:t.width+7,y:side==="left"||side==="right"?f*t.height:side==="top"?-7:t.height+7,label:String(dots.length+1)})}}
+ function add(n:number,side:string){for(let i=0;i<n;i++){const pitch=14,span=Math.max(0,n-1)*pitch;dots.push({x:side==="top"||side==="bottom"?(t.width-span)/2+i*pitch:side==="left"?-6:t.width+6,y:side==="left"||side==="right"?(t.height-span)/2+i*pitch:side==="top"?-6:t.height+6,label:String(dots.length+1)})}}
  add(t.seats_top,"top");add(t.seats_right,"right");add(t.seats_bottom,"bottom");add(t.seats_left,"left");
  return <>{dots.map((p,i)=><div key={i} className="pointer-events-none absolute flex h-3 w-3 items-center justify-center rounded-[2px] border border-black bg-[#fffaf1] text-[7px] font-semibold leading-none" style={{left:p.x-6,top:p.y-6}}>{p.label}</div>)}</>;
 }
@@ -439,7 +439,7 @@ export default function SeatingBuilder(){
         </svg>}
        {!framing&&!traceMode&&<button type="button" onPointerDown={beginStageDrag} onPointerMove={moveStageDrag} onPointerUp={()=>{stageDrag.current=null}} onPointerCancel={()=>{stageDrag.current=null}} onClick={()=>{setEditingStage(true);setSelected(null)}} className={`absolute z-10 flex touch-none select-none items-center justify-center rounded-lg border-2 border-black/25 bg-[#f5a047] text-sm font-bold ${editingStage?"ring-2 ring-pink-600":""}`} style={{left:stageItem.x/W*100+"%",top:stageItem.y/H*100+"%",width:stageItem.width/W*100+"%",height:stageItem.height/H*100+"%",transform:`rotate(${stageItem.rotation}deg)`}}>{en?"Stage":"Сцена"}</button>}
        {!framing&&tables.filter(t=>t.is_active).map(t=><div key={t.id} className={traceMode?"pointer-events-none absolute z-[10] opacity-75":"absolute z-[10]"} style={{left:t.x/W*100+"%",top:t.y/H*100+"%",width:t.width/W*100+"%",height:t.height/H*100+"%",transform:`rotate(${t.rotation_deg}deg)`}}><button type="button" onPointerDown={e=>pointerDown(e,t)} onPointerMove={pointerMove} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}}
-        className={`absolute select-none touch-none ${t.shape==="round"||t.shape==="oval"?"rounded-full":"rounded-[3px]"} border text-[10px] font-semibold shadow-sm ${selected===t.id?"border-pink-600 bg-[#ffd7e8]":"border-black/50 bg-white"}`}
+        className={`absolute select-none touch-none ${t.shape==="round"||t.shape==="oval"?"rounded-full":"rounded-none"} border text-[10px] font-semibold shadow-sm ${selected===t.id?"border-pink-600 bg-[#ffd7e8]":"border-black/50 bg-white"}`}
         style={{width:"100%",height:"100%"}}>
          <span className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden text-[10px] leading-none" title={t.label}>{shortTableLabel(t.label)}</span><SeatMarkers t={t}/>
        </button>
