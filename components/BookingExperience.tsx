@@ -26,6 +26,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
  const [childParents,setChildParents]=useState<Record<string,string>>({});
  const [adultSeatChildren,setAdultSeatChildren]=useState<Record<string,boolean>>({});
  const [childcareHours,setChildcareHours]=useState<Record<string,string>>({});
+ const [childAges,setChildAges]=useState<Record<string,string>>({});
  const [accessChoice,setAccessChoice]=useState<"choose"|"guest"|"google">("choose");
  const [accessBusy,setAccessBusy]=useState(false);
  const [accessError,setAccessError]=useState("");
@@ -103,7 +104,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
 
  const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&mapSelections.length>adultTicketCount;
  const guestProblems=guestValidationProblems(adultTicketCount,childTicketCount,guestInfo,childParents,
-  {adultSeatChildren,childcareHours,requireChildcareHours:nyeChildcare});
+  {adultSeatChildren,childcareHours,childAges,requireChildcareHours:nyeChildcare});
  const guestDetailsComplete=guestProblems.length===0;
  const selectedPrices=mapSelections.map(key=>tableBooking?venue?.tables.find(t=>t.id===key)?.table_price_cents??null:selectedSeatPrice(key));
  const ticketPricesInvalid=admissionTotal===null||
@@ -136,13 +137,14 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    setChildParents({});
    setAdultSeatChildren({});
    setChildcareHours({});
+   setChildAges({});
    setGuestErrors(false);
    setMapSelections([]);
    setSeatAssignments({});
     setSeatFeedback("");
    setActiveSeatGuest("0");
  }
- const guestErrorLabel=(problem:{guestIndex:number;field:"name"|"email"|"phone"|"parent"|"duration"})=>{
+ const guestErrorLabel=(problem:{guestIndex:number;field:"name"|"email"|"phone"|"parent"|"duration"|"age"})=>{
   const isChild=problem.guestIndex>=adultTicketCount||adultSeatChildren[String(problem.guestIndex)]===true;
   const index=problem.guestIndex;
   const person=isChild?`${en?"Child":"Ребёнок"} ${index>=adultTicketCount?index-adultTicketCount+1:index+1}`:`${en?"Adult":"Взрослый"} ${index+1}`;
@@ -154,6 +156,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
    phone:en?"please enter a phone number.":"укажите номер телефона.",
    parent:en?"please select an accompanying adult who is not marked as a child.":"выберите сопровождающего взрослого, не отмеченного как ребёнок.",
    duration:en?"please choose 3 or 6 hours of childcare.":"выберите 3 или 6 часов присмотра.",
+   age:en?"enter the child’s age in whole years (0–17).":"укажите возраст ребёнка в полных годах (0–17).",
   }[problem.field];
   return `${who}: ${message}`;
  };
@@ -224,7 +227,7 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
     eventId:event.id!,clientRequestId:idempotency,
     tickets:tickets.map(t=>({id:t.id,quantity:quantities[t.id]??0})),
     guestInfo,childParents,adultCount:adultTicketCount,childCount:childTicketCount,
-    adultSeatChildren,childcareHours,
+    adultSeatChildren,childcareHours,childAges,
     wholeTable:tableBooking,selectedKeys:mapSelections,seatAssignments,
    });
    if(stripeSandboxEnabled){
@@ -314,6 +317,9 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
   </label>}
   <label className="block text-sm font-semibold">{en?"Full name":"Имя и фамилия"} *<input type="text" required autoComplete="off" value={guest.name} onChange={e=>update("name",e.target.value)} aria-invalid={guestErrors&&!guest.name.trim()} data-guest-index={i} data-guest-field="name" className={fieldClass}/></label>
   {childGuest?<div className="space-y-3">
+   <label className="block text-sm font-semibold">{en?"Child’s age (years)":"Возраст ребёнка (полных лет)"} *
+    <input type="number" min={0} max={17} step={1} required inputMode="numeric" value={childAges[key]??""} onChange={e=>setChildAges(old=>({...old,[key]:e.target.value}))} className={fieldClass} aria-invalid={guestErrors&&guestProblems.some(p=>p.guestIndex===i&&p.field==="age")} data-guest-index={i} data-guest-field="age"/>
+   </label>
    <label className="block text-sm font-semibold">{en?"Parent / accompanying adult":"Родитель / сопровождающий взрослый"} *
     <select required value={childParents[key]??""} onChange={e=>setChildParents(old=>({...old,[key]:e.target.value}))} className={fieldClass} aria-invalid={guestErrors&&guestProblems.some(p=>p.guestIndex===i&&p.field==="parent")} data-guest-index={i} data-guest-field="parent">
      <option value="">{en?"Choose adult":"Выберите взрослого"}</option>
