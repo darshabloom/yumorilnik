@@ -8,7 +8,7 @@ import {VenueLines, type VenueFeature, type Point} from "@/components/VenueLines
 import CustomerVenueMap from "@/components/CustomerVenueMap";
 import {type PriceZone,zonePoints,zoneForTable,} from "@/lib/priceZones";
 
-type TableItem={id:string;event_id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id:string|null;is_active:boolean;shape:string};
+type TableItem={id:string;event_id:string;label:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id:string|null;is_active:boolean;shape:string;seat_gap_top?:number;seat_gap_right?:number;seat_gap_bottom?:number;seat_gap_left?:number};
 type EventItem={id:string;title:string;seating_mode:string;table_booking_mode:string};
 const W=1000,H=700;
 function seats(t:TableItem){return t.seats_top+t.seats_bottom+t.seats_left+t.seats_right}
@@ -26,7 +26,7 @@ function shortTableLabel(label:string){return label.replace(/^Table\s+/i,"").rep
 
 function SeatMarkers({t}:{t:TableItem}){
  const dots:{x:number;y:number;label:string}[]=[];
- function add(n:number,side:string){for(let i=0;i<n;i++){dots.push({x:side==="top"||side==="bottom"?seatAxisPosition(t.width,n,i):side==="left"?-6:t.width+6,y:side==="left"||side==="right"?seatAxisPosition(t.height,n,i):side==="top"?-6:t.height+6,label:String(dots.length+1)})}}
+ function add(n:number,side:string){for(let i=0;i<n;i++){dots.push({x:side==="top"||side==="bottom"?seatAxisPosition(t.width,n,i):side==="left"?-(t.seat_gap_left??6):t.width+(t.seat_gap_right??6),y:side==="left"||side==="right"?seatAxisPosition(t.height,n,i):side==="top"?-(t.seat_gap_top??6):t.height+(t.seat_gap_bottom??6),label:String(dots.length+1)})}}
  add(t.seats_top,"top");add(t.seats_right,"right");add(t.seats_bottom,"bottom");add(t.seats_left,"left");
  return <>{dots.map((p,i)=><div key={i} className="pointer-events-none absolute flex h-3 w-3 items-center justify-center rounded-[2px] border border-black bg-[#fffaf1] text-[7px] font-semibold leading-none" style={{left:p.x-6,top:p.y-6}}>{p.label}</div>)}</>;
 }
@@ -129,7 +129,7 @@ export default function SeatingBuilder(){
   const work=Object.values(batch);
   if(work.length){setMessage("Saving…");setError("");}
   for(const t of work){
-   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,seat_price_cents:t.seat_price_cents,price_zone_id:t.price_zone_id,shape:t.shape,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
+   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,seat_price_cents:t.seat_price_cents,price_zone_id:t.price_zone_id,shape:t.shape,seat_gap_top:t.seat_gap_top??6,seat_gap_right:t.seat_gap_right??6,seat_gap_bottom:t.seat_gap_bottom??6,seat_gap_left:t.seat_gap_left??6,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
    if(e){pending.current[t.id]=pending.current[t.id]??t;setError("Autosave failed: "+e.message);setMessage("Not saved");}
   }
   flushing.current=false;
@@ -296,7 +296,7 @@ export default function SeatingBuilder(){
   const source=tables.find(t=>t.id===selected)??tables[tables.length-1];
   const used=new Set(tables.map(t=>t.label));
   let nextNumber=n;while(used.has("Table "+nextNumber))nextNumber++;
-  const record={event_id:id,label:"Table "+nextNumber,shape:source?.shape??"rectangle",x:source?Math.min(900,source.x+35):130,y:source?Math.min(620,source.y+45):130,width:source?.width??140,height:source?.height??65,rotation_deg:source?.rotation_deg??0,seats_top:source?.seats_top??2,seats_bottom:source?.seats_bottom??2,seats_left:source?.seats_left??1,seats_right:source?.seats_right??1,table_price_cents:source?.table_price_cents??null,seat_price_cents:source?.seat_price_cents??null,price_zone_id:source?.price_zone_id??null,is_active:true};
+  const record={event_id:id,label:"Table "+nextNumber,shape:source?.shape??"rectangle",x:source?Math.min(900,source.x+35):130,y:source?Math.min(620,source.y+45):130,width:source?.width??140,height:source?.height??65,rotation_deg:source?.rotation_deg??0,seats_top:source?.seats_top??2,seats_bottom:source?.seats_bottom??2,seats_left:source?.seats_left??1,seats_right:source?.seats_right??1,table_price_cents:source?.table_price_cents??null,seat_price_cents:source?.seat_price_cents??null,price_zone_id:source?.price_zone_id??null,seat_gap_top:source?.seat_gap_top??6,seat_gap_right:source?.seat_gap_right??6,seat_gap_bottom:source?.seat_gap_bottom??6,seat_gap_left:source?.seat_gap_left??6,is_active:true};
   setSaving(true);setError("");
   const {data,error:e}=await supabase.from("seating_tables").insert(record).select("*").single();
   if(e)setError(e.message);else{setTables(old=>{const next=[...old,data as TableItem];latest.current=next;return next});setSelected(data.id);setMessage("Table added")}
@@ -306,7 +306,7 @@ export default function SeatingBuilder(){
   setSaving(true);setError("");
   if(timer.current)clearTimeout(timer.current);
   for(const t of latest.current){
-   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,seat_price_cents:t.seat_price_cents,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
+   const {error:e}=await supabase.from("seating_tables").update({label:t.label,x:t.x,y:t.y,width:t.width,height:t.height,rotation_deg:t.rotation_deg,seats_top:t.seats_top,seats_bottom:t.seats_bottom,seats_left:t.seats_left,seats_right:t.seats_right,table_price_cents:t.table_price_cents,seat_price_cents:t.seat_price_cents,seat_gap_top:t.seat_gap_top??6,seat_gap_right:t.seat_gap_right??6,seat_gap_bottom:t.seat_gap_bottom??6,seat_gap_left:t.seat_gap_left??6,is_active:t.is_active}).eq("id",t.id).eq("event_id",id);
    if(e){setError(e.message);setSaving(false);return}
   }
   pending.current={};setMessage("Layout saved");setSaving(false);
@@ -484,6 +484,9 @@ export default function SeatingBuilder(){
        </div>
        <h3 className="mt-5 font-bold">Seats around table · {seats(current)}</h3>
        <div className="mt-2 grid grid-cols-2 gap-3">{([{field:"seats_top",label:"Top"},{field:"seats_bottom",label:"Bottom"},{field:"seats_left",label:"Left"},{field:"seats_right",label:"Right"}] as const).map(o=><label key={o.field} className="text-sm font-semibold">{o.label}<input type="number" min="0" max="30" value={current[o.field]} onChange={e=>mutate(current.id,{[o.field]:Math.max(0,Math.min(30,Number(e.target.value)||0))})} className="mt-1 w-full rounded border p-2"/></label>)}</div>
+       <h3 className="mt-5 font-bold">{en?"Seat distance from table (each side)":"Расстояние мест до стола (по сторонам)"}</h3>
+       <p className="mt-1 text-xs text-gray-600">{en?"0 = seats touch the table edge; larger numbers move them farther away. Each table saves separately.":"0 = места вплотную к столу; большее число отодвигает места. Настройка сохраняется для каждого стола."}</p>
+       <div className="mt-3 grid grid-cols-2 gap-3">{([{field:"seat_gap_top",en:"Top",ru:"Сверху"},{field:"seat_gap_right",en:"Right",ru:"Справа"},{field:"seat_gap_bottom",en:"Bottom",ru:"Снизу"},{field:"seat_gap_left",en:"Left",ru:"Слева"}] as const).map(o=><label key={o.field} className="text-sm font-semibold">{en?o.en:o.ru}<input type="number" min="0" max="40" step="1" value={current[o.field]??6} onChange={e=>mutate(current.id,{[o.field]:Math.max(0,Math.min(40,Math.round(Number(e.target.value)||0)))})} className="mt-1 w-full rounded border p-2"/></label>)}</div>
        <label className="mt-4 block text-sm font-bold">{en?"Table shape":"Форма стола"}<select value={current.shape} onChange={e=>mutate(current.id,{shape:e.target.value})} className="mt-1 w-full rounded border p-3"><option value="rectangle">{en?"Rectangle":"Прямоугольный"}</option><option value="round">{en?"Round":"Круглый"}</option><option value="oval">{en?"Oval":"Овальный"}</option></select></label>
        <label className="mt-5 block font-bold">{en?"Adult price per place at this table (NZD)":"Взрослая цена за место за этим столом (NZD)"}
          <input type="number" min="0" step="0.01" placeholder="Not set" value={current.seat_price_cents===null?"":(current.seat_price_cents/100).toFixed(2)} onChange={e=>mutate(current.id,{seat_price_cents:e.target.value===""?null:Math.max(0,Math.round(Number(e.target.value)*100))})} className="mt-1 w-full rounded border p-3"/>
