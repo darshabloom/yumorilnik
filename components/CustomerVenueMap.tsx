@@ -7,7 +7,7 @@ import {zonePoints,zoneForTable,type PriceZone} from "@/lib/priceZones";
 import {seatAxisPosition} from "@/lib/seatingSeatSpacing";
 
 export type PublicTable={id:string;label:string;shape?:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id?:string|null;is_active:boolean;seat_gap_top?:number;seat_gap_right?:number;seat_gap_bottom?:number;seat_gap_left?:number};
-export type PublicStage={stage_x:number;stage_y:number;stage_width:number;stage_height:number;stage_rotation:number};
+export type PublicStage={stage_x:number;stage_y:number;stage_width:number;stage_height:number;stage_rotation:number;public_view_scale?:number;public_view_x?:number;public_view_y?:number};
 type Seat={key:string;label:string;tableId:string;x:number;y:number};
 type Mode="whole_table"|"individual_seats";
 const WIDTH=1000,HEIGHT=700;
@@ -64,6 +64,14 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
  },[tables]);
 
 
+ const publishedScale=Math.max(.4,Math.min(2.5,Number(stage?.public_view_scale??1)||1));
+ const publishedX=Math.max(-100,Math.min(100,Number(stage?.public_view_x??0)||0));
+ const publishedY=Math.max(-100,Math.min(100,Number(stage?.public_view_y??0)||0));
+ function initialView(baseW:number,baseH:number){
+  const w=baseW/publishedScale,h=baseH/publishedScale;
+  return {x:(WIDTH-w)/2-(WIDTH*publishedX/100)/publishedScale,
+   y:(HEIGHT-h)/2-(HEIGHT*publishedY/100)/publishedScale,w,h};
+ }
  const zoom=baseWidth/view.w;
  useEffect(()=>{
    const element=wrapper.current;if(!element)return;
@@ -72,10 +80,10 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
      // Initial view must show the entire venue, not crop its top/bottom.
      const w=Math.max(WIDTH,HEIGHT*ratio),h=w/ratio;
      setBaseWidth(w);setBaseHeight(h);
-     setView({x:(WIDTH-w)/2,y:(HEIGHT-h)/2,w,h});
+     setView(initialView(w,h));
    };
    const observer=new ResizeObserver(measure);observer.observe(element);measure();return()=>observer.disconnect();
- },[expanded]);
+ },[expanded,publishedScale,publishedX,publishedY]);
  function clamp(x:number,y:number,w:number,h:number){return {x:Math.max(Math.min(0,WIDTH-w),Math.min(Math.max(0,WIDTH-w),x)),y:Math.max(Math.min(0,HEIGHT-h),Math.min(Math.max(0,HEIGHT-h),y)),w,h};}
  function focusTable(tableId:string){
    const table=tables.find(t=>t.id===tableId);if(!table)return;
@@ -84,7 +92,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
    setView(clamp(table.x+table.width/2-w/2,table.y+table.height/2-h/2,w,h));
  }
  function zoomTo(next:number){
-  const scale=Math.max(1,Math.min(8,next)),w=baseWidth/scale,h=baseHeight/scale;
+  const scale=Math.max(.4,Math.min(8,next)),w=baseWidth/scale,h=baseHeight/scale;
   setView(v=>clamp(v.x+(v.w-w)/2,v.y+(v.h-h)/2,w,h));
  }
  function getGesture(){
@@ -150,7 +158,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
     <div className="flex items-center gap-1">
       <button type="button" onClick={()=>setExpanded(v=>!v)} className="rounded border border-black/30 bg-white px-3 py-2 text-xs font-bold">{expanded?(en?"Exit full screen":"Свернуть"):(en?"Full screen":"На весь экран")}</button>
       <button type="button" aria-label={en?"Zoom out":"Уменьшить"} onClick={()=>zoomTo(zoom/1.4)} className="h-10 w-10 rounded border border-black/30 bg-white font-bold">−</button>
-      <button type="button" onClick={()=>zoomTo(1)} className="rounded border border-black/30 bg-white px-3 py-2 text-xs font-bold">{Math.round(zoom*100)}%</button>
+      <button type="button" title={en?"Reset to organiser view":"Вернуть вид организатора"} onClick={()=>setView(initialView(baseWidth,baseHeight))} className="rounded border border-black/30 bg-white px-3 py-2 text-xs font-bold">{Math.round(zoom*100)}%</button>
       <button type="button" aria-label={en?"Zoom in":"Увеличить"} onClick={()=>zoomTo(zoom*1.4)} className="h-10 w-10 rounded border border-black/30 bg-white font-bold">+</button>
     </div>
    </div>
@@ -165,10 +173,10 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
    <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#F6F5F1]":"relative h-[48svh] min-h-[310px] overflow-hidden rounded-xl border border-black/15 bg-[#F6F5F1] lg:h-[min(78vh,880px)]"}>
     {expanded&&<button type="button" onClick={()=>setExpanded(false)} className="absolute right-3 top-3 z-10 rounded-lg bg-white px-4 py-3 font-bold shadow">{en?"Close ✕":"Закрыть ✕"}</button>}
     <svg ref={svgRef} viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} preserveAspectRatio="xMidYMid meet" aria-label={en?"Venue seating plan":"План зала"} role="group" className={`block h-full w-full ${expanded?"cursor-grab touch-none":"cursor-pointer touch-pan-y lg:cursor-grab lg:touch-none"}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
-      {zones.map(z=><g key={z.id}><polygon points={zonePoints(z).map(p=>p.x+","+p.y).join(" ")} fill={z.color} opacity=".44" stroke={z.color} strokeWidth="3"/></g>)}
+      {zones.map(z=><g key={z.id}><polygon points={zonePoints(z).map(p=>p.x+","+p.y).join(" ")} fill={z.color} opacity=".20" stroke={z.color} strokeWidth="3"/></g>)}
       {features.map(f=><g key={f.id}>
-       <polyline points={f.points.map(p=>p.x+","+p.y).join(" ")} stroke={f.kind==="entrance"?"#16803b":"#252525"} strokeWidth={f.kind==="entrance"?10:7} strokeDasharray={f.kind==="entrance"?"11 9":undefined} fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-       {f.label&&f.points[0]&&<text x={f.points[0].x+12} y={f.points[0].y-15} fontSize="18" fill="#16803b">{f.label}</text>}
+       <polyline points={f.points.map(p=>p.x+","+p.y).join(" ")} stroke={f.kind==="entrance"?"#16803b":"#252525"} strokeWidth={f.kind==="entrance"?9:6} strokeDasharray={f.kind==="entrance"?"10 7":undefined} fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+       {f.label&&f.points[0]&&<text x={f.points[0].x+12} y={f.points[0].y-15} fontSize="20" fill={f.kind==="entrance"?"#15803d":"#333"}>{f.label}</text>}
       </g>)}
       {stage&&<g transform={`translate(${stage.stage_x} ${stage.stage_y}) rotate(${stage.stage_rotation} ${stage.stage_width/2} ${stage.stage_height/2})`}>
        <rect width={stage.stage_width} height={stage.stage_height} rx="7" fill="#f5a047" stroke="#9a5c19" strokeWidth="2"/>
