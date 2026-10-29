@@ -12,6 +12,14 @@ type TableItem={id:string;event_id:string;label:string;x:number;y:number;width:n
 type EventItem={id:string;title:string;seating_mode:string;table_booking_mode:string};
 const W=1000,H=700;
 function seats(t:TableItem){return t.seats_top+t.seats_bottom+t.seats_left+t.seats_right}
+function compactTableSize(t:TableItem){
+ // Each seat gets a consistent pitch, rather than stretching across an oversized table.
+ const pitch=17, margin=12, thickness=23;
+ return {width:Math.max(thickness,Math.max(t.seats_top,t.seats_bottom)*pitch+margin),
+         height:Math.max(thickness,Math.max(t.seats_left,t.seats_right)*pitch+margin)};
+}
+function shortTableLabel(label:string){return label.replace(/^Table\s+/i,"").replace(/^Стол\s+/i,"")||label;}
+
 function SeatMarkers({t}:{t:TableItem}){
  const dots:{x:number;y:number;label:string}[]=[];
  function add(n:number,side:string){for(let i=0;i<n;i++){const f=(i+1)/(n+1);dots.push({x:side==="top"||side==="bottom"?f*t.width:side==="left"?-7:t.width+7,y:side==="left"||side==="right"?f*t.height:side==="top"?-7:t.height+7,label:String(dots.length+1)})}}
@@ -305,6 +313,12 @@ export default function SeatingBuilder(){
   if(e){setError(e.message);return}
   setTables(old=>{const next=old.filter(t=>t.id!==current.id);latest.current=next;return next});delete pending.current[current.id];setSelected(null);setMessage("Table removed");
  }
+ function fitToSeats(t:TableItem){
+  const {width,height}=compactTableSize(t);
+  mutate(t.id,{x:Math.round(Math.max(0,Math.min(W-width,t.x+(t.width-width)/2))),
+    y:Math.round(Math.max(0,Math.min(H-height,t.y+(t.height-height)/2))),
+    width,height,shape:"rectangle"});
+ }
  function pointerDown(e:React.PointerEvent<HTMLButtonElement>,t:TableItem){
   setEditingStage(false);
   if(e.button!==0)return;
@@ -343,7 +357,7 @@ export default function SeatingBuilder(){
   const dx=(e.clientX-d.startX)/scale,dy=(e.clientY-d.startY)/scale;
   const localX=dx*Math.cos(d.angle)+dy*Math.sin(d.angle);
   const localY=-dx*Math.sin(d.angle)+dy*Math.cos(d.angle);
-  mutate(d.id,{width:Math.round(Math.max(40,Math.min(400,d.width+localX))),height:Math.round(Math.max(20,Math.min(300,d.height+localY)))});
+  mutate(d.id,{width:Math.round(Math.max(20,Math.min(400,d.width+localX))),height:Math.round(Math.max(20,Math.min(300,d.height+localY)))});
  }
  if(loading)return <main className="bg-[#fffaf1] p-8">{en?"Loading seating builder…":"Загрузка редактора зала…"}</main>;
  if(!event)return <main role="alert" className="p-8">{error||"Event unavailable"}</main>;
@@ -425,9 +439,9 @@ export default function SeatingBuilder(){
         </svg>}
        {!framing&&!traceMode&&<button type="button" onPointerDown={beginStageDrag} onPointerMove={moveStageDrag} onPointerUp={()=>{stageDrag.current=null}} onPointerCancel={()=>{stageDrag.current=null}} onClick={()=>{setEditingStage(true);setSelected(null)}} className={`absolute z-10 flex touch-none select-none items-center justify-center rounded-lg border-2 border-black/25 bg-[#f5a047] text-sm font-bold ${editingStage?"ring-2 ring-pink-600":""}`} style={{left:stageItem.x/W*100+"%",top:stageItem.y/H*100+"%",width:stageItem.width/W*100+"%",height:stageItem.height/H*100+"%",transform:`rotate(${stageItem.rotation}deg)`}}>{en?"Stage":"Сцена"}</button>}
        {!framing&&tables.filter(t=>t.is_active).map(t=><div key={t.id} className={traceMode?"pointer-events-none absolute z-[10] opacity-75":"absolute z-[10]"} style={{left:t.x/W*100+"%",top:t.y/H*100+"%",width:t.width/W*100+"%",height:t.height/H*100+"%",transform:`rotate(${t.rotation_deg}deg)`}}><button type="button" onPointerDown={e=>pointerDown(e,t)} onPointerMove={pointerMove} onPointerUp={()=>{drag.current=null}} onPointerCancel={()=>{drag.current=null}}
-        className={`absolute select-none touch-none ${t.shape==="round"||t.shape==="oval"?"rounded-full":"rounded-lg"} border-2 text-sm font-bold shadow ${selected===t.id?"border-pink-600 bg-[#ffd7e8]":"border-black/50 bg-white"}`}
+        className={`absolute select-none touch-none ${t.shape==="round"||t.shape==="oval"?"rounded-full":"rounded-[3px]"} border text-[10px] font-semibold shadow-sm ${selected===t.id?"border-pink-600 bg-[#ffd7e8]":"border-black/50 bg-white"}`}
         style={{width:"100%",height:"100%"}}>
-         {t.label}<SeatMarkers t={t}/>
+         <span className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden text-[10px] leading-none" title={t.label}>{shortTableLabel(t.label)}</span><SeatMarkers t={t}/>
        </button>
        {!traceMode&&selected===t.id&&<button type="button" aria-label={"Rotate "+t.label} title="Drag to rotate" onPointerDown={e=>rotateDown(e,t)} onPointerMove={rotateMove} onPointerUp={()=>{rotating.current=null}} onPointerCancel={()=>{rotating.current=null}} className="absolute -top-8 -right-8 z-20 flex h-6 w-6 touch-none items-center justify-center rounded-md border border-pink-600 bg-white text-sm font-bold shadow">⟳</button>}
        {!traceMode&&selected===t.id&&<button type="button" aria-label={"Resize "+t.label} title="Drag to resize table" onPointerDown={e=>resizeDown(e,t)} onPointerMove={resizeMove} onPointerUp={()=>{resize.current=null}} onPointerCancel={()=>{resize.current=null}} className="absolute -bottom-8 -right-8 z-20 flex h-6 w-6 touch-none items-center justify-center rounded-md border border-pink-600 bg-white text-sm font-bold shadow">↘</button>}
@@ -453,8 +467,9 @@ export default function SeatingBuilder(){
        <button onClick={()=>void saveStage()} disabled={saving} className="mt-5 w-full rounded-lg bg-black px-4 py-3 font-bold text-white">{en?"Save stage position":"Сохранить положение сцены"}</button>
      </>:current?<><h2 className="text-xl font-black">Edit {current.label}</h2>
        <label className="mt-4 block text-sm font-bold">{en?"Table name":"Название стола"}<input className="mt-1 w-full rounded border p-2" value={current.label} onChange={e=>mutate(current.id,{label:e.target.value})}/></label>
-       <div className="mt-3 grid grid-cols-2 gap-3">{([{field:"width",label:"Width",min:80,max:340},{field:"height",label:"Height",min:20,max:240},{field:"rotation_deg",label:"Rotation °",min:-180,max:180} ] as const).map(o=><label key={o.field} className="text-sm font-bold">{o.label}<input type="number" min={o.min} max={o.max} value={current[o.field]} onChange={e=>mutate(current.id,{[o.field]:Math.max(o.min,Math.min(o.max,Number(e.target.value)||0))})} className="mt-1 w-full rounded border p-2"/></label>)}</div>
-       <p className="mt-2 text-xs text-gray-600">{en?"Use the ↘ handle on the selected table to resize it directly.":"Используйте ↘, чтобы изменить размер выбранного стола."}</p>
+       <div className="mt-3 grid grid-cols-2 gap-3">{([{field:"width",label:"Width",min:20,max:340},{field:"height",label:"Height",min:20,max:240},{field:"rotation_deg",label:"Rotation °",min:-180,max:180} ] as const).map(o=><label key={o.field} className="text-sm font-bold">{o.label}<input type="number" min={o.min} max={o.max} value={current[o.field]} onChange={e=>mutate(current.id,{[o.field]:Math.max(o.min,Math.min(o.max,Number(e.target.value)||0))})} className="mt-1 w-full rounded border p-2"/></label>)}</div>
+       <button type="button" onClick={()=>fitToSeats(current)} className="mt-3 w-full rounded-lg border border-pink-600 bg-pink-50 px-3 py-2 text-sm font-bold">{en?"Fit rectangle to seats":"Подогнать стол под места"}</button>
+       <p className="mt-2 text-xs text-gray-600">{en?"Fit rectangle centres a tighter table around its seats. Save layout afterwards.":"Кнопка подгоняет прямоугольный стол под количество мест. Затем сохраните план."}</p>
        <div className="mt-4"><label className="block text-sm font-bold">Turn table · {current.rotation_deg}°<input aria-label="Rotate table" className="mt-2 w-full" type="range" min="-180" max="180" step="5" value={current.rotation_deg} onChange={e=>mutate(current.id,{rotation_deg:Number(e.target.value)})}/></label>
         <div className="mt-2 flex gap-2">
          <button type="button" onClick={()=>mutate(current.id,{rotation_deg:Math.max(-180,current.rotation_deg-15)})} className="rounded border px-3 py-2 text-sm font-bold">↶ 15°</button>
