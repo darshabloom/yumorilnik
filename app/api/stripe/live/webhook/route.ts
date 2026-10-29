@@ -1,11 +1,11 @@
 import {after,NextRequest,NextResponse} from "next/server";
-import {NYE_EVENT_ID,liveConfigured,liveServices,assertLiveStripeAccount,verifyStripeSignature,stripeCall,validateLivePaidSession,type StripeLiveSession} from "@/lib/stripeLiveCheckout";
+import {NYE_EVENT_ID,liveWebhookConfigured,liveServices,assertLiveStripeAccount,verifyStripeSignature,stripeCall,validateLivePaidSession,type StripeLiveSession} from "@/lib/stripeLiveCheckout";
 export const runtime="nodejs";export const dynamic="force-dynamic";export const maxDuration=60;
 const out=(x:unknown,status=200)=>NextResponse.json(x,{status,headers:{"Cache-Control":"no-store"}});
 type Event={id:string;type:string;livemode:boolean;data?:{object?:{id?:string;object?:string}}};
 type StripeCharge={id:string;object:"charge";livemode:boolean;currency:string;paid:boolean;refunded:boolean;amount:number;amount_refunded:number;payment_intent:string|null};
 export async function POST(request:NextRequest){
- if(!liveConfigured())return out({error:"Live webhook not enabled"},503);
+ if(!liveWebhookConfigured())return out({error:"Live webhook not enabled"},503);
  const webhookSecret=process.env.STRIPE_WEBHOOK_SECRET;
  if(!webhookSecret?.startsWith("whsec_"))return out({error:"Webhook not configured"},503);
  const raw=await request.text();if(raw.length>250000)return out({error:"Event too large"},413);
