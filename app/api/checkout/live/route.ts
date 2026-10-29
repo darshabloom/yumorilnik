@@ -6,6 +6,8 @@ const out=(x:unknown,status=200)=>NextResponse.json(x,{status,headers:{"Cache-Co
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Payload={p_event_id:string;p_client_request_id:string;p_tickets:unknown[];p_guests:unknown[];p_selections:unknown[];p_promo_code?:string|null;p_live_test_access_code?:string};
 type Hold={booking_id:string;reference:string;amount_cents:number;currency:string;state:string;stripe_session_id?:string|null};
+const PRIVATE_LIVE_TEST_PROMO="YMRLIVE50C2026";
+const PRIVATE_LIVE_TEST_AMOUNT_CENTS=50;
 function valid(x:unknown):x is Payload{
  if(!x||typeof x!=="object")return false;
  const p=x as Record<string,unknown>;
@@ -89,6 +91,19 @@ export async function POST(request:NextRequest){
  catch{return out({error:"Live payment configuration is not ready"},503)}
  const {db,stripe}=services;
  if(privateTest){
+  // Read the DB-authoritative one-use promotion before reserving any seats.
+  // Never create a ticket or charge at the ordinary price during this test.
+  const {data:promo,error:promoError}=await db.from("booking_promotions")
+   .select("enabled,discount_type,amount_cents,event_id,applies_to,max_uses,times_used,starts_at,ends_at")
+   .eq("code",PRIVATE_LIVE_TEST_PROMO).maybeSingle();
+  const now=Date.now();
+  if(promoError||!promo||promo.enabled!==true||
+     promo.discount_type!=="fixed_price"||promo.amount_cents!==PRIVATE_LIVE_TEST_AMOUNT_CENTS||
+     promo.event_id!==NYE_EVENT_ID||promo.applies_to!=="adult"||
+     promo.max_uses!==1||promo.times_used!==0||
+     (promo.starts_at&&Date.parse(promo.starts_at)>now)||
+     (promo.ends_at&&Date.parse(promo.ends_at)<=now))
+   return out({error:"The NZ$0.50 private test discount is not configured yet. No booking or charge was created."},503);
   const ticket=body.p_tickets[0] as {ticket_type_id?:string};
   if(!ticket.ticket_type_id||!uuid.test(ticket.ticket_type_id))
    return out({error:"Adult test ticket required"},400);
@@ -102,10 +117,13 @@ export async function POST(request:NextRequest){
  const {data,error}=await db.rpc("prepare_live_checkout",{
   p_event_id:body.p_event_id,p_client_request_id:body.p_client_request_id,
   p_tickets:body.p_tickets,p_guests:body.p_guests,p_selections:body.p_selections,
-  p_promo_code:body.p_promo_code?.trim().toUpperCase()||null
+  p_promo_code:privateTest?PRIVATE_LIVE_TEST_PROMO:body.p_promo_code?.trim().toUpperCase()||null
  });
  if(error||!data)return out({error:"Unable to reserve tickets and seats",code:"RESERVATION_CONFLICT"},409);
  const hold=data as Hold;
+ // A failed promotion must NEVER redirect to a full-price Stripe checkout.
+ if(privateTest&&hold.amount_cents!==PRIVATE_LIVE_TEST_AMOUNT_CENTS)
+  return out({error:"Private test must cost exactly NZ$0.50. No payment was initiated."},503);
  if(hold.currency!=="nzd"||!Number.isSafeInteger(hold.amount_cents)||hold.amount_cents<50)
   return out({error:"Invalid payable total; please contact organiser"},409);
  if(hold.state==="open"&&hold.stripe_session_id){
@@ -132,12 +150,14 @@ export async function POST(request:NextRequest){
  fields.set("metadata[booking_id]",hold.booking_id);
  fields.set("metadata[event_id]",NYE_EVENT_ID);
  fields.set("metadata[reference]",hold.reference);
+ if(privateTest)fields.set("metadata[live_test]","50_cent_controlled_test");
  // Stripe Dashboard charge and PaymentIntent reporting must retain the site
  // identity as well as the Checkout Session metadata.
  fields.set("payment_intent_data[metadata][site]","yumorilnik");
  fields.set("payment_intent_data[metadata][payment_kind]","event_ticket");
  fields.set("payment_intent_data[metadata][booking_id]",hold.booking_id);
  fields.set("payment_intent_data[metadata][event_id]",NYE_EVENT_ID);
+ if(privateTest)fields.set("payment_intent_data[metadata][live_test]","50_cent_controlled_test");
  try{
   const session=await stripeCall<StripeLiveSession>(stripe,"POST","checkout/sessions",fields,"yumorilnik-live-"+body.p_client_request_id);
   if(!session.livemode||!session.id.startsWith("cs_live_")||session.status!=="open"||
