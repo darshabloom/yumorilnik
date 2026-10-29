@@ -10,9 +10,9 @@ export type PublicStage={stage_x:number;stage_y:number;stage_width:number;stage_
 type Seat={key:string;label:string;tableId:string;x:number;y:number};
 type Mode="whole_table"|"individual_seats";
 const WIDTH=1000,HEIGHT=700;
-const MAX_SEAT_RADIUS=7.5;
-const MAX_HIT_RADIUS=10;
-const SEAT_DISTANCE=16;
+const MAX_SEAT_RADIUS=6;
+const MAX_HIT_RADIUS=9;
+const SEAT_DISTANCE=11;
 function seatPositions(table:PublicTable):Seat[]{
  const output:Seat[]=[];
  const sides=[{side:"top",n:table.seats_top},{side:"right",n:table.seats_right},{side:"bottom",n:table.seats_bottom},{side:"left",n:table.seats_left}];
