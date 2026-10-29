@@ -12,15 +12,15 @@ type Mode="whole_table"|"individual_seats";
 const WIDTH=1000,HEIGHT=700;
 const MAX_SEAT_RADIUS=6;
 const MAX_HIT_RADIUS=9;
-const SEAT_DISTANCE=11;
+const SEAT_DISTANCE=7;
 function seatPositions(table:PublicTable):Seat[]{
  const output:Seat[]=[];
  const sides=[{side:"top",n:table.seats_top},{side:"right",n:table.seats_right},{side:"bottom",n:table.seats_bottom},{side:"left",n:table.seats_left}];
  for(const {side,n} of sides)for(let i=0;i<n;i++){
-  const ratio=(i+1)/(n+1),index=output.length+1;
+  const pitch=14,span=Math.max(0,n-1)*pitch,index=output.length+1;
   output.push({key:table.id+":"+index,label:String(index),tableId:table.id,
-   x:side==="top"||side==="bottom"?ratio*table.width:side==="left"?-SEAT_DISTANCE:table.width+SEAT_DISTANCE,
-   y:side==="left"||side==="right"?ratio*table.height:side==="top"?-SEAT_DISTANCE:table.height+SEAT_DISTANCE});
+   x:side==="top"||side==="bottom"?(table.width-span)/2+i*pitch:side==="left"?-SEAT_DISTANCE:table.width+SEAT_DISTANCE,
+   y:side==="left"||side==="right"?(table.height-span)/2+i*pitch:side==="top"?-SEAT_DISTANCE:table.height+SEAT_DISTANCE});
  }
  return output;
 }
@@ -173,7 +173,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
        <text x={stage.stage_width/2} y={stage.stage_height/2+6} fontSize="19" textAnchor="middle" fontWeight="700">{en?"Stage":"Сцена"}</text>
       </g>}
       {tables.filter(t=>t.is_active).map(t=><g key={t.id} transform={`translate(${t.x} ${t.y}) rotate(${t.rotation_deg} ${t.width/2} ${t.height/2})`}>
-        <rect x="0" y="0" width={t.width} height={t.height} rx={t.shape==="round"||t.shape==="oval"?Math.min(t.width,t.height)/2:7} fill={selectedKeys.includes(t.id)?"#f8c6dc":focused===t.id?"#ffe1ee":"#fff"} stroke={selectedKeys.includes(t.id)?"#c41e73":"#777"} strokeWidth="2" data-seat-key={mode==="whole_table"?t.id:""} data-table-id={t.id} style={{cursor:"pointer"}}/>
+        <rect x="0" y="0" width={t.width} height={t.height} rx={t.shape==="round"||t.shape==="oval"?Math.min(t.width,t.height)/2:0} fill={selectedKeys.includes(t.id)?"#f8c6dc":focused===t.id?"#ffe1ee":"#fff"} stroke={selectedKeys.includes(t.id)?"#c41e73":"#777"} strokeWidth="2" data-seat-key={mode==="whole_table"?t.id:""} data-table-id={t.id} style={{cursor:"pointer"}}/>
         <text x={t.width/2} y={t.height/2+7} fontSize="16" textAnchor="middle" fontWeight="700" pointerEvents="none">{t.label}</text>
         {seatPositions(t).map(s=><g key={s.key} data-seat-key={mode==="individual_seats"?s.key:t.id} data-table-id={t.id} style={{cursor:"pointer"}}>
           <circle cx={s.x} cy={s.y} r={seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS} fill={selectedKeys.includes(s.key)?"#f5a047":"#fff"} stroke={selectedKeys.includes(s.key)?"#ad5d09":"#525252"} strokeWidth="1.3" pointerEvents="none"/>
