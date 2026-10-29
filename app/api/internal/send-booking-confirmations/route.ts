@@ -75,11 +75,18 @@ export async function POST(request:NextRequest){
   return json({error:"A verified Yumorilnik sending domain is required for real recipients"},503);
 
  const db=createClient(url,secretKey,{auth:{autoRefreshToken:false,persistSession:false}});
+ // List only PAID live bookings first. Legacy manually confirmed bookings must
+ // never monopolise the queue or receive live admission credentials.
+ const {data:paidRows,error:paidError}=await db.from("booking_live_checkouts")
+  .select("booking_id").eq("state","paid").limit(1000);
+ if(paidError)return json({error:"Unable to verify paid live bookings"},502);
+ const paidIds=(paidRows??[]).map(x=>x.booking_id);
+ if(paidIds.length===0)return json({reviewed:0,sent:0,failed:0,skipped:0,ineligible:0});
  const {data:rows,error:listError}=await db.from("booking_confirmation_deliveries")
   .select("booking_id,guest_index,recipient_email,status,attempts")
-  .in("status",["pending","failed"]).lt("attempts",3)
-  .order("last_attempt_at",{ascending:true,nullsFirst:true}).limit(60);
- if(listError)return json({error:"Unable to read confirmation queue"},502);
+  .in("booking_id",paidIds).in("status",["pending","failed"]).lt("attempts",3)
+  .order("last_attempt_at",{ascending:true,nullsFirst:true}).limit(12);
+ if(listError)return json({error:"Unable to read paid confirmation queue"},502);
  let sent=0,failed=0,skipped=0,ineligible=0;
  for(const record of rows??[]){
   const delivery=record as Delivery;
@@ -126,7 +133,7 @@ export async function POST(request:NextRequest){
      table:seat.table_label,seat:seat.seat_number}));
    const common={
     reference:booking.booking_reference,
-    eventDateText:booking.events?.event_date??"See event details / Проверьте информацию о мероприятии",
+    eventDateText:(booking.events?.event_date??"See event details / Проверьте информацию о мероприятии")+" "+(booking.events?.event_time??""),
     adults:[{name:person.full_name,email:person.email}],
     children:children.map(g=>({name:g.full_name,accompanyingAdultEmail:person.email!,childcareHours:g.childcare_hours,adultPricedSeat:g.is_child_with_adult_seat})),
     places,promoCode:booking.promo_code,totalCents:booking.total_cents,
@@ -152,7 +159,7 @@ export async function POST(request:NextRequest){
     eventDate:booking.events.event_date+" "+(booking.events.event_time??""),
     venue:booking.events.location,guests:namedGuests.map(g=>{
       const seat=booking.booking_selections.find(s=>s.guest_index===g.guest_index);
-      return {name:g.full_name,ticket:g.category==="child"?"Childcare / Детский":"Adult / Взрослый",
+      return {name:g.full_name,ticket:g.is_child_with_adult_seat?"Adult-priced seat / Место по взрослому тарифу":g.category==="child"?"Childcare / Детский":"Adult / Взрослый",
        table:seat?.table_label??null,seat:seat?.seat_number??null,
        childcareHours:g.childcare_hours??null};
     }),isTest:false,
