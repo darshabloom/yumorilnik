@@ -7,7 +7,8 @@ export type StripeLiveSession=Omit<StripeTestSession,"metadata">&{
 const projectRef="vzzabkviwyarrdkevqco";
 export function liveConfigured(){
  return process.env.STRIPE_LIVE_CHECKOUT_ENABLED==="true"&&
-  process.env.NEXT_PUBLIC_REAL_BOOKINGS_ENABLED==="true";
+  (process.env.NEXT_PUBLIC_REAL_BOOKINGS_ENABLED==="true"||
+   process.env.LIVE_PAYMENT_TEST_ENABLED==="true");
 }
 export function liveServices(){
  const url=process.env.SUPABASE_URL??process.env.NEXT_PUBLIC_SUPABASE_URL;
