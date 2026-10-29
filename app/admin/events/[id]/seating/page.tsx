@@ -14,9 +14,9 @@ const W=1000,H=700;
 function seats(t:TableItem){return t.seats_top+t.seats_bottom+t.seats_left+t.seats_right}
 function SeatMarkers({t}:{t:TableItem}){
  const dots:{x:number;y:number;label:string}[]=[];
- function add(n:number,side:string){for(let i=0;i<n;i++){const f=(i+1)/(n+1);dots.push({x:side==="top"||side==="bottom"?f*t.width:side==="left"?-14:t.width+14,y:side==="left"||side==="right"?f*t.height:side==="top"?-14:t.height+14,label:String(dots.length+1)})}}
+ function add(n:number,side:string){for(let i=0;i<n;i++){const f=(i+1)/(n+1);dots.push({x:side==="top"||side==="bottom"?f*t.width:side==="left"?-10:t.width+10,y:side==="left"||side==="right"?f*t.height:side==="top"?-10:t.height+10,label:String(dots.length+1)})}}
  add(t.seats_top,"top");add(t.seats_right,"right");add(t.seats_bottom,"bottom");add(t.seats_left,"left");
- return <>{dots.map((p,i)=><div key={i} className="absolute flex h-5 w-5 items-center justify-center rounded-full border border-black bg-[#fffaf1] text-[9px]" style={{left:p.x-10,top:p.y-10}}>{p.label}</div>)}</>;
+ return <>{dots.map((p,i)=><div key={i} className="absolute flex h-4 w-4 items-center justify-center rounded-full border border-black bg-[#fffaf1] text-[8px] leading-none" style={{left:p.x-8,top:p.y-8}}>{p.label}</div>)}</>;
 }
 export default function SeatingBuilder(){
  const {id}=useParams<{id:string}>();
