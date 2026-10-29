@@ -1,0 +1,4 @@
+import Link from "next/link";
+export default function Complete(){
+ return <main className="mx-auto max-w-xl px-6 py-16 text-center"><h1 className="text-3xl font-bold">Payment received / Оплата получена?</h1><p className="mt-5">Stripe may have accepted your payment. Your ticket is confirmed only when our system verifies the payment. Please retain your payment receipt. If your confirmation does not arrive, contact the organiser before trying to pay again.</p><p className="mt-4">Оплата могла пройти успешно. Билет будет подтверждён только после проверки платежа. Сохраните квитанцию Stripe. Если подтверждение не пришло, свяжитесь с организатором до повторной оплаты.</p><Link className="mt-6 inline-block underline" href="/">Return home / На главную</Link></main>
+}
