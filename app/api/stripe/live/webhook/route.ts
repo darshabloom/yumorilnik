@@ -3,6 +3,7 @@ import {NYE_EVENT_ID,liveConfigured,liveServices,assertLiveStripeAccount,verifyS
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const out=(x:unknown,status=200)=>NextResponse.json(x,{status,headers:{"Cache-Control":"no-store"}});
 type Event={id:string;type:string;livemode:boolean;data?:{object?:{id?:string;object?:string}}};
+type StripeCharge={id:string;object:"charge";livemode:boolean;currency:string;paid:boolean;refunded:boolean;amount:number;amount_refunded:number;payment_intent:string|null};
 export async function POST(request:NextRequest){
  if(!liveConfigured())return out({error:"Live webhook not enabled"},503);
  const webhookSecret=process.env.STRIPE_WEBHOOK_SECRET;
@@ -11,6 +12,49 @@ export async function POST(request:NextRequest){
  if(!verifyStripeSignature(raw,request.headers.get("stripe-signature")??"",webhookSecret))
   return out({error:"Invalid signature"},400);
  let event:Event;try{event=JSON.parse(raw) as Event}catch{return out({error:"Invalid event"},400)}
+ if(event.type==="charge.refunded"){
+  const chargeId=event.data?.object?.id;
+  if(event.livemode!==true||event.data?.object?.object!=="charge"||
+     !chargeId?.startsWith("ch_live_")&&!chargeId?.startsWith("ch_"))
+   return out({received:true,ignored:true});
+  try{
+   const {db,stripe,account}=liveServices();
+   await assertLiveStripeAccount(stripe,account);
+   const charge=await stripeCall<StripeCharge>(stripe,"GET","charges/"+encodeURIComponent(chargeId));
+   if(charge.object!=="charge"||!charge.livemode||charge.currency!=="nzd"||
+      !charge.paid||!charge.payment_intent?.startsWith("pi_")||
+      !Number.isSafeInteger(charge.amount)||!Number.isSafeInteger(charge.amount_refunded)||
+      charge.amount<50||charge.amount_refunded<1||charge.amount_refunded>charge.amount)
+    return out({received:true,ignored:true});
+   const {data:hold,error:lookupError}=await db.from("booking_live_checkouts")
+    .select("booking_id,state,amount_cents")
+    .eq("stripe_payment_intent_id",charge.payment_intent).maybeSingle();
+   if(lookupError)throw lookupError;
+   // Other charges on the same Stripe account must never affect Yumorilnik seats.
+   if(!hold)return out({received:true,ignored:true});
+   if(Number(hold.amount_cents)!==charge.amount)throw Error("Refund amount does not match booking ledger");
+   if(!charge.refunded||charge.amount_refunded!==charge.amount){
+    // Partial refunds do NOT release seats or revoke admission automatically.
+    const {error:markError}=await db.from("booking_live_checkouts")
+     .update({review_reason:"Partial Stripe refund; organiser review required",updated_at:new Date().toISOString()})
+     .eq("booking_id",hold.booking_id).eq("state","paid");
+    if(markError)throw markError;
+    return out({received:true,state:"partial_refund_review"});
+   }
+   const {data,error}=await db.rpc("record_verified_full_live_refund",{
+    p_booking_id:hold.booking_id,p_payment_intent_id:charge.payment_intent,
+    p_charge_id:charge.id,p_charge_amount_cents:charge.amount,
+    p_refunded_amount_cents:charge.amount_refunded,p_currency:charge.currency,
+   });
+   if(error)throw error;
+   if((data as {state?:string}|null)?.state!=="refunded")
+    throw Error("Full refund state was not recorded");
+   return out({received:true,state:"refunded"});
+  }catch(e){
+   console.error("Yumorilnik refund reconciliation requires retry",e instanceof Error?e.message:"unknown");
+   return out({error:"Refund reconciliation incomplete"},500);
+  }
+ }
  if(!["checkout.session.completed","checkout.session.async_payment_succeeded","checkout.session.expired"].includes(event.type))
   return out({received:true,ignored:true});
  const object=event.data?.object;
