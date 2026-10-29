@@ -64,7 +64,8 @@ export async function POST(request:NextRequest){
   const {db,stripe,account}=liveServices();await assertLiveStripeAccount(stripe,account);
   const session=await stripeCall<StripeLiveSession>(stripe,"GET","checkout/sessions/"+encodeURIComponent(object.id));
   const bookingId=session.metadata?.booking_id;
-  if(!bookingId||session.metadata?.event_id!==NYE_EVENT_ID||!session.livemode)
+  if(!bookingId||session.metadata?.event_id!==NYE_EVENT_ID||
+     session.metadata?.site!=="yumorilnik"||session.metadata?.payment_kind!=="event_ticket"||!session.livemode)
    return out({received:true,ignored:true});
   if(event.type==="checkout.session.expired"){
    if(session.status!=="expired")return out({received:true,ignored:true});
