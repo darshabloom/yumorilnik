@@ -271,20 +271,39 @@ export default function SeatingBuilder(){
   if(e)setError(e.message);else {setFeatures(old=>[...old,data as VenueFeature]);setDraftPoints([]);setMessage("Wall or entrance saved.");}
   setFeatureSaving(false);
  }
- function moveFeaturePoint(fid:string,index:number,p:Point){
-  setFeatures(old=>old.map(item=>item.id===fid?{...item,points:item.points.map((old,i)=>i===index?p:old)}:item));
-  setMessage("Saving wall…");
-  if(featureTimers.current[fid])clearTimeout(featureTimers.current[fid]);
-  featureTimers.current[fid]=setTimeout(async()=>{
-    const currentFeatures=featuresRef.current;
-    const feat=currentFeatures.find(item=>item.id===fid);
-    if(!feat)return;
-    const {error:e}=await supabase.from("seating_features").update({points:feat.points,updated_at:new Date().toISOString()}).eq("id",fid).eq("event_id",id);
-    if(e)setError(e.message);else setMessage("Wall saved.");
-  },900);
- }
  const featuresRef=useRef<VenueFeature[]>(features);
  useEffect(()=>{featuresRef.current=features;},[features]);
+ async function commitFeaturePoints(fid:string){
+  if(featureTimers.current[fid])clearTimeout(featureTimers.current[fid]);
+  const feat=featuresRef.current.find(item=>item.id===fid);
+  if(!feat)return;
+  const {error:e}=await supabase.from("seating_features")
+   .update({points:feat.points,updated_at:new Date().toISOString()}).eq("id",fid).eq("event_id",id);
+  if(e){setError("Could not save entrance/wall changes: "+e.message);setMessage("Not saved");}
+  else{setError("");setMessage("Wall and entrance points saved.");}
+ }
+ function moveFeaturePoint(fid:string,index:number,p:Point){
+  // Keep the ref current synchronously so pointer-up commits the final
+  // position even when React batches its last state update.
+  const next=featuresRef.current.map(item=>item.id===fid?
+   {...item,points:item.points.map((old,i)=>i===index?p:old)}:item);
+  featuresRef.current=next;setFeatures(next);
+  setMessage("Saving wall…");
+  if(featureTimers.current[fid])clearTimeout(featureTimers.current[fid]);
+  featureTimers.current[fid]=setTimeout(()=>{void commitFeaturePoints(fid);},900);
+ }
+ async function straightenEntrance(fid:string){
+  const entrance=featuresRef.current.find(f=>f.id===fid&&f.kind==="entrance");
+  if(!entrance||entrance.points.length<4)return;
+  if(!confirm(en?"Straighten the selected entrance into a U-shaped outline? This will replace its existing (diagonal) entrance points.":"Выпрямить вход в П-образную форму? Текущие диагональные точки входа будут заменены."))return;
+  // Retain the admin's two top corners and the first bottom depth; fix the
+  // diagonal bottom edge instead of guessing a new location.
+  const [a,b,c,d]=entrance.points;
+  const points=[a,b,{x:c.x,y:b.y},d];
+  const next=featuresRef.current.map(f=>f.id===fid?{...f,points}:f);
+  featuresRef.current=next;setFeatures(next);
+  await commitFeaturePoints(fid);
+ }
  async function deletePoint(){
    if(!selectedPoint)return;
    const feature=featuresRef.current.find(f=>f.id===selectedPoint.id);
@@ -558,7 +577,7 @@ export default function SeatingBuilder(){
            {activeZone===z.id&&zonePoints(z).map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="13" fill="#fff" stroke="#d12580" strokeWidth="3" style={{cursor:"grab"}} onPointerDown={e=>{e.stopPropagation();setActiveZone(z.id);zoneDrag.current={id:z.id,index:i};e.currentTarget.ownerSVGElement?.setPointerCapture(e.pointerId)}} />)}
          </g>)}
        </svg>}
-       <VenueLines features={features} editing={!!traceMode} onPointMove={moveFeaturePoint} onPick={setFeatureSelected} onPointPick={(fid,index)=>setSelectedPoint({id:fid,index})}/>
+       <VenueLines features={features} editing={!!traceMode} onPointMove={moveFeaturePoint} onPointCommit={(fid)=>{void commitFeaturePoints(fid)}} onPick={setFeatureSelected} onPointPick={(fid,index)=>setSelectedPoint({id:fid,index})}/>
        {traceMode&&<svg viewBox="0 0 1000 700" preserveAspectRatio="none" className="absolute inset-0 z-[11] h-full w-full cursor-crosshair" onClick={e=>{if(e.detail>1)return;const point=coord(e);setDraftPoints(old=>[...old,point])}} onDoubleClick={e=>{e.preventDefault();void finishFeature()}}>
           {draftPoints.length>0&&<polyline points={draftPoints.map(p=>p.x+","+p.y).join(" ")} fill="none" stroke="#db2777" strokeWidth="5" strokeDasharray="10 6"/>}
           {draftPoints.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="8" fill="#db2777" stroke="white" strokeWidth="3"/>)}
@@ -591,6 +610,7 @@ export default function SeatingBuilder(){
          <p className="text-sm font-semibold">Selected point {selectedPoint.index+1}</p>
          <button type="button" onClick={()=>void deletePoint()} className="mt-2 rounded border border-red-700 px-3 py-2 text-sm font-bold text-red-700">{en?"Delete this point":"Удалить точку"}</button>
        </div>}
+       {featureSelected&&features.find(f=>f.id===featureSelected)?.kind==="entrance"&&<button type="button" onClick={()=>void straightenEntrance(featureSelected)} className="mt-3 w-full rounded-lg border border-green-700 bg-green-50 px-3 py-2 text-sm font-bold text-green-900">{en?"Straighten entrance into U shape":"Выпрямить вход (П-образный)"}</button>}
        {featureSelected&&<button type="button" onClick={()=>void deleteFeature()} className="mt-3 font-bold text-red-700 underline">{en?"Delete entire wall / entrance":"Удалить всю стену / вход"}</button>}
      </>:editingStage?<><h2 className="text-xl font-black">{en?"Edit stage":"Редактировать сцену"}</h2><p className="mt-2 text-sm text-gray-600">{en?"Drag the stage into place or adjust its size and rotation here.":"Перетащите сцену или настройте её размер и поворот."}</p>
        <div className="mt-4 grid grid-cols-2 gap-3">
