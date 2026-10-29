@@ -42,7 +42,7 @@ function isPrivateTestAuthorised(body:Payload,email:string){
     Number(seat.seat_number)<1||typeof seat.table_id!=="string")return false;
  const allowed=(process.env.LIVE_PAYMENT_TEST_ALLOWED_EMAILS??"").split(",")
    .map(value=>value.trim().toLowerCase()).filter(Boolean);
- return allowed.length===0||allowed.includes(email.trim().toLowerCase());
+ // A private live checkout never accepts an unconfigured tester allowlist.\n return allowed.length>0&&allowed.includes(email.trim().toLowerCase());
 }
 // Read-only deployment smoke test. Never returns account IDs, credentials,
 // customer records or reservation data; no seats or Stripe payments are created.
