@@ -1,6 +1,6 @@
-import {NextRequest,NextResponse} from "next/server";
+import {after,NextRequest,NextResponse} from "next/server";
 import {NYE_EVENT_ID,liveConfigured,liveServices,assertLiveStripeAccount,verifyStripeSignature,stripeCall,validateLivePaidSession,type StripeLiveSession} from "@/lib/stripeLiveCheckout";
-export const runtime="nodejs";export const dynamic="force-dynamic";
+export const runtime="nodejs";export const dynamic="force-dynamic";export const maxDuration=60;
 const out=(x:unknown,status=200)=>NextResponse.json(x,{status,headers:{"Cache-Control":"no-store"}});
 type Event={id:string;type:string;livemode:boolean;data?:{object?:{id?:string;object?:string}}};
 type StripeCharge={id:string;object:"charge";livemode:boolean;currency:string;paid:boolean;refunded:boolean;amount:number;amount_refunded:number;payment_intent:string|null};
@@ -86,8 +86,25 @@ export async function POST(request:NextRequest){
    return out({received:true,state:"needs_review"});
   }
   if(state!=="paid")throw Error("Unexpected live booking state");
-  // Ticket email delivery will be handled by a verified, idempotent fulfilment worker.
-  // Until that worker is deployed, do not claim email delivery.
+  // The paid status has committed. Schedule fulfilment independently of
+  // Stripe's webhook acknowledgment: email failures must NOT re-run payment.
+  // This is deliberately inert until the organiser enables email sending.
+  const secret=process.env.BOOKING_EMAIL_PROCESSOR_SECRET;
+  if(process.env.BOOKING_EMAILS_ENABLED==="true"&&secret){
+   after(async()=>{
+    try{
+     const response=await fetch("https://yumorilnik.com/api/internal/send-booking-confirmations",{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+secret,"Content-Type":"application/json"},
+      cache:"no-store",signal:AbortSignal.timeout(45000),
+     });
+     if(!response.ok)console.error("Paid ticket confirmation worker rejected call",response.status);
+    }catch(e){
+     console.error("Paid ticket confirmation worker failed",e instanceof Error?e.message:"unknown");
+    }
+   });
+  }
+  // Never claim delivery until the dedicated worker has confirmed it.
   return out({received:true,state:"paid"});
  }catch(e){
   console.error("Yumorilnik live webhook processing failed",e instanceof Error?e.message:"unknown");
