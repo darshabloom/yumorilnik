@@ -27,5 +27,5 @@ export function validateLivePaidSession(s:StripeLiveSession,bookingId:string,eve
   s.status==="complete"&&s.payment_status==="paid"&&s.currency==="nzd"&&
   Number.isSafeInteger(s.amount_total)&&Number(s.amount_total)>0&&
   !!s.payment_intent?.startsWith("pi_")&&s.client_reference_id===bookingId&&
-  s.metadata?.booking_id===bookingId&&s.metadata.event_id===eventId;
+  s.metadata?.booking_id===bookingId&&s.metadata?.event_id===eventId;
 }
