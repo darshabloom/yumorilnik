@@ -41,3 +41,10 @@ Status: **PARTIALLY COMPLETE — do not enable public sales**.
 ## Customer browser verification
 - [x] User supplied incognito screenshot on 29 October 2026 confirming matryoshka.nz loads the approved redesigned homepage over HTTPS with no Vercel login or certificate warning.
 - [ ] Runtime PDF Cyrillic check remains a Phase A release gate.
+
+## Deferred enhancement — live check-in seating map (Marina request, 29 October 2026)
+- [ ] **Post-launch / later:** Add an organiser-facing live seating plan showing each occupied/assigned seat, guest names beside seats, and arrival/check-in status updating as staff scan admission QR codes.
+- Should reflect real confirmed bookings, not sandbox guests; support table/seat layout, checked-in vs not-yet-arrived distinction, and refresh/realtime update from the existing staff check-in workflow.
+- Access restricted to authorised organisers/staff with appropriate permissions; protect guest personal information.
+- **Deferred by user explicitly:** Do not implement now; prioritise launch-critical Phase B checkout/payment and admission verification.
+- [x] User confirmed the new iPhone QR camera scanner opens and works (29 October 2026). Full first-check-in/duplicate rejection outcome not yet independently confirmed.
