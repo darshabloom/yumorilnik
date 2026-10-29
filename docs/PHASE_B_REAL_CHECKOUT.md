@@ -137,3 +137,11 @@ ORDER BY table_name;
 - Sender RESEND_FROM_EMAIL and RESEND_API_KEY appear in production config, but verified sender domain not yet tested. Resend idempotency keys expire after 24 h; long-lived ambiguous sending rows require manual reconciliation, not blind automated retries.
 - Prepared read-only docs/PHASE_B_STEP6_READINESS_CHECK.sql to inspect event time/description, ticket type prices, queue status counts, manually confirmed without live pay and live paid without delivery tracking. Not yet run by user.
 - Additional launch blockers: end-to-end paid Stripe Checkout permission test for restricted rk_live key; proper actual paid recipient email with PDF; event 19:00/20:00 discrepancy; promo pricing and childcare approval; cleanup isolated QA bookings; refunds/cancellations and stale 'creating'/'sending' reconciliation; ticket customer secure access.
+
+## Phase B protection hardening (29 Oct 2026) — production deployed
+- Following Step 5, discovered previous organiser-only app/api/admin/ticket-pdf could generate admission QR for any manually marked confirmed booking, despite no matching live payment, and app/api/tickets/credentials issue/check didn't verify live ledger.
+- Hardened PDF preview: real QR is only generated for status='confirmed' WITH booking_live_checkouts.state='paid', bound cs_live_ and pi_ IDs. Otherwise generate visibly invalid sample/no QR.
+- Hardened staff credential issuance AND staff scan: both require same paid live checkout check via server-only Supabase service client, after organiser/staff permissions. Manual QA fixture will now be rejected at scan as intended; organiser comps need a separate audited policy.
+- PDF email now uses booking.confirmed_at as stable PDF creation/modification timestamp for repeatable attachment metadata; note Resend idempotency lasts 24h and residual unpredictable rendering means ambiguous send reconciliation remains a launch gate.
+- Production deployment dpl_5XWQVTHU3sXRemXaHJUvfJA5JKmX READY, git SHA 829563b6b09696f5bd47f571ca22a702ec90bd8e, preview dpl_3WcCQzfuVbrpwAbeaAERvnDEoWbh READY.
+- No live paid checkout or real email end-to-end test yet. Both production activation flags remain OFF, and BOOKING_EMAIL_PROCESSOR_SECRET missing. Sender domain verification, Stripe review status, approved price/time and genuine paid QR scan tests outstanding.
