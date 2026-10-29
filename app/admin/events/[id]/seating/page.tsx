@@ -303,6 +303,34 @@ export default function SeatingBuilder(){
    if(e){setError(e.message);return;}
    setFeatures(old=>old.filter(item=>item.id!==featureSelected));setFeatureSelected(null);setSelectedPoint(null);setMessage("Feature deleted.");
  }
+ async function applyZonePricesToTables(overwrite=false){
+  const eligible=latest.current.filter(t=>t.is_active&&(overwrite||t.seat_price_cents===null));
+  const updates=eligible.map(t=>({table:t,zone:zoneForTable(t,zones)}));
+  const missing=updates.filter(x=>!x.zone);
+  const priced=updates.filter((x):x is {table:TableItem;zone:PriceZone}=>x.zone!==null);
+  if(missing.length){
+   setError((en?"Tables outside all price zones: ":"Столы вне ценовых зон: ")+missing.map(x=>x.table.label).join(", ")+".");
+   return;
+  }
+  if(!priced.length){setMessage(en?"All active tables already have individual seat prices.":"У всех активных столов уже указаны цены мест.");return;}
+  if(!confirm(en?`Apply the saved zone price to ${priced.length} table(s)? ${overwrite?"This REPLACES existing manual seat prices.":"Only tables without a seat price will change."} These are REAL customer prices used in Stripe checkout.`:
+   `Применить цену зоны к ${priced.length} столам? ${overwrite?"Это ЗАМЕНИТ вручную указанные цены.":"Изменятся только столы без цены."} Эти цены используются для реальной оплаты.`))return;
+  setSaving(true);setError("");
+  // Flush outstanding geometry edits before applying real checkout prices.
+  if(timer.current)clearTimeout(timer.current);
+  await flushChanges();
+  let count=0;
+  for(const {table,zone} of priced){
+   const {error:e}=await supabase.from("seating_tables")
+    .update({seat_price_cents:zone.price_cents}).eq("event_id",id).eq("id",table.id);
+   if(e){setError((en?"Could not apply zone prices to ":"Не удалось сохранить цену для ")+table.label+": "+e.message);break;}
+   count++;
+   const changed=latest.current.map(t=>t.id===table.id?{...t,seat_price_cents:zone.price_cents}:t);
+   latest.current=changed;setTables(changed);
+  }
+  setSaving(false);
+  setMessage((en?"Zone seat prices saved for ":"Цены из зон сохранены для ")+count+(en?" table(s).":" столов."));
+ }
  async function applySuggestedSeatPrices(){
   if(!confirm("Apply the proposed $10/$20/$30 seat prices? This will replace existing seat surcharges for the named tables, but leave all other tables unchanged."))return;
   const pricing:Record<number,number>={1:10,4:10,5:10,7:10,9:10,17:10,2:20,3:20,6:20,11:20,12:20,16:20,10:30,13:30,14:30,15:30,18:30};
@@ -549,6 +577,12 @@ export default function SeatingBuilder(){
      </div>
     </div>
     <aside className="hidden rounded-xl border border-black/20 bg-white p-4 lg:sticky lg:block lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
+     {zones.length>0&&<section className="mb-4 space-y-2 rounded-lg border border-amber-400 bg-amber-50 p-3">
+      <h2 className="text-sm font-black">{en?"Use your zone prices for seats":"Применить цены зон к местам"}</h2>
+      <p className="text-xs">{en?"Checkout requires each table's seat price to be saved. Fill missing table prices with the matching zone price (Front, Side or Back), or deliberately replace all prices after changing your zones.":"Для оплаты цена каждого места должна быть сохранена у стола. Заполните пропущенные цены из соответствующей зоны или обновите все цены после изменения зон."}</p>
+      <button type="button" disabled={saving} onClick={()=>void applyZonePricesToTables(false)} className="w-full rounded-lg bg-black px-3 py-3 text-sm font-bold text-white disabled:opacity-50">{en?"Fill missing seat prices from zones":"Заполнить цены мест из зон"}</button>
+      <button type="button" disabled={saving} onClick={()=>void applyZonePricesToTables(true)} className="w-full rounded-lg border border-amber-700 px-3 py-2 text-xs font-bold disabled:opacity-50">{en?"Replace ALL table seat prices with zone prices…":"ЗАМЕНИТЬ все цены столов ценами зон…"}</button>
+     </section>}
      <button type="button" disabled={saving} onClick={()=>void applySuggestedSeatPrices()} className="mb-4 w-full rounded-lg border border-black/30 bg-[#fff2db] p-3 text-left text-sm font-semibold disabled:opacity-50">Apply proposed seat tiers · $10 / $20 / $30</button>
      {traceMode?<><h2 className="text-xl font-black">{en?"Tracing walls":"Обводка стен"}</h2><p className="mt-2 text-sm">Click along walls to create connected segments. Double-click or Finish to save. Drag circular points to make corrections.</p>
        <h3 className="mt-5 font-bold">{en?"Saved features":"Сохранённые элементы"}</h3>
