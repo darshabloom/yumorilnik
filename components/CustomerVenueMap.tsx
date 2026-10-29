@@ -4,6 +4,7 @@ import {useEffect,useMemo,useRef,useState} from "react";
 import type {VenueFeature} from "@/components/VenueLines";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import {zonePoints,type PriceZone} from "@/lib/priceZones";
+import {seatAxisPosition} from "@/lib/seatingSeatSpacing";
 
 export type PublicTable={id:string;label:string;shape?:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id?:string|null;is_active:boolean;seat_gap_top?:number;seat_gap_right?:number;seat_gap_bottom?:number;seat_gap_left?:number};
 export type PublicStage={stage_x:number;stage_y:number;stage_width:number;stage_height:number;stage_rotation:number};
@@ -17,7 +18,7 @@ function seatPositions(table:PublicTable):Seat[]{
  const sides=[{side:"top",n:table.seats_top},{side:"right",n:table.seats_right},{side:"bottom",n:table.seats_bottom},{side:"left",n:table.seats_left}];
  for(const {side,n} of sides)for(let i=0;i<n;i++){
   const index=output.length+1;
-  const axis=(length:number)=>n<=1?length/2:8+(length-16)*i/(n-1);
+  const axis=(length:number)=>seatAxisPosition(length,n,i);
   output.push({key:table.id+":"+index,label:String(index),tableId:table.id,
    x:side==="top"||side==="bottom"?axis(table.width):side==="left"?-(MAX_SEAT_RADIUS+(table.seat_gap_left??6)):table.width+MAX_SEAT_RADIUS+(table.seat_gap_right??6),
    y:side==="left"||side==="right"?axis(table.height):side==="top"?-(MAX_SEAT_RADIUS+(table.seat_gap_top??6)):table.height+MAX_SEAT_RADIUS+(table.seat_gap_bottom??6)});
