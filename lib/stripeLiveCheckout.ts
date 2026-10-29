@@ -10,6 +10,11 @@ export function liveConfigured(){
   (process.env.NEXT_PUBLIC_REAL_BOOKINGS_ENABLED==="true"||
    process.env.LIVE_PAYMENT_TEST_ENABLED==="true");
 }
+// Webhooks must continue handling already-paid tickets and refunds even after
+// the private payment test is closed. This switch never creates charges.
+export function liveWebhookConfigured(){
+ return process.env.STRIPE_LIVE_WEBHOOK_ENABLED==="true";
+}
 export function liveServices(){
  const url=process.env.SUPABASE_URL??process.env.NEXT_PUBLIC_SUPABASE_URL;
  const key=process.env.SUPABASE_SECRET_KEY??process.env.SUPABASE_SERVICE_ROLE_KEY;
