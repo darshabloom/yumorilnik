@@ -10,6 +10,7 @@ export type BookingSubmitArgs={
  seatAssignments:Record<string,string>;
  adultSeatChildren?:Record<string,boolean>;
  childcareHours?:Record<string,string>;
+ childAges?:Record<string,string>;
 };
 
 /** Stable, minimal payload for the database RPC. Prices are NEVER submitted by
@@ -25,12 +26,12 @@ export function buildBookingSubmission(args:BookingSubmitArgs){
     const parentIndex=Number(args.childParents[String(i)]);
     const guardian=args.guestInfo[String(parentIndex)];
     return {name:guest.name.trim(),email:guardian.email.trim(),phone:guardian.phone.trim(),
-     parent_index:parentIndex,is_child_with_adult_seat:true};
+     parent_index:parentIndex,is_child_with_adult_seat:true,age_years:Number(args.childAges?.[String(i)])};
    }
    return {name:guest.name.trim(),email:guest.email.trim(),phone:guest.phone.trim(),
     is_child_with_adult_seat:false};
   }
-  return {name:guest.name.trim(),parent_index:Number(args.childParents[String(i)]),
+  return {name:guest.name.trim(),parent_index:Number(args.childParents[String(i)]),age_years:Number(args.childAges?.[String(i)]),
    ...(args.childcareHours?.[String(i)]?{childcare_hours:Number(args.childcareHours[String(i)])}:{})};
  });
  const p_selections=args.selectedKeys.map(key=>{
