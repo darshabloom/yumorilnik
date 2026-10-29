@@ -64,3 +64,8 @@ ORDER BY table_name;
 - Existing `test_confirmed` records reserve seats in the helper. Before launch, decide to expire/remove sandbox effects safely without destroying audit history.
 - `submit_family_booking_impl` makes additional 3/6-hour childcare adjustment (NZ$30/60) after underlying `submit_booking_impl`. Never trust guest pricing supplied by client.
 - Before writing/applying live DB functions, inspect `submit_booking_impl`, grants on internal schema + wrapper functions, and seat constraints/triggers to ensure all channels consistently reserve seats.
+
+## Follow-up permission audit (29 October)
+- User verified `has_schema_privilege(..., 'yumorilnik_internal','USAGE')` is TRUE for `anon`, `authenticated` and `service_role`; `CREATE` is FALSE for all three.
+- As `submit_family_booking_impl` also has direct EXECUTE grants for `anon` and `authenticated`, the function is broadly callable at the database privilege layer; whether exposed via REST depends on exposed schemas and reachable wrapper functions. Review before changing privileges; do not blindly revoke functions used by active booking flows.
+- Still waiting for body of `yumorilnik_internal.submit_booking_impl` to check pricing/seat reservation consistency before live migration.
