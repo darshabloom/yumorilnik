@@ -3,7 +3,7 @@
 import {useEffect,useMemo,useRef,useState} from "react";
 import type {VenueFeature} from "@/components/VenueLines";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
-import {zonePoints,type PriceZone} from "@/lib/priceZones";
+import {zonePoints,zoneForTable,type PriceZone} from "@/lib/priceZones";
 import {seatAxisPosition} from "@/lib/seatingSeatSpacing";
 
 export type PublicTable={id:string;label:string;shape?:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id?:string|null;is_active:boolean;seat_gap_top?:number;seat_gap_right?:number;seat_gap_bottom?:number;seat_gap_left?:number};
@@ -12,6 +12,7 @@ type Seat={key:string;label:string;tableId:string;x:number;y:number};
 type Mode="whole_table"|"individual_seats";
 const WIDTH=1000,HEIGHT=700;
 const MAX_SEAT_RADIUS=6;
+function shortTableLabel(label:string){return label.replace(/^Table\s+/i,"").replace(/^Стол\s+/i,"")||label;}
 const MAX_HIT_RADIUS=9;
 function seatPositions(table:PublicTable):Seat[]{
  const output:Seat[]=[];
@@ -136,13 +137,13 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
  const tablePriceGroups=useMemo(()=>{
   const groups=new Map<string,{price:number|null;labels:string[]}>();
   for(const table of tables.filter(t=>t.is_active)){
-   const price=mode==="individual_seats"?table.seat_price_cents:table.table_price_cents;
+   const price=mode==="individual_seats"?(table.seat_price_cents??zoneForTable(table,zones)?.price_cents??null):table.table_price_cents;
    const key=price===null?"unset":String(price);
    const current=groups.get(key)??{price,labels:[]};
    current.labels.push(table.label);groups.set(key,current);
   }
   return Array.from(groups.values()).sort((a,b)=>(a.price??Infinity)-(b.price??Infinity));
- },[tables,mode]);
+ },[tables,mode,zones]);
  return <div className="space-y-3">
    <div className="flex flex-wrap items-center justify-between gap-2">
     <p className="text-sm text-gray-600">{en?"Tap a table to zoom in, then tap a numbered seat. Pinch or use +/− to zoom.":"Нажмите на стол, чтобы приблизить его, затем выберите место по номеру. Увеличивайте схему двумя пальцами или кнопками +/−."}</p>
@@ -175,9 +176,9 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
       </g>}
       {tables.filter(t=>t.is_active).map(t=><g key={t.id} transform={`translate(${t.x} ${t.y}) rotate(${t.rotation_deg} ${t.width/2} ${t.height/2})`}>
         <rect x="0" y="0" width={t.width} height={t.height} rx={t.shape==="round"||t.shape==="oval"?Math.min(t.width,t.height)/2:0} fill={selectedKeys.includes(t.id)?"#f8c6dc":focused===t.id?"#ffe1ee":"#fff"} stroke={selectedKeys.includes(t.id)?"#c41e73":"#777"} strokeWidth="2" data-seat-key={mode==="whole_table"?t.id:""} data-table-id={t.id} style={{cursor:"pointer"}}/>
-        <text x={t.width/2} y={t.height/2+7} fontSize="16" textAnchor="middle" fontWeight="700" pointerEvents="none">{t.label}</text>
+        <text x={t.width/2} y={t.height/2+4} fontSize="11" textAnchor="middle" fontWeight="700" pointerEvents="none">{shortTableLabel(t.label)}</text>
         {seatPositions(t).map(s=><g key={s.key} data-seat-key={mode==="individual_seats"?s.key:t.id} data-table-id={t.id} style={{cursor:"pointer"}}>
-          <circle cx={s.x} cy={s.y} r={seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS} fill={selectedKeys.includes(s.key)?"#f5a047":"#fff"} stroke={selectedKeys.includes(s.key)?"#ad5d09":"#525252"} strokeWidth="1.3" pointerEvents="none"/>
+          <rect x={s.x-(seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS)} y={s.y-(seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS)} width={(seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS)*2} height={(seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS)*2} rx="1" fill={selectedKeys.includes(s.key)?"#f5a047":"#fff"} stroke={selectedKeys.includes(s.key)?"#ad5d09":"#525252"} strokeWidth="1.3" pointerEvents="none"/>
           <circle cx={s.x} cy={s.y} r={seatRadii.get(s.key)?.hit??MAX_HIT_RADIUS} fill="transparent" pointerEvents="all" />
           <text x={s.x} y={s.y+4} textAnchor="middle" fontSize="8" fontWeight="600" pointerEvents="none">{s.label}</text>
         </g>)}
@@ -185,7 +186,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
     </svg>
    </div>
    </div>
-   <div className="flex flex-wrap gap-4 text-xs text-gray-600"><span>{en?"◯ Seat":"◯ Место"}</span><span className="text-pink-700">{en?"● Selected":"● Выбрано"}</span><span>{en?"Reservations are not open yet":"Бронирование ещё не открыто"}</span></div>
-   {selected&&<p className="rounded-lg border border-black/15 bg-white p-3 text-sm text-gray-700" aria-live="polite"><strong>{selected.label}</strong> · {mode==="whole_table"?(selected.table_price_cents!==null?money(selected.table_price_cents):(en?"Price pending":"Цена уточняется")):(selected.seat_price_cents!==null?money(selected.seat_price_cents)+(en?" per adult place":" за взрослое место"):(en?"Adult price not set for this table":"Взрослая цена для этого стола не указана"))}</p>}
+   <div className="flex flex-wrap gap-4 text-xs text-gray-600"><span>{en?"□ Seat":"□ Место"}</span><span className="text-pink-700">{en?"■ Selected":"■ Выбрано"}</span><span>{en?"Reservations are not open yet":"Бронирование ещё не открыто"}</span></div>
+   {selected&&<p className="rounded-lg border border-black/15 bg-white p-3 text-sm text-gray-700" aria-live="polite"><strong>{selected.label}</strong> · {mode==="whole_table"?(selected.table_price_cents!==null?money(selected.table_price_cents):(en?"Price pending":"Цена уточняется")):((selected.seat_price_cents??zoneForTable(selected,zones)?.price_cents??null)!==null?money(selected.seat_price_cents??zoneForTable(selected,zones)!.price_cents)+(en?" per adult place":" за взрослое место"):(en?"Adult price not set for this table":"Взрослая цена для этого стола не указана"))}</p>}
  </div>;
 }
