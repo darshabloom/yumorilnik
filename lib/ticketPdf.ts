@@ -7,8 +7,10 @@ import {issueTicketCredential} from "@/lib/ticketCredential";
 type Guest={guest_index:number;full_name:string;category:string;is_child_with_adult_seat?:boolean|null;childcare_hours?:number|null};
 type Seat={guest_index:number|null;table_label:string;seat_number:number|null};
 type Event={title:string;event_date:string;event_time?:string|null;location?:string|null};
-export async function createTicketPdf(input:{bookingId:string;reference:string;event:Event;guests:Guest[];seats:Seat[];isTest:boolean}){
+export async function createTicketPdf(input:{bookingId:string;reference:string;event:Event;guests:Guest[];seats:Seat[];isTest:boolean;issuedAt?:string|null}){
  const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);
+ // Use the immutable confirmed time for retry-stable PDF metadata.
+ if(input.issuedAt){const issued=new Date(input.issuedAt);if(!Number.isNaN(issued.getTime())){pdf.setCreationDate(issued);pdf.setModificationDate(issued)}}
  const fontBytes=await readFile(path.join(process.cwd(),"assets","ticket-font.ttf"));
  const font=await pdf.embedFont(fontBytes,{subset:true}),bold=font;
  const safe=(value:unknown)=>String(value??"").replace(/\p{Cc}/gu," ").slice(0,95);
