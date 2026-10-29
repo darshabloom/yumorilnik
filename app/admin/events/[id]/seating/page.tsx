@@ -26,7 +26,7 @@ function shortTableLabel(label:string){return label.replace(/^Table\s+/i,"").rep
 
 function SeatMarkers({t}:{t:TableItem}){
  const dots:{x:number;y:number;label:string}[]=[];
- function add(n:number,side:string){for(let i=0;i<n;i++){dots.push({x:side==="top"||side==="bottom"?seatAxisPosition(t.width,n,i):side==="left"?-(t.seat_gap_left??6):t.width+(t.seat_gap_right??6),y:side==="left"||side==="right"?seatAxisPosition(t.height,n,i):side==="top"?-(t.seat_gap_top??6):t.height+(t.seat_gap_bottom??6),label:String(dots.length+1)})}}
+ function add(n:number,side:string){for(let i=0;i<n;i++){dots.push({x:side==="top"||side==="bottom"?seatAxisPosition(t.width,n,i):side==="left"?-(6+(t.seat_gap_left??6)):t.width+6+(t.seat_gap_right??6),y:side==="left"||side==="right"?seatAxisPosition(t.height,n,i):side==="top"?-(6+(t.seat_gap_top??6)):t.height+6+(t.seat_gap_bottom??6),label:String(dots.length+1)})}}
  add(t.seats_top,"top");add(t.seats_right,"right");add(t.seats_bottom,"bottom");add(t.seats_left,"left");
  return <>{dots.map((p,i)=><div key={i} className="pointer-events-none absolute flex h-3 w-3 items-center justify-center rounded-[2px] border border-black bg-[#fffaf1] text-[7px] font-semibold leading-none" style={{left:p.x-6,top:p.y-6}}>{p.label}</div>)}</>;
 }
