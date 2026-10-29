@@ -69,3 +69,10 @@ ORDER BY table_name;
 - User verified `has_schema_privilege(..., 'yumorilnik_internal','USAGE')` is TRUE for `anon`, `authenticated` and `service_role`; `CREATE` is FALSE for all three.
 - As `submit_family_booking_impl` also has direct EXECUTE grants for `anon` and `authenticated`, the function is broadly callable at the database privilege layer; whether exposed via REST depends on exposed schemas and reachable wrapper functions. Review before changing privileges; do not blindly revoke functions used by active booking flows.
 - Still waiting for body of `yumorilnik_internal.submit_booking_impl` to check pricing/seat reservation consistency before live migration.
+
+## Base booking SQL inspected (user response, 29 October)
+- `yumorilnik_internal.submit_booking_impl` serialises on `pg_advisory_xact_lock(hashtextextended(event_id::text,0))`; checks idempotency by `client_request_id`, valid event, tickets, guests, named seats and table prices.
+- Base adult admission is zero for assigned seating and table/seat prices are added; child base comes from active ticket, then family wrapper applies the 3/6-hour childcare model. Thus seat prices must be server-authoritative.
+- **Critical:** `submit_booking_impl` validates duplicate seats *within the new request* but does **not** check seats occupied by OTHER bookings. That protection currently comes from checkout-specific `test_checkout_places_available` after insertion. Live checkout must atomically call an updated cross-channel conflict predicate before making a charge and again on payment confirmation.
+- The helper currently recognises `confirmed` and `test_confirmed` as occupied; active `booking_test_checkouts` in `creating/open`. Production should count active live holds, confirmed seats and sandbox holds consistently under the same event lock, with explicit expiry treatment.
+- We have now received the full base booking function; no more base function dumps are needed. The next implementation deliverable is the staged live-checkout database migration and its API/webhook, then secure production Stripe configuration and paid end-to-end tests.
