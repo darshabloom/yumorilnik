@@ -54,8 +54,11 @@ export async function GET(){
   return out({ready:false,stage:"live-webhook-secret"},503);
  let services:ReturnType<typeof liveServices>;
  try{services=liveServices()}catch{return out({ready:false,stage:"live-credentials"},503)}
- try{await assertLiveStripeAccount(services.stripe,services.account)}
- catch{return out({ready:false,stage:"stripe-account-or-key-permission"},503)}
+ let stripeAccount:{id?:string};
+ try{stripeAccount=await stripeCall<{id:string}>(services.stripe,"GET","account")}
+ catch{return out({ready:false,stage:"stripe-key-rejected-or-missing-account-read"},503)}
+ if(stripeAccount.id!==services.account)
+  return out({ready:false,stage:"stripe-account-id-mismatch"},503);
  try{
   const {error}=await services.db.from("booking_live_checkouts")
    .select("booking_id",{head:true}).limit(1);
