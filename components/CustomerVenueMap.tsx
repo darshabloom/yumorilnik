@@ -19,8 +19,8 @@ function seatPositions(table:PublicTable):Seat[]{
   const index=output.length+1;
   const axis=(length:number)=>n<=1?length/2:8+(length-16)*i/(n-1);
   output.push({key:table.id+":"+index,label:String(index),tableId:table.id,
-   x:side==="top"||side==="bottom"?axis(table.width):side==="left"?-(table.seat_gap_left??6):table.width+(table.seat_gap_right??6),
-   y:side==="left"||side==="right"?axis(table.height):side==="top"?-(table.seat_gap_top??6):table.height+(table.seat_gap_bottom??6)});
+   x:side==="top"||side==="bottom"?axis(table.width):side==="left"?-(MAX_SEAT_RADIUS+(table.seat_gap_left??6)):table.width+MAX_SEAT_RADIUS+(table.seat_gap_right??6),
+   y:side==="left"||side==="right"?axis(table.height):side==="top"?-(MAX_SEAT_RADIUS+(table.seat_gap_top??6)):table.height+MAX_SEAT_RADIUS+(table.seat_gap_bottom??6)});
  }
  return output;
 }
