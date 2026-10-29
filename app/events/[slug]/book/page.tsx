@@ -17,7 +17,7 @@ export default async function BookEvent({params,searchParams}:{params:Promise<{s
  const [tableResult,featureResult,mapResult,zoneResult]=await Promise.all([
    supabaseServer.from("seating_tables").select("id,label,shape,x,y,width,height,rotation_deg,seats_top,seats_bottom,seats_left,seats_right,table_price_cents,seat_price_cents,price_zone_id,is_active,seat_gap_top,seat_gap_right,seat_gap_bottom,seat_gap_left").eq("event_id",event.id).eq("is_active",true),
    supabaseServer.from("seating_features").select("id,event_id,kind,label,points").eq("event_id",event.id),
-   supabaseServer.from("event_seating_maps").select("stage_x,stage_y,stage_width,stage_height,stage_rotation").eq("event_id",event.id).maybeSingle(),
+   supabaseServer.from("event_seating_maps").select("*").eq("event_id",event.id).maybeSingle(),
    supabaseServer.from("event_price_zones").select("id,event_id,name,price_cents,color,x,y,width,height,sort_order,points").eq("event_id",event.id).order("sort_order")
  ]);
  if(tableResult.error||featureResult.error||mapResult.error||zoneResult.error)throw new Error("Unable to load venue layout.");
