@@ -4,6 +4,17 @@ import {issueTicketCredential,parseTicketCredential} from "@/lib/ticketCredentia
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const reply=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"no-store"}});
+async function hasPaidLiveCheckout(bookingId:string){
+ const url=process.env.SUPABASE_URL??process.env.NEXT_PUBLIC_SUPABASE_URL;
+ const key=process.env.SUPABASE_SECRET_KEY??process.env.SUPABASE_SERVICE_ROLE_KEY;
+ if(!url||!key||new URL(url).hostname!=="vzzabkviwyarrdkevqco.supabase.co")return false;
+ const server=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+ const {data,error}=await server.from("booking_live_checkouts")
+  .select("state,stripe_session_id,stripe_payment_intent_id").eq("booking_id",bookingId).maybeSingle();
+ return !error&&data?.state==="paid"&&
+  !!data.stripe_session_id?.startsWith("cs_live_")&&
+  !!data.stripe_payment_intent_id?.startsWith("pi_");
+}
 export async function POST(req:NextRequest){
  const origin=req.headers.get("origin");if(origin&&origin!==new URL(req.url).origin)return reply({error:"Cross-site request blocked"},403);
  const token=req.headers.get("authorization")?.match(/^Bearer (.+)$/)?.[1];if(!token)return reply({error:"Authentication required"},401);
@@ -20,6 +31,7 @@ export async function POST(req:NextRequest){
   const {data:booking,error}=await db.from("bookings").select("status,booking_guests(guest_index)").eq("id",body.bookingId).maybeSingle();
   if(error||!booking||booking.status!=="confirmed")return reply({error:"Only confirmed real bookings qualify"},409);
   if(!(booking.booking_guests??[]).some((g:{guest_index:number})=>g.guest_index===body.guestIndex))return reply({error:"Guest missing"},404);
+  if(!await hasPaidLiveCheckout(body.bookingId))return reply({error:"No verified live payment; admission credentials are unavailable"},409);
   try{return reply({credential:issueTicketCredential(body.bookingId,body.guestIndex!)})}catch{return reply({error:"Ticket signing unavailable"},503)}
  }
  if(body.action==="check"){
@@ -31,6 +43,7 @@ export async function POST(req:NextRequest){
   if(listError)return reply({error:"Event check-in access denied"},403);
   const guest=(guests??[]).find((g:{booking_id:string;guest_index:number})=>g.booking_id===parsed.bookingId&&g.guest_index===parsed.guestIndex);
   if(!guest)return reply({error:"Ticket is not valid for this event"},404);
+  if(!await hasPaidLiveCheckout(parsed.bookingId))return reply({error:"No verified live payment for this ticket"},404);
   if(guest.checked_in_at)return reply({error:"Ticket already checked in",guest:guest.full_name},409);
   const {data:updated,error:updateError}=await db.rpc("staff_set_guest_checkin",{p_booking_id:parsed.bookingId,p_guest_index:parsed.guestIndex,p_arrived:true});
   if(updateError||updated!==true)return reply({error:"Could not record check-in"},409);
