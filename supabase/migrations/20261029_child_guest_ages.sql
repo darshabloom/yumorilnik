@@ -1,5 +1,6 @@
--- Store child ages, including children occupying adult-priced seats.
+-- Store ages of childcare guests and children in paid adult seats.
 alter table public.booking_guests add column if not exists age_years integer;
+alter table public.booking_guests drop constraint if exists booking_guests_age_0_to_17;
 alter table public.booking_guests add constraint booking_guests_age_0_to_17 check (age_years between 0 and 17 or age_years is null);
 
 create or replace function yumorilnik_internal.submit_family_booking_impl(
@@ -77,19 +78,12 @@ begin
    end if;
   end if;
   if v_index>=v_adults or v_is_seated_child then
-   if v_guest->>'age_years' is null or (v_guest->>'age_years') !~ '^[0-9]{1,2}
-  update public.bookings set total_cents=total_cents+v_extra where id=v_booking_id;
- end if;
- select pg_catalog.jsonb_build_object('reference',b.booking_reference,'status',b.status,
-    'total_cents',b.total_cents) into v_result from public.bookings b where b.id=v_booking_id;
- return v_result;
-end;$body$;
-
-     or (v_guest->>'age_years')::integer>17 then
+   if v_guest->>'age_years' is null or (v_guest->>'age_years') !~ '^[0-9]{1,2}$'
+      or (v_guest->>'age_years')::integer>17 then
     raise exception 'Child age must be between 0 and 17' using errcode='22023';
    end if;
    update public.booking_guests set age_years=(v_guest->>'age_years')::integer
-    where booking_id=v_booking_id and guest_index=v_index;
+     where booking_id=v_booking_id and guest_index=v_index;
   end if;
  end loop;
  if v_extra>0 then
