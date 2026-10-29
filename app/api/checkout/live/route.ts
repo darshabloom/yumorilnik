@@ -44,6 +44,31 @@ function isPrivateTestAuthorised(body:Payload,email:string){
    .map(value=>value.trim().toLowerCase()).filter(Boolean);
  return allowed.length===0||allowed.includes(email.trim().toLowerCase());
 }
+// Read-only deployment smoke test. Never returns account IDs, credentials,
+// customer records or reservation data; no seats or Stripe payments are created.
+export async function GET(){
+ if(process.env.VERCEL_ENV!=="production")return out({ready:false,stage:"not-production"},404);
+ if(process.env.NEXT_PUBLIC_REAL_BOOKINGS_ENABLED==="true")
+  return out({ready:false,stage:"public-bookings-not-isolated"},503);
+ if(!process.env.STRIPE_WEBHOOK_SECRET?.startsWith("whsec_"))
+  return out({ready:false,stage:"live-webhook-secret"},503);
+ let services:ReturnType<typeof liveServices>;
+ try{services=liveServices()}catch{return out({ready:false,stage:"live-credentials"},503)}
+ try{await assertLiveStripeAccount(services.stripe,services.account)}
+ catch{return out({ready:false,stage:"stripe-account-or-key-permission"},503)}
+ try{
+  const {error}=await services.db.from("booking_live_checkouts")
+   .select("booking_id",{head:true}).limit(1);
+  if(error)return out({ready:false,stage:"database-ledger"},503);
+  const {error:eventsError}=await services.db.from("events")
+   .select("id",{head:true}).eq("id",NYE_EVENT_ID).limit(1);
+  if(eventsError)return out({ready:false,stage:"database-events"},503);
+ }catch{return out({ready:false,stage:"database-connectivity"},503)}
+ return out({ready:true,mode:"live",publicSalesEnabled:false,stage:"verified",
+  privateCheckoutEnabled:liveConfigured()&&process.env.LIVE_PAYMENT_TEST_ENABLED==="true",
+  webhookEnabled:process.env.STRIPE_LIVE_WEBHOOK_ENABLED==="true"});
+}
+
 export async function POST(request:NextRequest){
  if(!liveConfigured())return out({error:"Live checkout is not enabled",code:"LIVE_CHECKOUT_NOT_READY"},503);
  let origin:string;try{origin=checkoutSiteOrigin(request)}catch{return out({error:"Unrecognised host"},403)}
