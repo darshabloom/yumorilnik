@@ -11,7 +11,7 @@ export function partyCounts(tickets:{name:string;quantity:number}[]):PartyCounts
 export function canStartBooking(counts:PartyCounts):boolean{
  return counts.adults+counts.children>0&&counts.other===0&&(counts.children===0||counts.adults>0);
 }
-export type GuestField="name"|"email"|"phone"|"parent"|"duration";
+export type GuestField="name"|"email"|"phone"|"parent"|"duration"|"age";
 export type GuestValidationProblem={guestIndex:number;field:GuestField};
 
 /** Return each actual missing field rather than showing a generic error after
@@ -25,6 +25,7 @@ export function guestValidationProblems(
   adultSeatChildren?:Record<string,boolean>;
   childcareHours?:Record<string,string>;
   requireChildcareHours?:boolean;
+  childAges?:Record<string,string>;
  },
 ):GuestValidationProblem[]{
  const result:GuestValidationProblem[]=[];
@@ -39,6 +40,8 @@ export function guestValidationProblems(
    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guest?.email.trim()??""))result.push({guestIndex:i,field:"email"});
    if(!(guest?.phone.trim()))result.push({guestIndex:i,field:"phone"});
   }else{
+   const ageRaw=options?.childAges?.[String(i)]??"";
+   if(!/^\d{1,2}$/.test(ageRaw)||Number(ageRaw)>17)result.push({guestIndex:i,field:"age"});
    const raw=parents[String(i)];
    if(raw===undefined||raw===""||!Number.isInteger(Number(raw))||Number(raw)<0||Number(raw)>=adults||
       (markedChild&&Number(raw)===i)||options?.adultSeatChildren?.[raw]===true){
