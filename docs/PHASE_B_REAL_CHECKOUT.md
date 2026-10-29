@@ -98,3 +98,10 @@ ORDER BY table_name;
 - Review-only `docs/PHASE_B_SHARED_AVAILABILITY_DRAFT.sql` now models cross-channel seat collision and finite ticket inventory. It has NOT been applied. Existing sandbox RPC checks must also be changed to invoke the shared function before activating live checkout.
 - Restricted Stripe keys: confirm whether the selected key permissions support `GET /v1/account` (current account guard), Checkout Session create/retrieve/expire, and Payment Intents retrieval. Fail closed; never relax the account check based on a 403 without alternative secure ownership verification.
 - Implementation remains incomplete: live prepare/bind/complete/expire RPCs and idempotent fulfilment, expiry/recovery and real-money E2E. No activation flags.
+
+## Database migration live coordination — Step 1/Step 2
+- User ran `PHASE_B_STEP1_LIVE_LEDGER.sql` in Yumorilnik Supabase SQL Editor and returned `live_checkout_rows = 0`. This confirms table can be read and contains no checkout records; RLS and indexes are included in migration but need their explicit verification result.
+- Created executable `docs/PHASE_B_STEP2_SHARED_AVAILABILITY.sql`: replaces test checker with a wrapper around shared checker; includes confirmed/test confirmed bookings, active sandbox holds, and future active live holds for seats and quantity-limited tickets.
+- Live holds deliberately remain blocking until explicitly expired/closed, even if timestamp passed, to prevent sold seats being offered while payment may be completing; expiry reconciliation remains launch gate.
+- Step 2 script grants execute only to service_role on shared function and retains test checker signature/privileges, and includes read-only verification (expected true,true,false,false,true,true,0).
+- **Not yet applied or verified by user**. Never turn on live payment flags until live RPCs + actual payment, cancellation/refund and email delivery verification.
