@@ -64,6 +64,7 @@ export async function POST(request:NextRequest){
  fields.set("success_url",origin+"/booking/complete?session_id={CHECKOUT_SESSION_ID}");
  fields.set("cancel_url",origin+"/booking/cancelled");
  fields.set("expires_at",String(Math.floor(Date.now()/1000)+31*60));
+ fields.set("metadata[site]","yumorilnik");fields.set("metadata[payment_kind]","event_ticket");
  fields.set("metadata[booking_id]",hold.booking_id);
  fields.set("metadata[event_id]",NYE_EVENT_ID);
  fields.set("metadata[reference]",hold.reference);
