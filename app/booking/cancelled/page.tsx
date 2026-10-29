@@ -1,0 +1,4 @@
+import Link from "next/link";
+export default function Cancelled(){
+ return <main className="mx-auto max-w-xl px-6 py-16 text-center"><h1 className="text-3xl font-bold">Checkout cancelled / Оплата отменена</h1><p className="mt-4">You returned from the payment page. If you were charged or are unsure of your payment status, contact the organiser before placing another order.</p><p className="mt-4">Вы вернулись со страницы оплаты. Если деньги списались или статус неясен, свяжитесь с организатором до повторного заказа.</p><Link className="mt-6 inline-block underline" href="/">Return home / На главную</Link></main>
+}
