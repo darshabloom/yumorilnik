@@ -13,16 +13,20 @@ type EventItem={id:string;title:string;seating_mode:string;table_booking_mode:st
 const W=1000,H=700;
 function seats(t:TableItem){return t.seats_top+t.seats_bottom+t.seats_left+t.seats_right}
 function compactTableSize(t:TableItem){
- // Each seat gets a consistent pitch, rather than stretching across an oversized table.
- const pitch=14, margin=20, thickness=22;
- return {width:Math.max(thickness,Math.max(0,Math.max(t.seats_top,t.seats_bottom)-1)*pitch+margin),
-         height:Math.max(thickness,Math.max(0,Math.max(t.seats_left,t.seats_right)-1)*pitch+margin)};
+ // Minimum fit only: never truncate an already-positioned banquet table.
+ const pitch=14, padding=20, thickness=22;
+ return {width:Math.max(thickness,Math.max(0,Math.max(t.seats_top,t.seats_bottom)-1)*pitch+padding),
+         height:Math.max(thickness,Math.max(0,Math.max(t.seats_left,t.seats_right)-1)*pitch+padding)};
+}
+function seatAxisPosition(length:number,count:number,index:number){
+ // Spread chairs along the ACTUAL table, with symmetric end padding.
+ return count<=1?length/2:8+(length-16)*index/(count-1);
 }
 function shortTableLabel(label:string){return label.replace(/^Table\s+/i,"").replace(/^Стол\s+/i,"")||label;}
 
 function SeatMarkers({t}:{t:TableItem}){
  const dots:{x:number;y:number;label:string}[]=[];
- function add(n:number,side:string){for(let i=0;i<n;i++){const pitch=14,span=Math.max(0,n-1)*pitch;dots.push({x:side==="top"||side==="bottom"?(t.width-span)/2+i*pitch:side==="left"?-6:t.width+6,y:side==="left"||side==="right"?(t.height-span)/2+i*pitch:side==="top"?-6:t.height+6,label:String(dots.length+1)})}}
+ function add(n:number,side:string){for(let i=0;i<n;i++){dots.push({x:side==="top"||side==="bottom"?seatAxisPosition(t.width,n,i):side==="left"?-6:t.width+6,y:side==="left"||side==="right"?seatAxisPosition(t.height,n,i):side==="top"?-6:t.height+6,label:String(dots.length+1)})}}
  add(t.seats_top,"top");add(t.seats_right,"right");add(t.seats_bottom,"bottom");add(t.seats_left,"left");
  return <>{dots.map((p,i)=><div key={i} className="pointer-events-none absolute flex h-3 w-3 items-center justify-center rounded-[2px] border border-black bg-[#fffaf1] text-[7px] font-semibold leading-none" style={{left:p.x-6,top:p.y-6}}>{p.label}</div>)}</>;
 }
@@ -314,7 +318,8 @@ export default function SeatingBuilder(){
   setTables(old=>{const next=old.filter(t=>t.id!==current.id);latest.current=next;return next});delete pending.current[current.id];setSelected(null);setMessage("Table removed");
  }
  function fitToSeats(t:TableItem){
-  const {width,height}=compactTableSize(t);
+  const minimum=compactTableSize(t);
+  const width=Math.max(t.width,minimum.width),height=Math.max(t.height,minimum.height);
   mutate(t.id,{x:Math.round(Math.max(0,Math.min(W-width,t.x+(t.width-width)/2))),
     y:Math.round(Math.max(0,Math.min(H-height,t.y+(t.height-height)/2))),
     width,height,shape:"rectangle"});
@@ -468,8 +473,8 @@ export default function SeatingBuilder(){
      </>:current?<><h2 className="text-xl font-black">Edit {current.label}</h2>
        <label className="mt-4 block text-sm font-bold">{en?"Table name":"Название стола"}<input className="mt-1 w-full rounded border p-2" value={current.label} onChange={e=>mutate(current.id,{label:e.target.value})}/></label>
        <div className="mt-3 grid grid-cols-2 gap-3">{([{field:"width",label:"Width",min:20,max:340},{field:"height",label:"Height",min:20,max:240},{field:"rotation_deg",label:"Rotation °",min:-180,max:180} ] as const).map(o=><label key={o.field} className="text-sm font-bold">{o.label}<input type="number" min={o.min} max={o.max} value={current[o.field]} onChange={e=>mutate(current.id,{[o.field]:Math.max(o.min,Math.min(o.max,Number(e.target.value)||0))})} className="mt-1 w-full rounded border p-2"/></label>)}</div>
-       <button type="button" onClick={()=>fitToSeats(current)} className="mt-3 w-full rounded-lg border border-pink-600 bg-pink-50 px-3 py-2 text-sm font-bold">{en?"Fit rectangle to seats":"Подогнать стол под места"}</button>
-       <p className="mt-2 text-xs text-gray-600">{en?"Fit rectangle centres a tighter table around its seats. Save layout afterwards.":"Кнопка подгоняет прямоугольный стол под количество мест. Затем сохраните план."}</p>
+       <button type="button" onClick={()=>fitToSeats(current)} className="mt-3 w-full rounded-lg border border-pink-600 bg-pink-50 px-3 py-2 text-sm font-bold">{en?"Distribute seats along table":"Распределить места вдоль стола"}</button>
+       <p className="mt-2 text-xs text-gray-600">{en?"Seats spread evenly over the full table length. Resize and drag the table to align with the red table in your floor-plan photo, then save.":"Места распределяются по всей длине стола. Подгоните размер и положение под красный стол на плане, затем сохраните."}</p>
        <div className="mt-4"><label className="block text-sm font-bold">Turn table · {current.rotation_deg}°<input aria-label="Rotate table" className="mt-2 w-full" type="range" min="-180" max="180" step="5" value={current.rotation_deg} onChange={e=>mutate(current.id,{rotation_deg:Number(e.target.value)})}/></label>
         <div className="mt-2 flex gap-2">
          <button type="button" onClick={()=>mutate(current.id,{rotation_deg:Math.max(-180,current.rotation_deg-15)})} className="rounded border px-3 py-2 text-sm font-bold">↶ 15°</button>
