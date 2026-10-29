@@ -66,7 +66,7 @@ WITH relevant_tables AS (
                WHERE l.booking_id=b.id AND l.state IN ('creating','open'))
      ))
    )
-), overlaps AS (
+), seat_collisions AS (
  SELECT event_id,table_id,seat_number,count(DISTINCT booking_id) AS conflicting_bookings
  FROM occupied
  GROUP BY event_id,table_id,seat_number
@@ -95,6 +95,6 @@ SELECT pg_catalog.jsonb_pretty(
    SELECT jsonb_object_agg(status,total) FROM aggregate_booking_status
   ),'{}'::jsonb),
   'live_checkout_rows',(SELECT count(*) FROM public.booking_live_checkouts),
-  'overlapping_occupied_numbered_seats',(SELECT count(*) FROM overlaps)
+  'overlapping_occupied_numbered_seats',(SELECT count(*) FROM seat_collisions)
  )
 ) AS phase_b_step5_audit;
