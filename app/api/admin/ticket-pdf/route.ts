@@ -22,9 +22,17 @@ export async function GET(req:NextRequest){
  const {data:booking,error}=await db.from("bookings").select("id,booking_reference,status,events(title,event_date,event_time,location),booking_guests(guest_index,full_name,category,is_child_with_adult_seat,childcare_hours),booking_selections(guest_index,table_label,seat_number)").eq("id",id).maybeSingle();
  if(error||!booking)return NextResponse.json({error:"Booking not found"},{status:404});
  if(!["confirmed","test_confirmed"].includes(booking.status))return NextResponse.json({error:"Only confirmed or sandbox paid bookings may be previewed"},{status:409});
+ // A manually confirmed booking is not evidence of a successful payment.
+ // PDF previews without a genuine paid live ledger must have NO valid QR.
+ const {data:live,error:paidError}=await db.from("booking_live_checkouts")
+  .select("state,stripe_session_id,stripe_payment_intent_id").eq("booking_id",id).maybeSingle();
+ if(paidError)return NextResponse.json({error:"Unable to verify ticket payment"},{status:503});
+ const realPaid=booking.status==="confirmed"&&live?.state==="paid"&&
+  live.stripe_session_id?.startsWith("cs_live_")&&
+  live.stripe_payment_intent_id?.startsWith("pi_");
  try{
   const event=booking.events as unknown as {title:string;event_date:string;event_time:string|null;location:string|null};
-  const buffer=await createTicketPdf({bookingId:booking.id,reference:booking.booking_reference,event,guests:booking.booking_guests??[],seats:booking.booking_selections??[],isTest:booking.status!=="confirmed"});
+  const buffer=await createTicketPdf({bookingId:booking.id,reference:booking.booking_reference,event,guests:booking.booking_guests??[],seats:booking.booking_selections??[],isTest:!realPaid});
   return new NextResponse(new Uint8Array(buffer),{headers:{"Content-Type":"application/pdf","Content-Disposition":"attachment; filename=\"yumorilnik-tickets.pdf\"","Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
  }catch{return NextResponse.json({error:"Ticket PDF generation failed"},{status:503})}
 }
