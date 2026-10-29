@@ -1,0 +1,19 @@
+{
+  "id": "/staff/",
+  "name": "Yumorilnik Staff Check-in",
+  "short_name": "Yumorilnik Staff",
+  "description": "Secure ticket scanning and event guest check-in",
+  "start_url": "/staff/check-in",
+  "scope": "/staff/",
+  "display": "standalone",
+  "background_color": "#fff2db",
+  "theme_color": "#f5a047",
+  "icons": [
+    {
+      "src": "/staff-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
