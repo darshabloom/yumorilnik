@@ -114,9 +114,15 @@ function RealAdminBookingsPage(){
    });
    if(rpcError)throw rpcError;
    if(data!==true)throw new Error(en?"The request was already cancelled or missing.":"Заявка уже отменена или отсутствует.");
+   // Do not claim success from an RPC response alone: verify the canonical row.
+   const {data:verified,error:verifyError}=await supabase.from("bookings")
+    .select("id,booking_reference,status,cancelled_at,cancellation_reason")
+    .eq("id",booking.id).eq("booking_reference",booking.booking_reference).single();
+   if(verifyError||verified?.status!=="cancelled"||!verified.cancelled_at)
+    throw new Error(en?"Cancellation was not confirmed by the database. Please refresh and contact the organiser.":"Отмена не подтверждена базой данных. Обновите страницу и обратитесь к организатору.");
    setBookings(old=>old.map(row=>row.id===booking.id?{
-    ...row,status:"cancelled" as const,cancelled_at:new Date().toISOString(),
-    cancellation_reason:reason.trim()||null,
+    ...row,status:"cancelled" as const,cancelled_at:verified.cancelled_at,
+    cancellation_reason:verified.cancellation_reason,
    }:row));
    setMessage(en?"Request cancelled and removed from the active list. An audit record is retained.":"Заявка отменена и удалена из активного списка. Запись сохранена для истории.");
    setConfirmingId(null);setReason("");
