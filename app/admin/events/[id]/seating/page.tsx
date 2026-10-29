@@ -513,7 +513,7 @@ export default function SeatingBuilder(){
       <h1 className="text-xl font-black">{event.title}</h1>
       <p className="mt-2 text-sm text-gray-700">The venue plan is for viewing on a phone. To move tables, trace walls or change prices, open this page on a computer.</p>
     </div>
-    <CustomerVenueMap tables={tables} features={features} stage={{stage_x:stageItem.x,stage_y:stageItem.y,stage_width:stageItem.width,stage_height:stageItem.height,stage_rotation:stageItem.rotation}} mode={whole?"whole_table":"individual_seats"}/>
+    <CustomerVenueMap tables={tables} features={features} stage={{stage_x:stageItem.x,stage_y:stageItem.y,stage_width:stageItem.width,stage_height:stageItem.height,stage_rotation:stageItem.rotation,public_view_scale:mapView.scale,public_view_x:mapView.x,public_view_y:mapView.y}} mode={whole?"whole_table":"individual_seats"} zones={zones}/>
   </section>
   <div className="mx-auto hidden max-w-7xl lg:block">
    <Link href={`/admin/events/${id}/tickets`} className="text-sm font-bold underline">{en?"← Tickets":"← К билетам"}</Link>
