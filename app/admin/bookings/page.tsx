@@ -7,7 +7,7 @@ import {supabase} from "@/lib/supabaseClient";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import LocalDemoBookings from "@/components/LocalDemoBookings";
 
-type Guest={id:string;guest_index:number;category:"adult"|"child";full_name:string;email:string|null;phone:string|null;accompanying_adult_index:number|null;guardian_index:number|null;is_child_with_adult_seat:boolean;childcare_hours:number|null;childcare_price_cents:number|null;checked_in_at:string|null};
+type Guest={id:string;guest_index:number;category:"adult"|"child";full_name:string;email:string|null;phone:string|null;accompanying_adult_index:number|null;guardian_index:number|null;is_child_with_adult_seat:boolean;childcare_hours:number|null;childcare_price_cents:number|null;age_years:number|null;checked_in_at:string|null};
 type Item={id:string;ticket_name:string;category:string;quantity:number;unit_admission_cents:number};
 type Selection={id:string;table_label:string;seat_number:number|null;guest_index:number|null;price_cents:number|null};
 type EventSummary={title:string;title_en:string|null;event_date:string|null};
@@ -55,9 +55,9 @@ function RealAdminBookingsPage(){
   }
   setAllowed(true);
   const current=await supabase.from("bookings")
-   .select("id,event_id,booking_reference,status,created_at,cancelled_at,cancellation_reason,total_cents,currency,promo_code,confirmation_email_status,events(title,title_en,event_date),booking_items(id,ticket_name,category,quantity,unit_admission_cents),booking_guests(id,guest_index,category,full_name,email,phone,accompanying_adult_index,guardian_index,is_child_with_adult_seat,childcare_hours,childcare_price_cents,checked_in_at),booking_selections(id,table_label,seat_number,guest_index,price_cents)")
+   .select("id,event_id,booking_reference,status,created_at,cancelled_at,cancellation_reason,total_cents,currency,promo_code,confirmation_email_status,events(title,title_en,event_date),booking_items(id,ticket_name,category,quantity,unit_admission_cents),booking_guests(id,guest_index,category,full_name,email,phone,accompanying_adult_index,guardian_index,is_child_with_adult_seat,childcare_hours,childcare_price_cents,age_years,checked_in_at),booking_selections(id,table_label,seat_number,guest_index,price_cents)")
    .order("created_at",{ascending:false}).limit(250);
-  if(current.error&&/guardian_index|is_child_with_adult_seat|childcare_hours|childcare_price_cents/i.test(current.error.message)){
+  if(current.error&&/guardian_index|is_child_with_adult_seat|childcare_hours|childcare_price_cents|age_years/i.test(current.error.message)){
    // Safe during staged deployment: keep existing admin bookings available until
    // the Yumorilnik-only family metadata migration has been applied.
    const fallback=await supabase.from("bookings")
@@ -207,6 +207,7 @@ function RealAdminBookingsPage(){
           {guest.email&&<p className="break-all text-sm">{en?"Email":"Почта"}: {guest.email}</p>}
           {guest.phone&&<p className="text-sm">{en?"Phone":"Телефон"}: {guest.phone}</p>}
           {parent&&<p className="text-sm">{en?"Accompanying adult":"Сопровождающий взрослый"}: {parent.full_name}</p>}
+          {guest.age_years!==null&&guest.age_years!==undefined&&<p className="text-sm font-semibold">{en?"Child’s age":"Возраст ребёнка"}: {guest.age_years} {en?"years":"лет"}</p>}
           {guest.childcare_hours&&<p className="text-sm font-semibold">{en?"Childcare":"Присмотр"}: {guest.childcare_hours} {en?"hours":"часов"} · NZ${((guest.childcare_price_cents??0)/100).toFixed(2)}</p>}
           {guest.is_child_with_adult_seat&&<p className="text-sm font-semibold">{en?"Adult seat price only · childcare on the day":"Только место по взрослому тарифу · присмотр в день мероприятия"}</p>}
           <p className="mt-1 text-sm">{seat?`${seat.table_label} · ${en?"Seat":"Место"} ${seat.seat_number}`:(en?"No individually assigned seat":"Без отдельного закреплённого места")}</p>
