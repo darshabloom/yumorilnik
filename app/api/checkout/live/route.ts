@@ -68,6 +68,12 @@ export async function POST(request:NextRequest){
  fields.set("metadata[booking_id]",hold.booking_id);
  fields.set("metadata[event_id]",NYE_EVENT_ID);
  fields.set("metadata[reference]",hold.reference);
+ // Stripe Dashboard charge and PaymentIntent reporting must retain the site
+ // identity as well as the Checkout Session metadata.
+ fields.set("payment_intent_data[metadata][site]","yumorilnik");
+ fields.set("payment_intent_data[metadata][payment_kind]","event_ticket");
+ fields.set("payment_intent_data[metadata][booking_id]",hold.booking_id);
+ fields.set("payment_intent_data[metadata][event_id]",NYE_EVENT_ID);
  try{
   const session=await stripeCall<StripeLiveSession>(stripe,"POST","checkout/sessions",fields,"yumorilnik-live-"+body.p_client_request_id);
   if(!session.livemode||!session.id.startsWith("cs_live_")||session.status!=="open"||
