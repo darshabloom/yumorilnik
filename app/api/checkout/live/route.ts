@@ -94,9 +94,29 @@ export async function POST(request:NextRequest){
  if(privateTest){
   // Read the DB-authoritative one-use promotion before reserving any seats.
   // Never create a ticket or charge at the ordinary price during this test.
-  const {data:promo,error:promoError}=await db.from("booking_promotions")
-   .select("enabled,discount_type,amount_cents,event_id,applies_to,max_uses,times_used,starts_at,ends_at")
-   .eq("code",PRIVATE_LIVE_TEST_PROMO).maybeSingle();
+  const promoFields="enabled,discount_type,amount_cents,event_id,applies_to,max_uses,times_used,starts_at,ends_at";
+  let {data:promo,error:promoError}=await db.from("booking_promotions")
+   .select(promoFields).eq("code",PRIVATE_LIVE_TEST_PROMO).maybeSingle();
+  // Provision exactly ONE temporary server-controlled promotion on first
+  // authorised test, without changing the actual ticket or seat prices.
+  // It expires automatically and cannot be reused after one paid redemption.
+  if(!promo&&!promoError){
+   const {error:seedError}=await db.from("booking_promotions").insert({
+    code:PRIVATE_LIVE_TEST_PROMO,enabled:true,discount_type:"fixed_price",
+    percent_off:0,amount_cents:PRIVATE_LIVE_TEST_AMOUNT_CENTS,
+    event_id:NYE_EVENT_ID,max_uses:1,applies_to:"adult",
+    ticket_type_ids:[],starts_at:new Date().toISOString(),
+    ends_at:new Date(Date.now()+24*60*60*1000).toISOString(),
+    min_tickets:1,internal_note:"Single-use NZ$0.50 live ticket checkout verification. Refund after test. Not for public sale."
+   });
+   if(seedError){
+    // Race-safe: only use an existing promotion that passes ALL checks below.
+    console.warn("Private 50-cent promo not created",seedError.code??"unknown");
+   }
+   const current=await db.from("booking_promotions")
+    .select(promoFields).eq("code",PRIVATE_LIVE_TEST_PROMO).maybeSingle();
+   promo=current.data;promoError=current.error;
+  }
   const now=Date.now();
   if(promoError||!promo||promo.enabled!==true||
      promo.discount_type!=="fixed_price"||promo.amount_cents!==PRIVATE_LIVE_TEST_AMOUNT_CENTS||
