@@ -14,9 +14,9 @@ const W=1000,H=700;
 function seats(t:TableItem){return t.seats_top+t.seats_bottom+t.seats_left+t.seats_right}
 function SeatMarkers({t}:{t:TableItem}){
  const dots:{x:number;y:number;label:string}[]=[];
- function add(n:number,side:string){for(let i=0;i<n;i++){const f=(i+1)/(n+1);dots.push({x:side==="top"||side==="bottom"?f*t.width:side==="left"?-10:t.width+10,y:side==="left"||side==="right"?f*t.height:side==="top"?-10:t.height+10,label:String(dots.length+1)})}}
+ function add(n:number,side:string){for(let i=0;i<n;i++){const f=(i+1)/(n+1);dots.push({x:side==="top"||side==="bottom"?f*t.width:side==="left"?-7:t.width+7,y:side==="left"||side==="right"?f*t.height:side==="top"?-7:t.height+7,label:String(dots.length+1)})}}
  add(t.seats_top,"top");add(t.seats_right,"right");add(t.seats_bottom,"bottom");add(t.seats_left,"left");
- return <>{dots.map((p,i)=><div key={i} className="absolute flex h-4 w-4 items-center justify-center rounded-full border border-black bg-[#fffaf1] text-[8px] leading-none" style={{left:p.x-8,top:p.y-8}}>{p.label}</div>)}</>;
+ return <>{dots.map((p,i)=><div key={i} className="pointer-events-none absolute flex h-3 w-3 items-center justify-center rounded-[2px] border border-black bg-[#fffaf1] text-[7px] font-semibold leading-none" style={{left:p.x-6,top:p.y-6}}>{p.label}</div>)}</>;
 }
 export default function SeatingBuilder(){
  const {id}=useParams<{id:string}>();
@@ -429,8 +429,8 @@ export default function SeatingBuilder(){
         style={{width:"100%",height:"100%"}}>
          {t.label}<SeatMarkers t={t}/>
        </button>
-       {!traceMode&&selected===t.id&&<button type="button" aria-label={"Rotate "+t.label} title="Drag to rotate" onPointerDown={e=>rotateDown(e,t)} onPointerMove={rotateMove} onPointerUp={()=>{rotating.current=null}} onPointerCancel={()=>{rotating.current=null}} className="absolute -top-10 left-1/2 z-20 flex h-8 w-8 -translate-x-1/2 touch-none items-center justify-center rounded-full border-2 border-pink-600 bg-white text-lg font-black shadow">⟳</button>}
-       {!traceMode&&selected===t.id&&<button type="button" aria-label={"Resize "+t.label} title="Drag to resize table" onPointerDown={e=>resizeDown(e,t)} onPointerMove={resizeMove} onPointerUp={()=>{resize.current=null}} onPointerCancel={()=>{resize.current=null}} className="absolute -bottom-3 -right-3 z-20 flex h-7 w-7 touch-none items-center justify-center rounded-md border-2 border-pink-600 bg-white text-sm font-black shadow">↘</button>}
+       {!traceMode&&selected===t.id&&<button type="button" aria-label={"Rotate "+t.label} title="Drag to rotate" onPointerDown={e=>rotateDown(e,t)} onPointerMove={rotateMove} onPointerUp={()=>{rotating.current=null}} onPointerCancel={()=>{rotating.current=null}} className="absolute -top-8 -right-8 z-20 flex h-6 w-6 touch-none items-center justify-center rounded-md border border-pink-600 bg-white text-sm font-bold shadow">⟳</button>}
+       {!traceMode&&selected===t.id&&<button type="button" aria-label={"Resize "+t.label} title="Drag to resize table" onPointerDown={e=>resizeDown(e,t)} onPointerMove={resizeMove} onPointerUp={()=>{resize.current=null}} onPointerCancel={()=>{resize.current=null}} className="absolute -bottom-8 -right-8 z-20 flex h-6 w-6 touch-none items-center justify-center rounded-md border border-pink-600 bg-white text-sm font-bold shadow">↘</button>}
        </div>)}
      </div>
     </div>
