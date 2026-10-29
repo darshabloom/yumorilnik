@@ -1,9 +1,10 @@
 import {NextRequest,NextResponse} from "next/server";
+import {timingSafeEqual} from "node:crypto";
 import {NYE_EVENT_ID,liveConfigured,liveServices,assertLiveStripeAccount,checkoutSiteOrigin,stripeCall,type StripeLiveSession} from "@/lib/stripeLiveCheckout";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const out=(x:unknown,status=200)=>NextResponse.json(x,{status,headers:{"Cache-Control":"no-store"}});
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-type Payload={p_event_id:string;p_client_request_id:string;p_tickets:unknown[];p_guests:unknown[];p_selections:unknown[];p_promo_code?:string|null};
+type Payload={p_event_id:string;p_client_request_id:string;p_tickets:unknown[];p_guests:unknown[];p_selections:unknown[];p_promo_code?:string|null;p_live_test_access_code?:string};
 type Hold={booking_id:string;reference:string;amount_cents:number;currency:string;state:string;stripe_session_id?:string|null};
 function valid(x:unknown):x is Payload{
  if(!x||typeof x!=="object")return false;
@@ -12,7 +13,8 @@ function valid(x:unknown):x is Payload{
   Array.isArray(p.p_tickets)&&p.p_tickets.length>0&&p.p_tickets.length<=20&&
   Array.isArray(p.p_guests)&&p.p_guests.length>0&&p.p_guests.length<=20&&
   Array.isArray(p.p_selections)&&p.p_selections.length<=20&&
-  (p.p_promo_code==null||(typeof p.p_promo_code==="string"&&p.p_promo_code.length<=32));
+  (p.p_promo_code==null||(typeof p.p_promo_code==="string"&&p.p_promo_code.length<=32))&&
+  (p.p_live_test_access_code==null||(typeof p.p_live_test_access_code==="string"&&p.p_live_test_access_code.length<=256));
 }
 function contact(guests:unknown[]){
  for(const entry of guests){if(!entry||typeof entry!=="object")continue;
@@ -23,6 +25,25 @@ function contact(guests:unknown[]){
 function isStripeUrl(url:string|null):url is string{
  if(!url)return false;try{return new URL(url).protocol==="https:"&&new URL(url).hostname==="checkout.stripe.com"}catch{return false}
 }
+function isPrivateTestAuthorised(body:Payload,email:string){
+ const secret=process.env.LIVE_PAYMENT_TEST_ACCESS_CODE??"";
+ const code=body.p_live_test_access_code??"";
+ if(secret.length<32||code.length!==secret.length)return false;
+ const left=Buffer.from(code,"utf8"),right=Buffer.from(secret,"utf8");
+ if(left.length!==right.length||!timingSafeEqual(left,right))return false;
+ // Public checkout stays disabled. The private test accepts exactly one
+ // standard adult ticket with one named seat and NO promotional code.
+ if(body.p_tickets.length!==1||body.p_guests.length!==1||body.p_selections.length!==1||body.p_promo_code)return false;
+ const ticket=body.p_tickets[0] as Record<string,unknown>|null;
+ const guest=body.p_guests[0] as Record<string,unknown>|null;
+ const seat=body.p_selections[0] as Record<string,unknown>|null;
+ if(!ticket||ticket.quantity!==1||!guest||guest.is_child_with_adult_seat!==false||
+    !seat||seat.guest_index!==0||!Number.isSafeInteger(seat.seat_number)||
+    Number(seat.seat_number)<1||typeof seat.table_id!=="string")return false;
+ const allowed=(process.env.LIVE_PAYMENT_TEST_ALLOWED_EMAILS??"").split(",")
+   .map(value=>value.trim().toLowerCase()).filter(Boolean);
+ return allowed.length===0||allowed.includes(email.trim().toLowerCase());
+}
 export async function POST(request:NextRequest){
  if(!liveConfigured())return out({error:"Live checkout is not enabled",code:"LIVE_CHECKOUT_NOT_READY"},503);
  let origin:string;try{origin=checkoutSiteOrigin(request)}catch{return out({error:"Unrecognised host"},403)}
@@ -30,10 +51,25 @@ export async function POST(request:NextRequest){
  try{const raw=await request.text();if(raw.length>20000)return out({error:"Request too large"},413);const data:unknown=JSON.parse(raw);if(!valid(data))return out({error:"Invalid booking"},400);body=data}
  catch{return out({error:"Invalid JSON"},400)}
  const email=contact(body.p_guests);if(!email)return out({error:"An adult email is required"},400);
+ const privateTest=process.env.NEXT_PUBLIC_REAL_BOOKINGS_ENABLED!=="true";
+ if(privateTest){
+  if(process.env.LIVE_PAYMENT_TEST_ENABLED!=="true"||!isPrivateTestAuthorised(body,email))
+   return out({error:"Private live payment test is unavailable or not authorised"},403);
+ }
  let services:ReturnType<typeof liveServices>;
  try{services=liveServices();await assertLiveStripeAccount(services.stripe,services.account)}
  catch{return out({error:"Live payment configuration is not ready"},503)}
  const {db,stripe}=services;
+ if(privateTest){
+  const ticket=body.p_tickets[0] as {ticket_type_id?:string};
+  if(!ticket.ticket_type_id||!uuid.test(ticket.ticket_type_id))
+   return out({error:"Adult test ticket required"},400);
+  const {data:adult,error:adultError}=await db.from("ticket_types")
+   .select("name").eq("id",ticket.ticket_type_id).eq("event_id",NYE_EVENT_ID)
+   .eq("is_active",true).maybeSingle();
+  if(adultError||!adult||!/adult|взросл/i.test(adult.name))
+   return out({error:"Only one adult ticket may be purchased in the live test"},403);
+ }
  // The database is authoritative for seats, discounts and prices.
  const {data,error}=await db.rpc("prepare_live_checkout",{
   p_event_id:body.p_event_id,p_client_request_id:body.p_client_request_id,
