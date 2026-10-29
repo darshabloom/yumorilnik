@@ -247,6 +247,14 @@ export default function BookingExperience({event,tickets,venue}:{event:BookingEv
     window.location.assign(result.url);
     return;
    }
+   if(realBookingsEnabled){
+    const response=await fetch("/api/checkout/live",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,p_promo_code:promoCode.trim()||null})});
+    const result=await response.json() as {url?:string;error?:string};
+    if(!response.ok||!result.url)throw new Error(result.error||"Live checkout is unavailable");
+    if(new URL(result.url).hostname!=="checkout.stripe.com")throw new Error("Invalid Stripe checkout destination");
+    window.location.assign(result.url);
+    return;
+   }
    const {data,error}=await supabase.rpc("submit_test12_booking",{...payload,p_promo_code:promoCode.trim()});
    if(error)throw error;
    const result=data as {reference?:unknown;status?:unknown;confirmation_email_status?:unknown}|null;
