@@ -36,6 +36,7 @@ type Booking={
  event_id:string;
  status:string;
  total_cents:number|null;
+ confirmed_at:string|null;
  currency:string;
  promo_code:string|null;
  events:{title:string;title_en:string|null;event_date:string|null;event_time:string|null;location:string|null;slug:string|null}|null;
@@ -112,7 +113,7 @@ export async function POST(request:NextRequest){
   let providerAccepted=false;
   try{
    const {data:row,error:bookingError}=await db.from("bookings")
-    .select("id,booking_reference,event_id,status,total_cents,currency,promo_code,events(title,title_en,event_date,event_time,location,slug),booking_guests(guest_index,category,full_name,email,accompanying_adult_index,guardian_index,is_child_with_adult_seat,childcare_hours),booking_selections(guest_index,table_label,seat_number)")
+    .select("id,booking_reference,event_id,status,total_cents,confirmed_at,currency,promo_code,events(title,title_en,event_date,event_time,location,slug),booking_guests(guest_index,category,full_name,email,accompanying_adult_index,guardian_index,is_child_with_adult_seat,childcare_hours),booking_selections(guest_index,table_label,seat_number)")
     .eq("id",delivery.booking_id).maybeSingle();
    if(bookingError||!row)throw new Error("Booking record unavailable");
    const booking=row as unknown as Booking;
@@ -152,7 +153,7 @@ export async function POST(request:NextRequest){
      event_time:booking.events.event_time,location:booking.events.location},
     guests:namedGuests,seats:booking.booking_selections.filter(seat=>
      seat.guest_index!==null&&namedGuests.some(g=>g.guest_index===seat.guest_index)),
-    isTest:false,
+    isTest:false,issuedAt:booking.confirmed_at,
    });
    const html=bookingConfirmationHtml({
     reference:booking.booking_reference,eventTitle:booking.events.title,
