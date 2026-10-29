@@ -82,3 +82,12 @@ ORDER BY table_name;
 - Yumorilnik booking client: when NEXT_PUBLIC_REAL_BOOKINGS_ENABLED=true it now calls /api/checkout/live rather than public submit_test12_booking. Dedicated live route currently responds 503 LIVE_CHECKOUT_NOT_READY (safe intentional guard), so no real money can be taken or admission ticket issued accidentally. Sandbox checkout remains separated.
 - **Phase B is not closed**: production live hold/seat conflict migration, privileged RPC security, live Stripe credentials and account linkage, signed webhook, fulfilment and refund, and real paid transaction tests are outstanding.
 - Before accepting live bookings, reconcile NYE start time 19:00 in description vs 20:00 event record, and verify ticket/seat totals as shown to customers.
+
+## Phase B continued implementation (29 Oct)
+- Added `lib/stripeLiveCheckout.ts` with strict `sk_live_` credentials, Yumorilnik Supabase ref, separate live `acct_` verification (reject both known sandbox accounts), and Stripe session paid metadata/amount/mode checks.
+- Replaced `/api/checkout/live` placeholder with server-driven `prepare_live_checkout` → Stripe Checkout → `bind_live_checkout_session` flow (validates origin, quote/amount, session id, expiry, returns only Stripe-hosted HTTPS URL). The endpoint remains OFF because STRIPE_LIVE_CHECKOUT_ENABLED is not set and required RPCs are not installed.
+- Added `/api/stripe/live/webhook` with raw-body Stripe signature validation, server-fetched session, currency/metadata checks, `complete_live_checkout_session` and `expire_live_checkout_session` RPC hooks, and 500 retry on failures. Email fulfilment explicitly NOT claimed or enabled.
+- Added bilingual conservative /booking/complete and /booking/cancelled customer return pages (no false paid confirmation).
+- Staged `docs/PHASE_B_LIVE_SCHEMA_DRAFT.sql`; it is NOT an approved or applied migration and lacks RPCs/cross-channel availability predicates.
+- Production Vercel deployment of gated code is READY, but no live charges or paid tickets have been tested.
+- Hard activation blockers: secure live Stripe account access and keys, tested SQL RPCs with cross-channel seat safety, automatic email fulfilment, price/time reconciliation, paid and refund integration tests.
