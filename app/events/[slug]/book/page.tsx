@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import { supabaseServer } from "@/lib/supabaseServer";
 import BookingExperience from "@/components/BookingExperience";
 
+// Live seating geometry and availability must not use a cached pre-edit page.
+export const dynamic="force-dynamic";
+
 export default async function BookEvent({params,searchParams}:{params:Promise<{slug:string}>;searchParams:Promise<{live_test?:string}>}){
  const {slug}=await params;
  const {live_test}=await searchParams;
