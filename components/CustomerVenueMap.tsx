@@ -5,14 +5,13 @@ import type {VenueFeature} from "@/components/VenueLines";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 import {zonePoints,type PriceZone} from "@/lib/priceZones";
 
-export type PublicTable={id:string;label:string;shape?:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id?:string|null;is_active:boolean};
+export type PublicTable={id:string;label:string;shape?:string;x:number;y:number;width:number;height:number;rotation_deg:number;seats_top:number;seats_bottom:number;seats_left:number;seats_right:number;table_price_cents:number|null;seat_price_cents:number|null;price_zone_id?:string|null;is_active:boolean;seat_gap_top?:number;seat_gap_right?:number;seat_gap_bottom?:number;seat_gap_left?:number};
 export type PublicStage={stage_x:number;stage_y:number;stage_width:number;stage_height:number;stage_rotation:number};
 type Seat={key:string;label:string;tableId:string;x:number;y:number};
 type Mode="whole_table"|"individual_seats";
 const WIDTH=1000,HEIGHT=700;
 const MAX_SEAT_RADIUS=6;
 const MAX_HIT_RADIUS=9;
-const SEAT_DISTANCE=7;
 function seatPositions(table:PublicTable):Seat[]{
  const output:Seat[]=[];
  const sides=[{side:"top",n:table.seats_top},{side:"right",n:table.seats_right},{side:"bottom",n:table.seats_bottom},{side:"left",n:table.seats_left}];
@@ -20,8 +19,8 @@ function seatPositions(table:PublicTable):Seat[]{
   const index=output.length+1;
   const axis=(length:number)=>n<=1?length/2:8+(length-16)*i/(n-1);
   output.push({key:table.id+":"+index,label:String(index),tableId:table.id,
-   x:side==="top"||side==="bottom"?axis(table.width):side==="left"?-SEAT_DISTANCE:table.width+SEAT_DISTANCE,
-   y:side==="left"||side==="right"?axis(table.height):side==="top"?-SEAT_DISTANCE:table.height+SEAT_DISTANCE});
+   x:side==="top"||side==="bottom"?axis(table.width):side==="left"?-(table.seat_gap_left??6):table.width+(table.seat_gap_right??6),
+   y:side==="left"||side==="right"?axis(table.height):side==="top"?-(table.seat_gap_top??6):table.height+(table.seat_gap_bottom??6)});
  }
  return output;
 }
