@@ -478,11 +478,42 @@ export default function SeatingBuilder(){
      <button type="button" onClick={()=>{setTraceMode(null);setDraftPoints([])}} className="rounded border px-3 py-2 text-sm">{en?"Done tracing":"Завершить обводку"}</button></>}
      <span className="text-xs text-gray-600">{traceMode?"Click points along the photo. Double-click to finish. Drag pink endpoints to correct walls.":"Walls and entrances appear on the customer map."}</span>
    </div>
+   <section className="mt-3 rounded-xl border border-black/15 bg-white p-4" aria-label={en?"Whole-map view controls":"Настройки вида всего плана"}>
+     <div className="flex flex-wrap items-center justify-between gap-3">
+       <div>
+         <h2 className="font-black">{en?"Whole-map view":"Вид всего плана"}</h2>
+         <p className="mt-1 text-xs text-gray-600">{en?"Move or zoom the entire plan together — walls, tables, seats, stage and zones. No individual positions or dimensions are changed. This view is remembered in this browser only.":"Перемещайте и масштабируйте весь план целиком — стены, столы, места, сцену и зоны. Размеры и координаты объектов не изменятся. Вид сохраняется только в этом браузере."}</p>
+       </div>
+       <div className="flex flex-wrap gap-2">
+         <button type="button" aria-pressed={movingWholeMap} onClick={()=>{
+           setMovingWholeMap(v=>!v);setFraming(false);setTraceMode(null);
+           setDraftPoints([]);setEditingZones(false);setSelected(null);setEditingStage(false);
+         }} className={`rounded-lg border px-4 py-2 text-sm font-bold ${movingWholeMap?"border-black bg-black text-white":"border-black/30 bg-[#fffaf1]"}`}>
+           {movingWholeMap?(en?"✓ Finish moving":"✓ Завершить"):en?"✋ Drag entire map":"✋ Переместить весь план"}
+         </button>
+         <button type="button" onClick={fitWholeMap} className="rounded-lg border border-black/30 px-3 py-2 text-sm font-bold">{en?"Fit plan":"Вписать план"}</button>
+         <button type="button" onClick={()=>setMapView({scale:1,x:0,y:0})} className="rounded-lg border border-black/30 px-3 py-2 text-sm font-bold">{en?"Reset view":"Сбросить вид"}</button>
+       </div>
+     </div>
+     <div className="mt-3 grid gap-3 sm:grid-cols-3">
+       <label className="text-sm font-semibold">{en?"Entire plan size":"Размер всего плана"} · {Math.round(mapView.scale*100)}%
+         <input aria-label={en?"Whole-map zoom":"Масштаб всего плана"} className="mt-2 w-full" type="range" min="40" max="250" step="5" value={Math.round(mapView.scale*100)} onChange={e=>setMapView(old=>({...old,scale:Number(e.target.value)/100}))}/>
+       </label>
+       <label className="text-sm font-semibold">{en?"Horizontal position":"Положение по горизонтали"} · {Math.round(mapView.x)}%
+         <input aria-label={en?"Whole-map horizontal position":"Сдвиг плана по горизонтали"} className="mt-2 w-full" type="range" min="-100" max="100" step="1" value={mapView.x} onChange={e=>setMapView(old=>({...old,x:Number(e.target.value)}))}/>
+       </label>
+       <label className="text-sm font-semibold">{en?"Vertical position":"Положение по вертикали"} · {Math.round(mapView.y)}%
+         <input aria-label={en?"Whole-map vertical position":"Сдвиг плана по вертикали"} className="mt-2 w-full" type="range" min="-100" max="100" step="1" value={mapView.y} onChange={e=>setMapView(old=>({...old,y:Number(e.target.value)}))}/>
+       </label>
+     </div>
+     {movingWholeMap&&<p className="mt-2 rounded-lg bg-[#fff2db] p-3 text-sm font-semibold" role="status">{en?"Drag anywhere inside the map to reposition everything together. Press Finish moving to edit individual tables again.":"Перетащите любую точку карты, чтобы переместить всё вместе. Нажмите «Завершить», чтобы снова редактировать отдельные столы."}</p>}
+   </section>
    {error&&<p role="alert" className="mt-4 rounded bg-red-100 p-3 text-red-800">{error}</p>}
    {message&&<p role="status" className="mt-3 text-sm font-semibold">{message}</p>}
    <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
     <div className="overflow-x-auto rounded-xl border border-black/20 bg-white p-2">
-     <div ref={stage} className="pointer-events-none relative w-full min-w-[320px] overflow-hidden rounded-lg bg-[#fff2db] lg:pointer-events-auto" style={{aspectRatio:W+"/"+H,touchAction:framing?"none":"pan-y"}} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={()=>{panDrag.current=null}} onPointerCancel={()=>{panDrag.current=null}}>
+     <div className="relative w-full min-w-[320px] overflow-hidden rounded-lg bg-[#fff2db]" style={{aspectRatio:W+"/"+H}}>
+     <div ref={stage} className="pointer-events-none absolute inset-0 h-full w-full lg:pointer-events-auto" style={{transform:`translate(${mapView.x}%, ${mapView.y}%) scale(${mapView.scale})`,transformOrigin:"center center",touchAction:framing?"none":"pan-y"}} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={()=>{panDrag.current=null}} onPointerCancel={()=>{panDrag.current=null}}>
        {background&&showFloorPhoto&&<div className="pointer-events-none absolute inset-0 overflow-hidden"><img src={background} alt="Uploaded venue floor plan" className="absolute h-full w-full object-contain" style={{transform:`scale(${zoom})`,objectPosition:`${panX}% ${panY}%`,transformOrigin:`${panX}% ${panY}%`}}/></div>}
        <svg viewBox="0 0 1000 700" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 z-[9] h-full w-full">
        {zones.map(z=><g key={z.id}>
@@ -513,6 +544,8 @@ export default function SeatingBuilder(){
        {!traceMode&&selected===t.id&&<button type="button" aria-label={"Rotate "+t.label} title="Drag to rotate" onPointerDown={e=>rotateDown(e,t)} onPointerMove={rotateMove} onPointerUp={()=>{rotating.current=null}} onPointerCancel={()=>{rotating.current=null}} className="absolute -top-8 -right-8 z-20 flex h-6 w-6 touch-none items-center justify-center rounded-md border border-pink-600 bg-white text-sm font-bold shadow">⟳</button>}
        {!traceMode&&selected===t.id&&<button type="button" aria-label={"Resize "+t.label} title="Drag to resize table" onPointerDown={e=>resizeDown(e,t)} onPointerMove={resizeMove} onPointerUp={()=>{resize.current=null}} onPointerCancel={()=>{resize.current=null}} className="absolute -bottom-8 -right-8 z-20 flex h-6 w-6 touch-none items-center justify-center rounded-md border border-pink-600 bg-white text-sm font-bold shadow">↘</button>}
        </div>)}
+     </div>
+     {movingWholeMap&&<div role="application" aria-label={en?"Drag to move entire floor plan":"Перетащите весь план"} className="absolute inset-0 z-[50] cursor-grab touch-none active:cursor-grabbing" onPointerDown={startWholeMapDrag} onPointerMove={moveWholeMapDrag} onPointerUp={e=>{wholeMapDrag.current=null;if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId)}} onPointerCancel={()=>{wholeMapDrag.current=null}}/>}
      </div>
     </div>
     <aside className="hidden rounded-xl border border-black/20 bg-white p-4 lg:sticky lg:block lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
