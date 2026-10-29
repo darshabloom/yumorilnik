@@ -39,3 +39,9 @@ WHERE table_schema='public'
   AND (table_name ILIKE '%checkout%' OR table_name ILIKE '%payment%' OR table_name ILIKE '%hold%' OR table_name ILIKE '%stripe%')
 ORDER BY table_name;
 ```
+
+## 29 Oct Stripe account discovery and database next gate
+- Stripe connector lists Yumorilnik sandbox `acct_1UVPo4AcPL3j1y7u` (test mode) and Matroshka sandbox `acct_1SXo5CPIwTIma6Ev` (test mode). **No live-mode Yumorilnik account is connected**. Do not use the Matroshka account for tickets.
+- User's Yumorilnik SQL inventory confirms `seating_holds`, `payments`, `booking_test_checkouts` and RPCs `prepare_test_checkout`, `bind_test_checkout_session`, `complete_test_checkout_session`, `expire_test_checkout_session`, `abandon_unbound_test_checkout`.
+- Before production SQL changes: retrieve column metadata, indexes, RLS, trigger definitions for the three tables and function definitions/privileges for these five RPCs. Current Supabase connector only accesses Matryoshka DB; user must run read-only SQL on Yumorilnik DB or grant separate connector access.
+- Preserve `test_confirmed` as sandbox-only. Production paid state must come from signed live Stripe events and atomically validated payment/seat-hold database transaction.
