@@ -11,10 +11,10 @@ export function liveServices(){
  const url=process.env.SUPABASE_URL??process.env.NEXT_PUBLIC_SUPABASE_URL;
  const key=process.env.SUPABASE_SECRET_KEY??process.env.SUPABASE_SERVICE_ROLE_KEY;
  const stripe=process.env.STRIPE_SECRET_KEY;
- const account=process.env.STRIPE_LIVE_ACCOUNT_ID;
+ // The expected account must be the separately approved LIVE Matryoshka\n // merchant account. Sandbox IDs must never be used for real charges.\n const account=process.env.STRIPE_LIVE_ACCOUNT_ID;
  if(!url||new URL(url).hostname!==projectRef+".supabase.co"||!key||
   !stripe||!(/^(sk|rk)_live_/).test(stripe)||!account?.startsWith("acct_")||
-  account==="acct_1SXo5CPIwTIma6Ev"||account==="acct_1UVPo4AcPL3j1y7u")
+  account==="acct_1UVPo4AcPL3j1y7u")
   throw new Error("Yumorilnik live credentials unavailable");
  return {db:createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}}),stripe,account};
 }
