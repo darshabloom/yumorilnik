@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Yumorilnik ticket check-in">
+  <rect width="512" height="512" rx="110" fill="#f5a047"/>
+  <rect x="72" y="94" width="368" height="324" rx="50" fill="#171717"/>
+  <path d="M146 191v-34h43M366 191v-34h-43M146 321v34h43M366 321v34h-43" fill="none" stroke="#fff2db" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m216 262 32 32 60-72" fill="none" stroke="#f5a047" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
