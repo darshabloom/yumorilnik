@@ -62,6 +62,10 @@ export default function SeatingBuilder(){
  // seats, zones or stage, and do not mix with background-image framing.
  const [mapView,setMapView]=useState({scale:1,x:0,y:0});
  const [mapViewReady,setMapViewReady]=useState(false);
+ const [publicViewAvailable,setPublicViewAvailable]=useState(false);
+ const [publicViewSaving,setPublicViewSaving]=useState(false);
+ const publicViewSaved=useRef("");
+ const publicViewInitial=useRef({scale:1,x:0,y:0});
  const [movingWholeMap,setMovingWholeMap]=useState(false);
  const wholeMapDrag=useRef<{px:number;py:number;x:number;y:number}|null>(null);
  const panDrag=useRef<{px:number;py:number;x:number;y:number}|null>(null);
@@ -85,11 +89,21 @@ export default function SeatingBuilder(){
    const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace("/admin/login");return;}
    const {data:admin}=await supabase.from("admin_users").select("role").eq("user_id",user.id).maybeSingle();
    if(!admin){router.replace("/admin/login");return;}
-   const [e,t,m,v]=await Promise.all([supabase.from("events").select("id,title,seating_mode,table_booking_mode").eq("id",id).single(),supabase.from("seating_tables").select("*").eq("event_id",id).order("created_at"),supabase.from("event_seating_maps").select("background_image_url,background_zoom,background_x,background_y,stage_x,stage_y,stage_width,stage_height,stage_rotation").eq("event_id",id).maybeSingle(),supabase.from("seating_features").select("id,event_id,kind,label,points").eq("event_id",id).order("created_at")]);
+   const [e,t,m,v]=await Promise.all([supabase.from("events").select("id,title,seating_mode,table_booking_mode").eq("id",id).single(),supabase.from("seating_tables").select("*").eq("event_id",id).order("created_at"),supabase.from("event_seating_maps").select("*").eq("event_id",id).maybeSingle(),supabase.from("seating_features").select("id,event_id,kind,label,points").eq("event_id",id).order("created_at")]);
    if(e.error)throw e.error;if(t.error)throw t.error;if(m.error)throw m.error;if(v.error)throw v.error;
    const z=await supabase.from("event_price_zones").select("*").eq("event_id",id).order("sort_order");
    if(z.error)throw z.error;
-   if(mounted){setZones((z.data??[]) as PriceZone[]);setEvent(e.data as EventItem);setFeatures((v.data??[]) as VenueFeature[]);setTables((t.data??[]) as TableItem[]);latest.current=(t.data??[]) as TableItem[];setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50));setStageItem({x:Number(m.data?.stage_x??440),y:Number(m.data?.stage_y??18),width:Number(m.data?.stage_width??130),height:Number(m.data?.stage_height??42),rotation:Number(m.data?.stage_rotation??0)});stageSaved.current=JSON.stringify([Number(m.data?.stage_x??440),Number(m.data?.stage_y??18),Number(m.data?.stage_width??130),Number(m.data?.stage_height??42),Number(m.data?.stage_rotation??0)]);framingSaved.current=JSON.stringify([Number(m.data?.background_zoom??1),Number(m.data?.background_x??50),Number(m.data?.background_y??50)])}
+   if(mounted){
+    const hasPublicView=!!m.data&&Object.prototype.hasOwnProperty.call(m.data,"public_view_scale");
+    const initial={scale:Number(m.data?.public_view_scale??1),
+      x:Number(m.data?.public_view_x??0),y:Number(m.data?.public_view_y??0)};
+    setPublicViewAvailable(hasPublicView);
+    publicViewInitial.current=initial;
+    publicViewSaved.current=JSON.stringify([initial.scale,initial.x,initial.y]);
+    // On a new device show the published admin framing. On this device
+    // retain the editor's latest unsaved local framing to publish it.
+    try{if(!localStorage.getItem("yumorilnik:whole-map-view:"+id))setMapView(initial);}catch{}
+    setZones((z.data??[]) as PriceZone[]);setEvent(e.data as EventItem);setFeatures((v.data??[]) as VenueFeature[]);setTables((t.data??[]) as TableItem[]);latest.current=(t.data??[]) as TableItem[];setBackground(m.data?.background_image_url??null);setZoom(Number(m.data?.background_zoom??1));setPanX(Number(m.data?.background_x??50));setPanY(Number(m.data?.background_y??50));setStageItem({x:Number(m.data?.stage_x??440),y:Number(m.data?.stage_y??18),width:Number(m.data?.stage_width??130),height:Number(m.data?.stage_height??42),rotation:Number(m.data?.stage_rotation??0)});stageSaved.current=JSON.stringify([Number(m.data?.stage_x??440),Number(m.data?.stage_y??18),Number(m.data?.stage_width??130),Number(m.data?.stage_height??42),Number(m.data?.stage_rotation??0)]);framingSaved.current=JSON.stringify([Number(m.data?.background_zoom??1),Number(m.data?.background_x??50),Number(m.data?.background_y??50)])}
   }catch(ex){if(mounted)setError(ex instanceof Error?ex.message:"Unable to load seating map")}
   finally{if(mounted)setLoading(false)}
  })();return()=>{mounted=false}},[id,router]);
@@ -116,8 +130,8 @@ export default function SeatingBuilder(){
   },1100);
   return()=>clearTimeout(timer);
  },[zoom,panX,panY,background,loading,id]);
- // View preferences are per browser/event, never written to public seat
- // coordinates. It is safe to reset at any time.
+ // View preferences never mutate venue geometry. When the map-view
+ // migration is installed, changes also sync to the public customer view.
  useEffect(()=>{
   setMapViewReady(false);
   let next={scale:1,x:0,y:0};
@@ -139,6 +153,22 @@ export default function SeatingBuilder(){
   if(!mapViewReady)return;
   try{localStorage.setItem("yumorilnik:whole-map-view:"+id,JSON.stringify(mapView))}catch{}
  },[id,mapView,mapViewReady]);
+ useEffect(()=>{
+  if(!mapViewReady||loading||!publicViewAvailable)return;
+  const key=JSON.stringify([mapView.scale,mapView.x,mapView.y]);
+  if(key===publicViewSaved.current)return;
+  const timer=setTimeout(async()=>{
+   setPublicViewSaving(true);
+   const {error:e}=await supabase.from("event_seating_maps")
+    .update({public_view_scale:mapView.scale,public_view_x:mapView.x,
+     public_view_y:mapView.y,updated_at:new Date().toISOString()})
+    .eq("event_id",id);
+   if(e){setError("Customer map view not saved: "+e.message);setMessage("Map view not published");}
+   else{publicViewSaved.current=key;setMessage("Map view published to customers");}
+   setPublicViewSaving(false);
+  },700);
+  return()=>clearTimeout(timer);
+ },[id,loading,mapView,mapViewReady,publicViewAvailable]);
  function startWholeMapDrag(e:React.PointerEvent<HTMLDivElement>){
   if(e.button!==0)return;
   e.preventDefault();
@@ -553,6 +583,10 @@ export default function SeatingBuilder(){
          <input aria-label={en?"Whole-map vertical position":"Сдвиг плана по вертикали"} className="mt-2 w-full" type="range" min="-100" max="100" step="1" value={mapView.y} onChange={e=>setMapView(old=>({...old,y:Number(e.target.value)}))}/>
        </label>
      </div>
+     <p className="mt-2 text-xs font-semibold" role="status">{publicViewAvailable?
+      (publicViewSaving?(en?"Saving customer view…":"Сохраняем вид для гостей…"):
+       en?"This framing is automatically published to the customer map.":"Этот вид автоматически публикуется на карте для гостей."):
+      en?"Database setup needed: this framing is still local to this browser. Apply the seating-map view SQL migration, then refresh to publish it.":"Необходимо обновить базу данных: пока этот вид хранится только в браузере. Выполните SQL-обновление схемы и обновите страницу."}</p>
      {movingWholeMap&&<p className="mt-2 rounded-lg bg-[#fff2db] p-3 text-sm font-semibold" role="status">{en?"Drag anywhere inside the map to reposition everything together. Press Finish moving to edit individual tables again.":"Перетащите любую точку карты, чтобы переместить всё вместе. Нажмите «Завершить», чтобы снова редактировать отдельные столы."}</p>}
    </section>
    {error&&<p role="alert" className="mt-4 rounded bg-red-100 p-3 text-red-800">{error}</p>}
