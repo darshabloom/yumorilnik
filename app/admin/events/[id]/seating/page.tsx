@@ -58,6 +58,12 @@ export default function SeatingBuilder(){
  const [panY,setPanY]=useState(50);
  const [framing,setFraming]=useState(false);
  const [framingSaving,setFramingSaving]=useState(false);
+ // Whole-map viewport ONLY: never mutate the underlying tables, walls,
+ // seats, zones or stage, and do not mix with background-image framing.
+ const [mapView,setMapView]=useState({scale:1,x:0,y:0});
+ const [mapViewReady,setMapViewReady]=useState(false);
+ const [movingWholeMap,setMovingWholeMap]=useState(false);
+ const wholeMapDrag=useRef<{px:number;py:number;x:number;y:number}|null>(null);
  const panDrag=useRef<{px:number;py:number;x:number;y:number}|null>(null);
  const [selected,setSelected]=useState<string|null>(null);
  const [loading,setLoading]=useState(true);
@@ -110,6 +116,65 @@ export default function SeatingBuilder(){
   },1100);
   return()=>clearTimeout(timer);
  },[zoom,panX,panY,background,loading,id]);
+ // View preferences are per browser/event, never written to public seat
+ // coordinates. It is safe to reset at any time.
+ useEffect(()=>{
+  setMapViewReady(false);
+  let next={scale:1,x:0,y:0};
+  try{
+   const saved=localStorage.getItem("yumorilnik:whole-map-view:"+id);
+   if(saved){
+    const parsed=JSON.parse(saved) as Partial<typeof next>;
+    if(Number.isFinite(parsed.scale)&&Number.isFinite(parsed.x)&&Number.isFinite(parsed.y)){
+     next={scale:Math.max(.4,Math.min(2.5,Number(parsed.scale))),
+           x:Math.max(-100,Math.min(100,Number(parsed.x))),
+           y:Math.max(-100,Math.min(100,Number(parsed.y)))};
+    }
+   }
+  }catch{}
+  setMapView(next);
+  setMapViewReady(true);
+ },[id]);
+ useEffect(()=>{
+  if(!mapViewReady)return;
+  try{localStorage.setItem("yumorilnik:whole-map-view:"+id,JSON.stringify(mapView))}catch{}
+ },[id,mapView,mapViewReady]);
+ function startWholeMapDrag(e:React.PointerEvent<HTMLDivElement>){
+  if(e.button!==0)return;
+  e.preventDefault();
+  const rect=e.currentTarget.getBoundingClientRect();
+  wholeMapDrag.current={px:e.clientX,py:e.clientY,x:mapView.x,y:mapView.y};
+  // Keep movement relative to the stationary viewport, not the scaled map.
+  if(rect.width>0&&rect.height>0)e.currentTarget.setPointerCapture(e.pointerId);
+ }
+ function moveWholeMapDrag(e:React.PointerEvent<HTMLDivElement>){
+  const drag=wholeMapDrag.current;
+  if(!drag)return;
+  const rect=e.currentTarget.getBoundingClientRect();
+  if(!rect.width||!rect.height)return;
+  setMapView(old=>({...old,
+   x:Math.max(-100,Math.min(100,drag.x+(e.clientX-drag.px)/rect.width*100)),
+   y:Math.max(-100,Math.min(100,drag.y+(e.clientY-drag.py)/rect.height*100))
+  }));
+ }
+ function fitWholeMap(){
+  const points:{x:number;y:number}[]=[];
+  tables.filter(t=>t.is_active).forEach(t=>{
+   const cx=t.x+t.width/2,cy=t.y+t.height/2;
+   const radius=Math.hypot(t.width,t.height)/2+23;
+   points.push({x:cx-radius,y:cy-radius},{x:cx+radius,y:cy+radius});
+  });
+  features.forEach(f=>points.push(...f.points));
+  zones.forEach(z=>points.push(...zonePoints(z)));
+  points.push({x:stageItem.x-8,y:stageItem.y-8},
+    {x:stageItem.x+stageItem.width+8,y:stageItem.y+stageItem.height+8});
+  if(!points.length){setMapView({scale:1,x:0,y:0});return;}
+  const left=Math.min(...points.map(p=>p.x)),right=Math.max(...points.map(p=>p.x));
+  const top=Math.min(...points.map(p=>p.y)),bottom=Math.max(...points.map(p=>p.y));
+  const scale=Math.max(.4,Math.min(2.5,.88*W/Math.max(1,right-left),.88*H/Math.max(1,bottom-top)));
+  setMapView({scale,x:Math.max(-100,Math.min(100,(W/2-(left+right)/2)*scale/W*100)),
+   y:Math.max(-100,Math.min(100,(H/2-(top+bottom)/2)*scale/H*100))});
+ }
  const current=tables.find(t=>t.id===selected);
  function mutate(id:string,patch:Partial<TableItem>){
   const next=latest.current.map(t=>t.id===id?{...t,...patch}:t);
