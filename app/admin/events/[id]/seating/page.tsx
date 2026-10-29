@@ -343,7 +343,7 @@ export default function SeatingBuilder(){
   const dx=(e.clientX-d.startX)/scale,dy=(e.clientY-d.startY)/scale;
   const localX=dx*Math.cos(d.angle)+dy*Math.sin(d.angle);
   const localY=-dx*Math.sin(d.angle)+dy*Math.cos(d.angle);
-  mutate(d.id,{width:Math.round(Math.max(40,Math.min(400,d.width+localX))),height:Math.round(Math.max(25,Math.min(300,d.height+localY)))});
+  mutate(d.id,{width:Math.round(Math.max(40,Math.min(400,d.width+localX))),height:Math.round(Math.max(20,Math.min(300,d.height+localY)))});
  }
  if(loading)return <main className="bg-[#fffaf1] p-8">{en?"Loading seating builder…":"Загрузка редактора зала…"}</main>;
  if(!event)return <main role="alert" className="p-8">{error||"Event unavailable"}</main>;
@@ -453,7 +453,7 @@ export default function SeatingBuilder(){
        <button onClick={()=>void saveStage()} disabled={saving} className="mt-5 w-full rounded-lg bg-black px-4 py-3 font-bold text-white">{en?"Save stage position":"Сохранить положение сцены"}</button>
      </>:current?<><h2 className="text-xl font-black">Edit {current.label}</h2>
        <label className="mt-4 block text-sm font-bold">{en?"Table name":"Название стола"}<input className="mt-1 w-full rounded border p-2" value={current.label} onChange={e=>mutate(current.id,{label:e.target.value})}/></label>
-       <div className="mt-3 grid grid-cols-2 gap-3">{([{field:"width",label:"Width",min:80,max:340},{field:"height",label:"Height",min:45,max:240},{field:"rotation_deg",label:"Rotation °",min:-180,max:180} ] as const).map(o=><label key={o.field} className="text-sm font-bold">{o.label}<input type="number" min={o.min} max={o.max} value={current[o.field]} onChange={e=>mutate(current.id,{[o.field]:Math.max(o.min,Math.min(o.max,Number(e.target.value)||0))})} className="mt-1 w-full rounded border p-2"/></label>)}</div>
+       <div className="mt-3 grid grid-cols-2 gap-3">{([{field:"width",label:"Width",min:80,max:340},{field:"height",label:"Height",min:20,max:240},{field:"rotation_deg",label:"Rotation °",min:-180,max:180} ] as const).map(o=><label key={o.field} className="text-sm font-bold">{o.label}<input type="number" min={o.min} max={o.max} value={current[o.field]} onChange={e=>mutate(current.id,{[o.field]:Math.max(o.min,Math.min(o.max,Number(e.target.value)||0))})} className="mt-1 w-full rounded border p-2"/></label>)}</div>
        <p className="mt-2 text-xs text-gray-600">{en?"Use the ↘ handle on the selected table to resize it directly.":"Используйте ↘, чтобы изменить размер выбранного стола."}</p>
        <div className="mt-4"><label className="block text-sm font-bold">Turn table · {current.rotation_deg}°<input aria-label="Rotate table" className="mt-2 w-full" type="range" min="-180" max="180" step="5" value={current.rotation_deg} onChange={e=>mutate(current.id,{rotation_deg:Number(e.target.value)})}/></label>
         <div className="mt-2 flex gap-2">
