@@ -23,7 +23,8 @@ export async function createTicketPdf(input:{bookingId:string;reference:string;e
   write("Location: "+(input.event.location??"See event website"),592,12);
   write("Guest: "+guest.full_name,545,18,true);write("Booking: "+input.reference,514,13);
   const seat=input.seats.find(s=>s.guest_index===guest.guest_index);
-  write(seat?"Table "+seat.table_label+" / Seat "+(seat.seat_number??"-"):"No assigned seat",486,14);
+  const tableName=seat?(/^(Table|Стол)\\s+/iu.test(seat.table_label)?seat.table_label:"Table "+seat.table_label):"";
+  write(seat?tableName+" / Seat "+(seat.seat_number??"-"):"No assigned seat",486,14);
   if(guest.category==="child")write("Childcare"+(guest.childcare_hours?" - "+guest.childcare_hours+" hours":""),456,12);
   if(!input.isTest){
    const code=issueTicketCredential(input.bookingId,guest.guest_index);
