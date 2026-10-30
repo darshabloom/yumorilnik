@@ -9,7 +9,7 @@ type Confirmed={
  state:"confirmed";stripePaid:true;reference:string;paidCents:number;currency:string;
  event:{title:string;date:string|null;time:string|null;location:string|null};
  guests:{name:string;category:string;seats:{table:string;seat:number|null}[]}[];
- confirmationEmailStatus:string;emailSendingEnabled:boolean;matryoshkaUrl:string;
+ confirmationEmailStatus:string;emailSendingEnabled:boolean;matryoshkaUrl:string;message?:string;
 };
 type Status=Confirmed|{state:string;stripePaid?:boolean;message?:string;error?:string};
 
