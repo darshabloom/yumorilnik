@@ -21,6 +21,8 @@ function PaymentResult(){
  const [loading,setLoading]=useState(true);
  const [attempts,setAttempts]=useState(0);
  const [copied,setCopied]=useState(false);
+ const [downloading,setDownloading]=useState(false);
+ const [downloadError,setDownloadError]=useState("");
  const check=useCallback(async()=>{
   if(!/^cs_live_[A-Za-z0-9_]{12,200}$/.test(sessionId)){
    setResult({state:"error",message:"The Stripe checkout session is missing"});
@@ -42,6 +44,30 @@ function PaymentResult(){
   const timer=setTimeout(()=>{void check()},4000);
   return()=>clearTimeout(timer);
  },[loading,result,attempts,check]);
+ async function downloadTicketPdf(){
+  if(downloading||!sessionId)return;
+  setDownloading(true);setDownloadError("");
+  try{
+   const response=await fetch("/api/checkout/live/ticket-pdf",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({sessionId}),cache:"no-store"
+   });
+   if(!response.ok){
+    const payload=await response.json().catch(()=>({error:"Ticket not available"})) as {error?:string};
+    throw Error(payload.error||"Ticket PDF is not available");
+   }
+   const pdf=await response.blob();
+   if(pdf.type!=="application/pdf"||pdf.size<300)throw Error("Invalid ticket PDF");
+   const url=URL.createObjectURL(pdf);
+   const link=document.createElement("a");
+   link.href=url;
+   link.download="yumorilnik-ticket.pdf";
+   document.body.appendChild(link);link.click();link.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),30000);
+  }catch(error){
+   setDownloadError(error instanceof Error?error.message:"Ticket download failed");
+  }finally{setDownloading(false);}
+ }
  const details=result?.state==="confirmed"?result as Confirmed:null;
  const money=(n:number)=>new Intl.NumberFormat("en-NZ",{style:"currency",currency:"NZD"}).format(n/100);
  return <main className="min-h-[75vh] bg-[#fff9ef] px-4 py-10 text-black sm:px-6">
@@ -71,6 +97,14 @@ function PaymentResult(){
       </li>)}
      </ul>
      <p className="mt-3 text-lg font-black">{en?"Paid":"Оплачено"}: {money(details.paidCents)}</p>
+     <div className="mt-4 rounded-xl border border-black/15 bg-[#fffaf2] p-4">
+      <h3 className="font-black">{en?"Your admission ticket PDF":"Ваш PDF-билет"}</h3>
+      <p className="mt-1 text-sm">{en?"Download the same admission ticket with QR code as in your confirmation email. Present the QR code to event staff at check-in.":"Скачайте билет с QR-кодом, как в письме с подтверждением. Покажите QR-код сотруднику на входе."}</p>
+      <button type="button" className="mt-3 rounded-lg bg-[#ee9e4d] px-5 py-3 font-black text-black disabled:opacity-60" disabled={downloading} onClick={()=>void downloadTicketPdf()}>
+       {downloading?(en?"Preparing PDF…":"Готовим PDF…"):en?"⬇ Download ticket PDF":"⬇ Скачать PDF-билет"}
+      </button>
+      {downloadError&&<p role="alert" className="mt-2 text-sm font-semibold text-red-700">{downloadError}</p>}
+     </div>
     </div>
     <div className="rounded-xl border border-orange-300 bg-orange-50 p-4">
      <h3 className="font-black">{en?"Pre-order food from Matryoshka":"Предзаказ еды в Матрёшке"}</h3>
@@ -83,6 +117,7 @@ function PaymentResult(){
       !details.emailSendingEnabled?(en?"Not sent yet — email delivery has not been enabled by the organiser. Keep your booking reference.":"Пока не отправлено — организатор ещё не включил отправку писем. Сохраните номер брони."):
       details.confirmationEmailStatus==="failed"?(en?"Sending failed. Contact the organiser; do not pay again.":"Не удалось отправить письмо. Свяжитесь с организатором; не платите повторно."):
       en?"Being prepared. Keep this page and booking reference.":"Готовится к отправке. Сохраните эту страницу и номер брони."}
+     {details.confirmationEmailStatus!=="sent"&&<button type="button" className="mt-2 text-sm font-semibold underline" onClick={()=>void check()}>{en?"Refresh email status":"Обновить статус письма"}</button>}
      {details.paidCents===50&&<p className="mt-2 text-amber-800">{en?"This was the NZ$0.50 live payment test. A refund is separate and may affect ticket validity.":"Это тест реальной оплаты NZ$0.50. Возврат оформляется отдельно и может повлиять на действительность билета."}</p>}
     </div>
     <Link href="/" className="inline-block text-sm underline">{en?"Back to Yumorilnik":"На главную Юморильника"}</Link>
