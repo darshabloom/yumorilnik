@@ -75,11 +75,26 @@ export async function POST(request:NextRequest){
  if(from.toLowerCase().endsWith("@resend.dev"))
   return json({error:"A verified Yumorilnik sending domain is required for real recipients"},503);
 
+ let requestedBookingId:string|null=null;
+ try{
+  const body=await request.text();
+  if(body.length>2048)return json({error:"Request too large"},413);
+  if(body){
+   const payload=JSON.parse(body) as {bookingId?:unknown};
+   if(payload.bookingId!=null){
+    if(typeof payload.bookingId!=="string"||!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(payload.bookingId))
+     return json({error:"Invalid booking ID"},400);
+    requestedBookingId=payload.bookingId;
+   }
+  }
+ }catch{return json({error:"Invalid request"},400)}
  const db=createClient(url,secretKey,{auth:{autoRefreshToken:false,persistSession:false}});
  // List only PAID live bookings first. Legacy manually confirmed bookings must
  // never monopolise the queue or receive live admission credentials.
- const {data:paidRows,error:paidError}=await db.from("booking_live_checkouts")
-  .select("booking_id").eq("state","paid").limit(1000);
+ let paidQuery=db.from("booking_live_checkouts")
+  .select("booking_id").eq("state","paid");
+ if(requestedBookingId)paidQuery=paidQuery.eq("booking_id",requestedBookingId);
+ const {data:paidRows,error:paidError}=await paidQuery.limit(requestedBookingId?1:1000);
  if(paidError)return json({error:"Unable to verify paid live bookings"},502);
  const paidIds=(paidRows??[]).map(x=>x.booking_id);
  if(paidIds.length===0)return json({reviewed:0,sent:0,failed:0,skipped:0,ineligible:0});
@@ -165,7 +180,7 @@ export async function POST(request:NextRequest){
        childcareHours:g.childcare_hours??null};
     }),isTest:false,
     eventUrl:booking.events.slug?"https://yumorilnik.com/events/"+encodeURIComponent(booking.events.slug):null,
-    matryoshkaUrl:"https://matryoshka.nz",
+    matryoshkaUrl:"https://matryoshka.nz/events/novogodnik26?ticket_ref="+encodeURIComponent(booking.booking_reference),
    });
    const response=await fetch("https://api.resend.com/emails",{
     method:"POST",
