@@ -1,4 +1,4 @@
-import {NextRequest,NextResponse} from "next/server";
+import {after,NextRequest,NextResponse} from "next/server";
 import {NYE_EVENT_ID,liveServices,assertLiveStripeAccount,stripeCall,validateLivePaidSession,type StripeLiveSession} from "@/lib/stripeLiveCheckout";
 
 export const runtime="nodejs";
@@ -73,6 +73,23 @@ export async function POST(request:NextRequest){
   const booking=row as unknown as Booking;
   if(booking.status!=="confirmed"||Number(booking.total_cents)!==Number(hold.amount_cents))
    return json({state:"needs_review",stripePaid:true,message:"Your payment needs booking verification"});
+  // Trigger an idempotent fulfilment attempt for this paid booking even if
+  // the original Stripe webhook arrived before email delivery was enabled.
+  if(process.env.BOOKING_EMAILS_ENABLED==="true"&&
+     booking.confirmation_email_status!=="sent"&&
+     process.env.BOOKING_EMAIL_PROCESSOR_SECRET){
+   const processorSecret=process.env.BOOKING_EMAIL_PROCESSOR_SECRET;
+   after(async()=>{
+    try{
+     const res=await fetch("https://www.yumorilnik.com/api/internal/send-booking-confirmations",{
+      method:"POST",headers:{"Authorization":"Bearer "+processorSecret,
+       "Content-Type":"application/json"},
+      body:JSON.stringify({bookingId}),cache:"no-store",signal:AbortSignal.timeout(45000)
+     });
+     if(!res.ok)console.error("Booking email worker returned HTTP",res.status);
+    }catch(e){console.error("Booking email worker unavailable",e instanceof Error?e.message:"unknown");}
+   });
+  }
   // Do not expose purchaser email or other unrelated bookings.
   const guests=(booking.booking_guests??[]).map(g=>({name:g.full_name,category:g.category,
    seats:(booking.booking_selections??[]).filter(s=>s.guest_index===g.guest_index)
