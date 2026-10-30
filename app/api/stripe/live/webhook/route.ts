@@ -94,9 +94,10 @@ export async function POST(request:NextRequest){
   if(process.env.BOOKING_EMAILS_ENABLED==="true"&&secret){
    after(async()=>{
     try{
-     const response=await fetch("https://yumorilnik.com/api/internal/send-booking-confirmations",{
+     const response=await fetch("https://www.yumorilnik.com/api/internal/send-booking-confirmations",{
       method:"POST",
       headers:{"Authorization":"Bearer "+secret,"Content-Type":"application/json"},
+      body:JSON.stringify({bookingId}),
       cache:"no-store",signal:AbortSignal.timeout(45000),
      });
      if(!response.ok)console.error("Paid ticket confirmation worker rejected call",response.status);
