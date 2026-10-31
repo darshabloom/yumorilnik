@@ -518,6 +518,27 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
          {step==="seats"&&seatsStillNeeded>0&&<p role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold">{en?`Assign ${seatsStillNeeded} more adult ${seatsStillNeeded===1?"seat":"seats"} to continue.`:`Чтобы продолжить, выберите ещё ${seatsStillNeeded} ${seatsStillNeeded===1?"место":"места"} для взрослых.`}</p>}
          {step==="seats"&&seatsStillNeeded===0&&!tableBooking&&<p role="status" className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm font-semibold">{en?"All adult seats assigned. You can continue below.":"Все взрослые рассажены. Можно переходить дальше."}</p>}
          {pricingIncomplete&&mapSelections.length>0&&<p role="status" className="rounded-lg border border-orange-300 bg-orange-50 px-4 py-3 text-sm">{en?`Price not set for table(s): ${tablesWithoutPrices.join(", ")||"ticket type"}. You can continue to the review preview, but payment and confirmed reservations remain unavailable.`:`Не указана цена за место для стола: ${tablesWithoutPrices.join(", ")||"тип билета"}. Вы можете продолжить проверку, но оплата и подтверждение брони пока недоступны.`}</p>}
+         {event.id===NEW_YEARS_2026_EVENT_ID&&!tableBooking&&mapSelections.length>0&&<div className="rounded-xl border border-amber-300 bg-amber-50 p-4" aria-live="polite">
+          <h3 className="font-bold">{en?"Your selected seat prices":"Стоимость выбранных мест"}</h3>
+          {discountQuoteLoading?<p className="mt-2 text-sm">{en?"Checking current discounts…":"Проверяем доступные скидки…"}</p>:
+           discountQuoteError?<p role="alert" className="mt-2 text-sm text-red-800">{en?"Discount prices temporarily unavailable. Please refresh before payment.":"Цены со скидкой временно недоступны. Обновите страницу перед оплатой."}</p>:
+           <>
+            {automaticDiscountCents>0&&<p className="mt-1 text-sm font-semibold text-emerald-800">{discountQuote?.discount_type==="early_bird"?(en?"✓ Early-bird discount applied":"✓ Скидка за раннее бронирование применена"):(en?"✓ Group discount applied":"✓ Групповая скидка применена")}</p>}
+            <div className="mt-2 space-y-2">
+             {mapSelections.map(key=>{
+              const original=selectedSeatPrice(key);
+              const seatSaving=original===null?0:discountQuote?.discount_type==="early_bird"&&automaticDiscountCents>0?1000:discountQuote?.discount_type==="group"&&automaticDiscountCents>0?Math.floor(original*0.05):0;
+              const table=venue?.tables.find(t=>t.id===key.split(":")[0]);
+              return <div key={key} className="flex items-center justify-between gap-3 border-b border-amber-200 pb-2 text-sm">
+               <span>{table?.label??(en?"Table":"Стол")} · {en?"Seat":"Место"} {key.split(":")[1]}</span>
+               <span className="flex items-center gap-2 font-bold">{original===null?(en?"Price pending":"Цена уточняется"):seatSaving>0?<><s className="font-normal text-gray-500">{format.format(original/100)}</s><span className="text-emerald-800">{format.format((original-seatSaving)/100)}</span></>:format.format(original/100)}</span>
+              </div>;
+             })}
+            </div>
+            {automaticDiscountCents>0&&<div className="mt-3 flex justify-between gap-3 text-sm font-bold"><span>{en?"Total savings":"Общая скидка"}</span><span>−{format.format(automaticDiscountCents/100)}</span></div>}
+            <p className="mt-2 text-xs text-gray-600">{en?"Discount availability is verified again at checkout.":"Наличие скидки повторно проверяется при оплате."}</p>
+           </>}
+         </div>}
          <h2 id="seating-title" className="text-xl font-bold">{event.seating_mode==="general_admission"?(en?"General admission":"Вход без закреплённых мест"):event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?(en?"Seats at tables":"Места за столами"):(en?"Whole-table booking":"Бронирование столов")):(en?"Seating":"Рассадка")}</h2>
          {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage} mode={seatingMode} selectedKeys={mapSelections} unavailableKeys={unavailableSeats} onToggle={toggleMapSelection} zones={venue.zones} />:event.seating_mode==="general_admission"?null:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
             <div className="flex h-12 w-40 items-center justify-center rounded-lg bg-[#f5a047]/50 text-sm font-bold">{en?"Stage":"Сцена"}</div>
