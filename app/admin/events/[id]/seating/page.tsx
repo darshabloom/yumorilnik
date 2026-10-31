@@ -696,7 +696,7 @@ export default function SeatingBuilder(){
          <div className="mt-3 space-y-2">{[...tables].sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true})).map(t=><label key={t.id} className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate font-medium">{t.label}</span><select aria-label={`Pricing area for ${t.label}`} className="max-w-44 rounded border border-black/20 bg-white p-2 text-xs" value={t.price_zone_id??""} onChange={e=>void assignTablePriceZone(t,e.target.value||null)}><option value="">{en?"Follow map automatically":"Определять по схеме автоматически"}</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name} · ${z.price_cents/100}</option>)}</select></label>)}</div>
        </details>
      </section>
-     <div className="mt-5 border-t pt-4">{tables.map(t=><button key={t.id} onClick={()=>setSelected(t.id)} className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-[#fff2db]">{t.label} · {seats(t)} seats {t.table_price_cents!==null?"· $"+(t.table_price_cents/100).toFixed(2):""}</button>)}</div>
+     <div className="mt-5 border-t pt-4">{tables.map(t=><button key={t.id} onClick={()=>setSelected(t.id)} className="block w-full rounded px-2 py-2 text-left text-sm hover:bg-[#fff2db]">{t.label} · {seats(t)} seats {!t.is_active?"· INACTIVE (hidden from map)":(t.x<0||t.y<0||t.x>W||t.y>H)?"· OUTSIDE FLOOR PLAN":""} {t.table_price_cents!==null?"· $"+(t.table_price_cents/100).toFixed(2):""}</button>)}</div>
     </aside>
    </div>
   </div>
