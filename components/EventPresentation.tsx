@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import EventMarkdown from "@/components/EventMarkdown";
 import type { ReactNode } from "react";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 
@@ -33,7 +34,7 @@ export default function EventPresentation({event,editable=false,heading,descript
      <div className="grid gap-7 md:grid-cols-[minmax(0,1fr)_minmax(0,0.82fr)] md:items-start md:gap-10">
        <section className="min-w-0">
          <h2 className="mb-3 text-xl font-black">{en?"About the event":"О мероприятии"}</h2>
-         {description??<p className="whitespace-pre-wrap leading-7">{en&&event.description_en?event.description_en:event.description||(en?"Description coming soon.":"Описание скоро появится.")}</p>}
+         {description??<EventMarkdown text={(en&&event.description_en?event.description_en:event.description)||(en?"Description coming soon.":"Описание скоро появится.")} />}
        </section>
        <div className="relative rounded-lg bg-[#f5a047]/20">
          {detail?<img src={detail} alt="" style={{objectFit:event.detail_fit==="contain"?"contain":"cover",objectPosition:`${event.detail_position_x??50}% ${event.detail_position_y??50}%`}} className={event.detail_fit==="contain"?"block h-auto max-h-[75svh] w-full object-contain sm:h-[85vh] sm:max-h-none":"block h-[62svh] min-h-[280px] w-full bg-[#fffaf1] object-cover sm:h-[85vh]"}/>:
