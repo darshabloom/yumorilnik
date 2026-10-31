@@ -30,10 +30,10 @@ BEGIN
    WHERE event_id=p_event_id;
   IF NOT FOUND THEN RETURN pg_catalog.jsonb_build_object('discount_type',NULL,'discount_cents',0); END IF;
   n:=coalesce(pg_catalog.array_length(p_adult_seat_prices_cents,1),0);
-  IF n=0 OR n>200 OR EXISTS(SELECT 1 FROM pg_catalog.unnest(p_adult_seat_prices_cents) AS price WHERE price IS NULL OR price<0)
+  IF n=0 OR n>200 OR EXISTS(SELECT 1 FROM pg_catalog.unnest(p_adult_seat_prices_cents) AS seat(price) WHERE seat.price IS NULL OR seat.price<0)
     THEN RAISE EXCEPTION 'Invalid seat price array' USING errcode='22023'; END IF;
-  SELECT coalesce(sum(price),0)::bigint INTO full_price
-    FROM pg_catalog.unnest(p_adult_seat_prices_cents) AS price;
+  SELECT coalesce(sum(seat.price),0)::bigint INTO full_price
+    FROM pg_catalog.unnest(p_adult_seat_prices_cents) AS seat(price);
   SELECT coalesce(sum(amount_cents) FILTER (WHERE state IN ('reserved','committed')),0),
     coalesce(sum(amount_cents) FILTER (WHERE state IN ('reserved','committed') AND discount_type='early_bird'),0),
     coalesce(sum(amount_cents) FILTER (WHERE state IN ('reserved','committed') AND discount_type='group'),0),
@@ -48,8 +48,8 @@ BEGIN
     early_amount:=n*1000;
   END IF;
   IF b.group_enabled AND n>=6 AND group_used_count+n<=b.group_ticket_limit THEN
-    SELECT coalesce(sum(pg_catalog.floor(price::numeric*0.05)::bigint),0)
-      INTO group_raw FROM pg_catalog.unnest(p_adult_seat_prices_cents) AS price;
+    SELECT coalesce(sum(pg_catalog.floor(seat.price::numeric*0.05)::bigint),0)
+      INTO group_raw FROM pg_catalog.unnest(p_adult_seat_prices_cents) AS seat(price);
     IF group_used_cents+group_raw<=b.group_budget_cents
        AND all_used_cents+group_raw<=b.total_budget_cents THEN
       group_amount:=group_raw;
