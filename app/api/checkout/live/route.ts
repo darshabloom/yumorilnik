@@ -11,7 +11,7 @@ const PRIVATE_LIVE_TEST_AMOUNT_CENTS=50;
 function valid(x:unknown):x is Payload{
  if(!x||typeof x!=="object")return false;
  const p=x as Record<string,unknown>;
- return p.p_event_id===NYE_EVENT_ID&&typeof p.p_client_request_id==="string"&&uuid.test(p.p_client_request_id)&&
+ return typeof p.p_event_id==="string"&&uuid.test(p.p_event_id)&&typeof p.p_client_request_id==="string"&&uuid.test(p.p_client_request_id)&&
   Array.isArray(p.p_tickets)&&p.p_tickets.length>0&&p.p_tickets.length<=20&&
   Array.isArray(p.p_guests)&&p.p_guests.length>0&&p.p_guests.length<=20&&
   Array.isArray(p.p_selections)&&p.p_selections.length<=20&&
