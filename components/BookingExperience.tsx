@@ -53,6 +53,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
  const [promoCode,setPromoCode]=useState("");
  const [discountQuote,setDiscountQuote]=useState<{discount_cents:number;discount_type:string|null;seat_keys:string}|null>(null);
  const [discountQuoteLoading,setDiscountQuoteLoading]=useState(false);
+ const [discountQuoteRefresh,setDiscountQuoteRefresh]=useState(0);
  const [sandboxAccessCode,setSandboxAccessCode]=useState("");
  const [liveTestAccessCode,setLiveTestAccessCode]=useState("");
  const [savedStatus,setSavedStatus]=useState<"requested"|"confirmed"|null>(null);
@@ -172,7 +173,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
   return ()=>controller.abort();
  // Map selections are represented by the stable join key for this request.
  // eslint-disable-next-line react-hooks/exhaustive-deps
- },[event.id,event.seating_mode,tableBooking,quoteKeys,promoCode]);
+ },[event.id,event.seating_mode,tableBooking,quoteKeys,promoCode,discountQuoteRefresh]);
  const automaticDiscountCents=!promoCode.trim()&&!discountQuoteLoading&&discountQuote?.seat_keys===quoteKeys?discountQuote.discount_cents:0;
  const total=calculatedTotal;
  const currency=tickets[0]?.currency?.toUpperCase()||"NZD";
@@ -306,8 +307,15 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
     return;
    }
    if(realBookingsEnabled||privatePaymentTest){
-    const response=await fetch("/api/checkout/live",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,p_promo_code:privatePaymentTest?null:promoCode.trim()||null,...(privatePaymentTest?{p_live_test_access_code:liveTestAccessCode}:{})})});
-    const result=await response.json() as {url?:string;error?:string};
+    const approvedAmount=privatePaymentTest?50:Math.max(0,(total??0)-automaticDiscountCents);
+    const response=await fetch("/api/checkout/live",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,p_expected_amount_cents:approvedAmount,p_promo_code:privatePaymentTest?null:promoCode.trim()||null,...(privatePaymentTest?{p_live_test_access_code:liveTestAccessCode}:{})})});
+    const result=await response.json() as {url?:string;error?:string;code?:string};
+    if(result.code==="PRICE_CHANGED"){
+     requestId.current=null;
+     setDiscountQuote(null);
+     setDiscountQuoteRefresh(n=>n+1);
+     throw new Error(en?"The price or discount changed. Please review the updated amount and press payment again.":"Цена или скидка изменилась. Проверьте обновлённую сумму и нажмите оплату ещё раз.");
+    }
     if(!response.ok||!result.url)throw new Error(result.error||"Live checkout is unavailable");
     if(new URL(result.url).hostname!=="checkout.stripe.com")throw new Error("Invalid Stripe checkout destination");
     window.location.assign(result.url);
@@ -464,7 +472,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
            <span className="mt-2 block text-xs font-normal">{en?"Only authorised testers can create Stripe test payments and temporary holds.":"Только уполномоченные тестировщики могут создавать тестовые платежи и удерживать места."}</span>
           </label>}
           {bookingError&&<p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800">{bookingError}</p>}
-         <button type="button" disabled={!bookingConsent||!canReview||savingBooking||(stripeSandboxEnabled&&(pricingIncomplete||sandboxAccessCode.length<16))||((realBookingsEnabled||privatePaymentTest)&&pricingIncomplete)||(privatePaymentTest&&(adultTicketCount!==1||childTicketCount!==0||liveTestAccessCode.length<32))||(!stripeSandboxEnabled&&!realBookingsEnabled&&!privatePaymentTest&&!localTestMode&&promoCode.trim()!=="TEST12")} onClick={()=>void submitBookingRequest()} className="min-h-12 w-full rounded-lg bg-black px-5 py-4 font-bold text-white disabled:opacity-40">{savingBooking?(privatePaymentTest?(en?"Opening REAL Stripe checkout…":"Открываем НАСТОЯЩУЮ оплату Stripe…"):stripeSandboxEnabled?(en?"Opening Stripe test page…":"Открываем тестовую оплату Stripe…"):realBookingsEnabled?(en?"Opening secure Stripe payment…":"Открываем безопасную оплату Stripe…"):(en?"Saving request…":"Сохраняем заявку…")):privatePaymentTest?(en?"Continue to REAL NZD payment →":"Перейти к НАСТОЯЩЕЙ оплате NZD →"):stripeSandboxEnabled?(en?"Continue to Stripe test payment →":"Перейти к тестовой оплате Stripe →"):realBookingsEnabled?(en?"Continue to secure payment →":"Перейти к безопасной оплате →"):localTestMode?(en?"Save test booking":"Сохранить тестовую заявку"):(en?"Reserve seats for NZ$0 with TEST12":"Забронировать места за NZ$0 с TEST12")}</button>
+         <button type="button" disabled={!bookingConsent||!canReview||savingBooking||discountQuoteLoading||(stripeSandboxEnabled&&(pricingIncomplete||sandboxAccessCode.length<16))||((realBookingsEnabled||privatePaymentTest)&&pricingIncomplete)||(privatePaymentTest&&(adultTicketCount!==1||childTicketCount!==0||liveTestAccessCode.length<32))||(!stripeSandboxEnabled&&!realBookingsEnabled&&!privatePaymentTest&&!localTestMode&&promoCode.trim()!=="TEST12")} onClick={()=>void submitBookingRequest()} className="min-h-12 w-full rounded-lg bg-black px-5 py-4 font-bold text-white disabled:opacity-40">{savingBooking?(privatePaymentTest?(en?"Opening REAL Stripe checkout…":"Открываем НАСТОЯЩУЮ оплату Stripe…"):stripeSandboxEnabled?(en?"Opening Stripe test page…":"Открываем тестовую оплату Stripe…"):realBookingsEnabled?(en?"Opening secure Stripe payment…":"Открываем безопасную оплату Stripe…"):(en?"Saving request…":"Сохраняем заявку…")):privatePaymentTest?(en?"Continue to REAL NZD payment →":"Перейти к НАСТОЯЩЕЙ оплате NZD →"):stripeSandboxEnabled?(en?"Continue to Stripe test payment →":"Перейти к тестовой оплате Stripe →"):realBookingsEnabled?(en?"Continue to secure payment →":"Перейти к безопасной оплате →"):localTestMode?(en?"Save test booking":"Сохранить тестовую заявку"):(en?"Reserve seats for NZ$0 with TEST12":"Забронировать места за NZ$0 с TEST12")}</button>
        </section>:<p className="rounded-lg bg-gray-100 p-4 text-sm">{en?"Booking request saving is not enabled yet; please contact Marina.":"Сохранение заявок пока не подключено. Свяжитесь с Мариной."}</p>}
 
        {!igrisha&&!savedReference&&<button type="button" onClick={()=>setStep("guests")} className="w-full rounded-lg border border-black/30 px-5 py-3 font-semibold">{en?"Edit guest details":"Изменить данные гостей"}</button>}
