@@ -10,6 +10,7 @@ type Booking={booking_reference:string;status:string;events:{title:string;event_
 export default function TicketPreview(){
  const {id}=useParams<{id:string}>(),router=useRouter(),en=useSiteLanguage()==="en";
  const [codes,setCodes]=useState<Record<number,string>>({});
+ const [cancelBusy,setCancelBusy]=useState(false);
  const [booking,setBooking]=useState<Booking|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState("");
  useEffect(()=>{let live=true;void(async()=>{try{
   const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace("/login");return}
@@ -28,6 +29,20 @@ export default function TicketPreview(){
    if(!response.ok||!data.credential)throw Error(data.error??"Unavailable");
    setCodes(previous=>({...previous,[index]:data.credential!}));
   }catch(e){setError(e instanceof Error?e.message:"Unable to issue code")}
+ }
+ async function cancelFromPreview(){
+  if(!booking||booking.status==="cancelled"||cancelBusy)return;
+  if(!window.confirm(en?"Cancel this booking and release its seats? The booking remains in audit history. Paid bookings may require a separate Stripe refund.":"Отменить бронь и освободить места? Запись сохранится в истории. Оплаченные брони могут требовать отдельного возврата Stripe."))return;
+  setCancelBusy(true);setError("");
+  try{
+   const {data,error:rpcError}=await supabase.rpc("cancel_booking",{p_booking_id:id,p_reason:"Cancelled by organiser in ticket preview"});
+   if(rpcError)throw rpcError;
+   if(data!==true)throw Error("Booking cancellation was not accepted");
+   const {data:confirmed,error:verifyError}=await supabase.from("bookings").select("status").eq("id",id).single();
+   if(verifyError||confirmed?.status!=="cancelled")throw Error("Unable to confirm cancellation. Please refresh.");
+   router.push("/admin/bookings");
+  }catch(e){setError(e instanceof Error?e.message:"Cancellation failed")}
+  finally{setCancelBusy(false)}
  }
  async function downloadPdf(){
   try{const {data:{session}}=await supabase.auth.getSession();if(!session)throw Error("Sign in required");
@@ -54,7 +69,7 @@ export default function TicketPreview(){
  <p>{g.checked_in_at?(en?"Checked in":"Зарегистрирован"):(en?"Not checked in":"Не зарегистрирован")}</p>
  {booking.status==="confirmed"&&<div className="mt-3 print:hidden"><button type="button" className="rounded border px-3 py-2" onClick={()=>void requestCode(g.guest_index)}>{en?"Get check-in credential":"Получить код регистрации"}</button>{codes[g.guest_index]&&<p className="mt-2 break-all text-xs">{codes[g.guest_index]}</p>}</div>}
  </article>})}</div>
- <div className="mt-6 flex flex-wrap gap-3 print:hidden"><button type="button" className="rounded-lg bg-black px-5 py-3 font-semibold text-white" onClick={()=>void downloadPdf()}>{en?"Download ticket PDF":"Скачать билеты PDF"}</button><button type="button" onClick={()=>window.print()} className="rounded-lg border border-black px-5 py-3 font-semibold">{en?"Print preview":"Распечатать просмотр"}</button></div>
+ <div className="mt-6 flex flex-wrap items-center gap-3 print:hidden"><button type="button" className="rounded-lg bg-black px-5 py-3 font-semibold text-white" onClick={()=>void downloadPdf()}>{en?"Download ticket PDF":"Скачать билеты PDF"}</button><button type="button" onClick={()=>window.print()} className="rounded-lg border border-black px-5 py-3 font-semibold">{en?"Print preview":"Распечатать просмотр"}</button>{booking.status!=="cancelled"&&<button type="button" disabled={cancelBusy} onClick={()=>void cancelFromPreview()} className="ml-auto rounded-lg border border-red-700 px-5 py-3 font-semibold text-red-800 disabled:opacity-50">{cancelBusy?(en?"Cancelling…":"Отменяем…"):(en?"Delete booking":"Удалить бронь")}</button>}</div>
  </>}
  </section></main>;
 }
