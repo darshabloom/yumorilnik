@@ -18,6 +18,7 @@ export type BookingTicket = {
 };
 export type BookingEvent = { id?:string;slug:string;title:string;title_en?:string|null;image_url:string|null;booking_image_url?:string|null;booking_image_fit?:string|null;booking_image_position_x?:number|null;booking_image_position_y?:number|null;banner_fit?:string|null;seating_mode?:string|null;table_booking_mode?:string|null;adult_seat_required?:boolean;pricing_model?:string;child_unseated_price_cents?:number };
 export default function BookingExperience({event,tickets,venue,privateLiveTest=false}:{event:BookingEvent;tickets:BookingTicket[];venue?:{zones:PriceZone[];tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null};privateLiveTest?:boolean}) {
+ const skipAccountStep=event.slug.toLowerCase().includes("igrisha");
  const [quantities,setQuantities]=useState<Record<string,number>>({});
  const [mapSelections,setMapSelections]=useState<string[]>([]);
  const [step,setStep]=useState<"tickets"|"seats"|"access"|"guests"|"review">("tickets");
@@ -83,7 +84,6 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
   if(error){setAccessError(error.message);setAccessBusy(false);}
  }
  useEffect(()=>{if(step==="access"&&(accessChoice!=="choose"||skipAccountStep))setStep("guests");},[step,accessChoice,skipAccountStep]);
- const skipAccountStep=event.slug.toLowerCase().includes("igrisha");
  const tableBooking=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
  const seatedPricing=event.seating_mode!=="general_admission";
  const seatingMode=tableBooking?"whole_table":"individual_seats";
