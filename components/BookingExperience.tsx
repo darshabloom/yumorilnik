@@ -16,7 +16,7 @@ export type BookingTicket = {
  id:string; name:string; description:string|null; price_cents:number;
  currency:string; quantity_total:number|null; quantity_sold:number|null;show_remaining?:boolean;
 };
-export type BookingEvent = { id?:string;slug:string;title:string;title_en?:string|null;image_url:string|null;booking_image_url?:string|null;booking_image_fit?:string|null;booking_image_position_x?:number|null;booking_image_position_y?:number|null;banner_fit?:string|null;seating_mode?:string|null;table_booking_mode?:string|null;adult_seat_required?:boolean;pricing_model?:string;child_unseated_price_cents?:number };
+export type BookingEvent = { id?:string;slug:string;title:string;title_en?:string|null;image_url:string|null;booking_image_url?:string|null;booking_image_fit?:string|null;booking_image_position_x?:number|null;booking_image_position_y?:number|null;banner_fit?:string|null;seating_mode?:string|null;table_booking_mode?:string|null;adult_seat_required?:boolean;pricing_model?:string;child_unseated_price_cents?:number; require_individual_guest_details?:boolean };
 export default function BookingExperience({event,tickets,venue,privateLiveTest=false}:{event:BookingEvent;tickets:BookingTicket[];venue?:{zones:PriceZone[];tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null};privateLiveTest?:boolean}) {
  const skipAccountStep=event.slug.toLowerCase().includes("igrisha");
  const [quantities,setQuantities]=useState<Record<string,number>>({});
@@ -123,7 +123,13 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
  const seatTotal=!tableBooking?mapSelections.reduce((sum,key)=>sum+(selectedSeatPrice(key)??0),0):0;
 
  const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&mapSelections.length>adultTicketCount;
- const guestProblems=guestValidationProblems(adultTicketCount,childTicketCount,guestInfo,childParents,
+ const leadOnly=event.require_individual_guest_details===false&&event.seating_mode==="general_admission"&&childTicketCount===0;
+ const leadGuest=guestInfo["0"]??{name:"",email:"",phone:""};
+ const guestProblems=leadOnly?[
+  ...(!leadGuest.name.trim()?[{guestIndex:0,field:"name" as const}]:[]),
+  ...(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(leadGuest.email.trim())?[{guestIndex:0,field:"email" as const}]:[]),
+  ...(!leadGuest.phone.trim()?[{guestIndex:0,field:"phone" as const}]:[])
+ ]:guestValidationProblems(adultTicketCount,childTicketCount,guestInfo,childParents,
   {adultSeatChildren,childcareHours,childAges,requireChildcareHours:nyeChildcare});
  const guestDetailsComplete=guestProblems.length===0;
  const selectedPrices=mapSelections.map(key=>tableBooking?venue?.tables.find(t=>t.id===key)?.table_price_cents??null:selectedSeatPrice(key));
@@ -247,7 +253,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
    const payload=buildBookingSubmission({
     eventId:event.id!,clientRequestId:idempotency,
     tickets:tickets.map(t=>({id:t.id,quantity:quantities[t.id]??0})),
-    guestInfo,childParents,adultCount:adultTicketCount,childCount:childTicketCount,
+    guestInfo:leadOnly?Object.fromEntries(Array.from({length:adultTicketCount},(_,i)=>[String(i),i===0?leadGuest:{...leadGuest,name:`Attendee ${i+1} (booked by ${leadGuest.name.trim()})`}])):guestInfo,childParents,adultCount:adultTicketCount,childCount:childTicketCount,
     adultSeatChildren,childcareHours,childAges,
     wholeTable:tableBooking,selectedKeys:mapSelections,seatAssignments,
    });
@@ -318,8 +324,8 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
       </div>}
      <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-semibold sm:text-sm">{([{id:"tickets",en:"Tickets",ru:"Билеты"},{id:"seats",en:tableBooking?"Tables":"Seats",ru:tableBooking?"Столы":"Места"},{id:"access",en:"Sign in",ru:"Вход"},{id:"guests",en:"Guest details",ru:"Данные гостей"},{id:"review",en:"Payment",ru:"Оплата"}] as const).filter(s=>(s.id!=="seats"||needsSeats)&&(s.id!=="access"||!skipAccountStep)).map((s,i,steps)=><button type="button" key={s.id} disabled={i>steps.findIndex(item=>item.id===step)} onClick={()=>{if(!savedReference){setStep(s.id);window.scrollTo({top:0,behavior:"smooth"});}}} aria-current={step===s.id?"step":undefined} className={`rounded-full border px-3 py-2 ${step===s.id?"border-black bg-black text-white":i<steps.findIndex(item=>item.id===step)?"border-black/25 bg-white text-black underline underline-offset-2":"border-black/15 bg-white text-gray-400"} disabled:cursor-default`}>{i+1} · {en?s.en:s.ru}</button>)}</div>
      {step==="access"?accessPanel:step==="guests"?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8">
-       <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Guest details":"Данные гостей"}</h2><button type="button" className="text-sm underline" onClick={()=>{setStep(skipAccountStep?(needsSeats?"seats":"tickets"):"access")}}>{skipAccountStep?(en?"← Back":"← Назад"):(en?"← Back to sign in":"← К гостям")}</button></div>
-       {Array.from({length:adultTicketCount+childTicketCount},(_,i)=>{
+       <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{leadOnly?(en?"Booking contact":"Контактные данные"):(en?"Guest details":"Данные гостей")}</h2><button type="button" className="text-sm underline" onClick={()=>{setStep(skipAccountStep?(needsSeats?"seats":"tickets"):"access")}}>{skipAccountStep?(en?"← Back":"← Назад"):(en?"← Back to sign in":"← К гостям")}</button></div>
+       {Array.from({length:leadOnly?1:adultTicketCount+childTicketCount},(_,i)=>{
  const key=String(i),guest=guestInfo[key]??{name:"",email:"",phone:""};
  const admissionChild=i>=adultTicketCount;
  const seatedChild=false;
@@ -329,8 +335,8 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
  const update=(field:"name"|"email"|"phone",value:string)=>setGuestInfo(old=>({...old,[key]:{...(old[key]??{name:"",email:"",phone:""}),[field]:value}}));
  const fieldClass="mt-1 block w-full rounded-lg border border-black/30 p-3";
  return <fieldset key={key} className="space-y-3 rounded-xl border border-black/15 p-4">
-  <legend className="px-2 font-semibold">{admissionChild?(en?"Babysitting child":"Ребёнок с присмотром"):(en?"Adult seat":"Место взрослого")} {admissionChild?i-adultTicketCount+1:i+1}</legend>
-  <p className="text-sm font-semibold text-gray-700">{seatLabel}</p>
+  <legend className="px-2 font-semibold">{leadOnly?(en?"Lead booker":"Основной покупатель"):admissionChild?(en?"Babysitting child":"Ребёнок с присмотром"):(en?"Adult seat":"Место взрослого")} {leadOnly?"":admissionChild?i-adultTicketCount+1:i+1}</legend>
+  {!leadOnly&&<p className="text-sm font-semibold text-gray-700">{seatLabel}</p>}
 
 
   <label className="block text-sm font-semibold">{en?"Full name":"Имя и фамилия"} *<input type="text" required autoComplete="off" value={guest.name} onChange={e=>update("name",e.target.value)} aria-invalid={guestErrors&&!guest.name.trim()} data-guest-index={i} data-guest-field="name" className={fieldClass}/></label>
