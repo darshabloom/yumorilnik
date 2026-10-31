@@ -74,6 +74,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
    options:{redirectTo:`${window.location.origin}${window.location.pathname}`}});
   if(error){setAccessError(error.message);setAccessBusy(false);}
  }
+ useEffect(()=>{if(step==="access"&&accessChoice!=="choose")setStep("guests");},[step,accessChoice]);
  const tableBooking=event.seating_mode==="tables"&&event.table_booking_mode==="whole_table";
  const seatedPricing=event.seating_mode!=="general_admission";
  const seatingMode=tableBooking?"whole_table":"individual_seats";
@@ -147,6 +148,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
    setAdultSeatChildren({});
    setChildcareHours({});
    setChildAges({});
+   setAgeGroups({});
    setGuestErrors(false);
    setMapSelections([]);
    setSeatAssignments({});
@@ -322,6 +324,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
  return <fieldset key={key} className="space-y-3 rounded-xl border border-black/15 p-4">
   <legend className="px-2 font-semibold">{admissionChild?(en?"Child ticket":"Детский билет"):seatedChild?(en?"Child in adult-priced seat":"Ребёнок на взрослом месте"):(en?"Adult-priced seat":"Место по взрослому тарифу")} {admissionChild?i-adultTicketCount+1:i+1}</legend>
   <p className="text-sm font-semibold text-gray-700">{seatLabel}</p>
+  {!childGuest&&<p className="rounded-lg bg-[#fff2db] p-2 text-sm font-semibold">{en?"Age category: Adult":"Возрастная категория: Взрослый"}</p>}
   {!admissionChild&&<label className="flex items-start gap-3 rounded-lg bg-[#fff2db] p-3 text-sm font-semibold">
    <input type="checkbox" checked={seatedChild} onChange={e=>{setAdultSeatChildren(old=>({...old,[key]:e.target.checked}));setChildParents(old=>({...old,[key]:""}));}} className="mt-1 h-5 w-5"/>
    <span>{en?"This ticket is for a child with an assigned adult-priced table seat. Only the table price applies; discuss any babysitting at the event.":"Билет для ребёнка с закреплённым местом по взрослому тарифу. Оплачивается только место; присмотр обсуждается на мероприятии."}</span>
@@ -399,7 +402,6 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
            </label>}
          </div>
                   </>}
-         {!localTestMode&&!privatePaymentTest&&<div className="rounded-lg border border-black/15 p-4"><h3 className="font-semibold">{en?"Promo code":"Промокод"}</h3><p className="mt-1 text-sm text-gray-600">{(stripeSandboxEnabled||realBookingsEnabled)?(en?"Optional: valid promo codes are checked by the server before Stripe Checkout. TEST12 is not accepted.":"Необязательно: действующие промокоды проверяются сервером перед оплатой Stripe. TEST12 не принимается."):(en?"TEST12 will make an eligible booking free when the organiser enables this promotion. A code is checked in the database; typing it does not reserve seats.":"TEST12 сделает заказ бесплатным, когда организатор включит акцию. Код проверяется в базе данных; ввод кода сам по себе не бронирует места.")}</p><input value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase().trimStart())} disabled={!!savedReference||localTestMode} maxLength={32} autoComplete="off" placeholder={en?"Enter code":"Введите код"} aria-label={en?"Promo code":"Промокод"} className="mt-2 w-full rounded-lg border border-black/20 bg-white p-3 disabled:bg-gray-100" />{!localTestMode&&!stripeSandboxEnabled&&!realBookingsEnabled&&promoCode.trim()==="TEST12"&&<p className="mt-2 text-sm font-semibold text-green-800">{en?"Code entered. Final discount will be verified when you submit.":"Код введён. Скидка будет проверена при отправке заказа."}</p>}</div>}
          {privatePaymentTest&&<label className="block rounded-lg border border-red-300 bg-red-50 p-4 text-sm font-semibold">
            {en?"PRIVATE REAL PAYMENT TEST — your card will be charged exactly NZ$0.50. Choose ONE adult ticket and ONE assigned seat.":"ЗАКРЫТЫЙ ТЕСТ РЕАЛЬНОЙ ОПЛАТЫ — с карты спишут строго NZ$0.50. Выберите ОДИН взрослый билет и ОДНО место."} *
            <input type="password" autoComplete="off" required value={liveTestAccessCode} onChange={e=>setLiveTestAccessCode(e.target.value)} placeholder={en?"Private live-test access code":"Закрытый код для теста"} className="mt-2 w-full rounded-lg border border-red-300 bg-white p-3"/>
@@ -443,6 +445,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
             </div>;
          })}</div>}
        </section>}
+       {step==="tickets"&&!privatePaymentTest&&<div className="rounded-lg border border-black/15 bg-white p-4"><label className="block text-sm font-semibold">{en?"Promo code from Marina (optional)":"Промокод от Марины (необязательно)"}<input value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase().trimStart())} maxLength={32} autoComplete="off" placeholder={en?"Enter promo code":"Введите промокод"} className="mt-2 w-full rounded-lg border p-3"/></label><p className="mt-2 text-xs text-gray-600">{en?"Discounts are verified by the server before payment.":"Скидки проверяются сервером перед оплатой."}</p></div>}
        {step==="seats"&&<section aria-labelledby="seating-title" className="min-w-0 space-y-4">
          <button type="button" onClick={()=>setStep("tickets")} className="text-sm font-semibold underline">{en?"← Edit tickets":"← Изменить билеты"}</button>
          {seatFeedback&&<p role="status" className="rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm font-semibold">{seatFeedback}</p>}
