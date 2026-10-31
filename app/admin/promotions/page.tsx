@@ -37,6 +37,7 @@ export default function PromotionsAdmin(){
  const en=useSiteLanguage()==="en";
  const [promos,setPromos]=useState<Promo[]>([]);
  const [discountOverview,setDiscountOverview]=useState<DiscountOverview|null>(null);
+ const [promoCategory,setPromoCategory]=useState<"personal"|"flash">("personal");
  const [events,setEvents]=useState<Event[]>([]);
  const [tickets,setTickets]=useState<Ticket[]>([]);
  const [edit,setEdit]=useState<Edit>(blank);
@@ -120,6 +121,12 @@ export default function PromotionsAdmin(){
     p_internal_note:edit.internal_note.trim()||null,
    });
    if(saveError)throw saveError;
+   if(edit.event_id===NYE_ID){
+    const {error:assignmentError}=await supabase.rpc("admin_assign_event_discount_promotion",{
+     p_event_id:NYE_ID,p_promo_code:edit.code.trim().toUpperCase(),p_category:promoCategory
+    });
+    if(assignmentError)throw assignmentError;
+   }
    await reload();setEdit(blank);
    setMessage(en?"Promotion saved. It will work only in the protected Stripe sandbox when enabled.":"Промокод сохранён. Он работает только в защищённом тестовом Stripe после настройки.");
   }catch(e){setError(e instanceof Error?e.message:String(e))}
@@ -193,6 +200,14 @@ export default function PromotionsAdmin(){
       </select></label>
       <label className="block text-sm font-semibold">{edit.discount_type==="percentage"?(en?"Percent (%)":"Процент (%)"):(en?"Amount (NZ$)":"Сумма (NZ$)")}<input type="number" min={edit.discount_type==="percentage"?"1":"0"} max={edit.discount_type==="percentage"?"100":undefined} step={edit.discount_type==="percentage"?"1":"0.01"} value={edit.amount} onChange={e=>update({amount:e.target.value})} className="mt-1 w-full rounded-lg border border-black/30 p-3"/></label>
       <label className="block text-sm font-semibold">{en?"Event":"Мероприятие"}<select value={edit.event_id} onChange={e=>update({event_id:e.target.value,ticket_type_ids:[]})} className="mt-1 w-full rounded-lg border border-black/30 p-3"><option value="">{en?"All events":"Все мероприятия"}</option>{events.map(e=><option key={e.id} value={e.id}>{e.title}</option>)}</select></label>
+      {edit.event_id===NYE_ID&&<label className="block rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold">
+       {en?"New Year discount budget category":"Категория бюджета новогодних скидок"}
+       <select value={promoCategory} onChange={e=>setPromoCategory(e.target.value as "personal"|"flash")} className="mt-2 block w-full rounded border border-amber-300 bg-white p-2">
+        <option value="personal">{en?"Personal codes — NZ$100 allocation":"Персональные коды — лимит NZ$100"}</option>
+        <option value="flash">{en?"Flash campaign — NZ$150 allocation":"Краткосрочная акция — лимит NZ$150"}</option>
+       </select>
+       <span className="mt-2 block text-xs font-normal">{en?"Codes must apply to adult seats for this event. Flash and personal discounts remain inactive until explicitly enabled.":"Коды должны действовать на взрослые места этого мероприятия. Скидки остаются неактивными до включения."}</span>
+      </label>}
       <label className="block text-sm font-semibold">{en?"Maximum uses (optional)":"Лимит использований (необязательно)"}<input type="number" min="1" step="1" value={edit.max_uses} onChange={e=>update({max_uses:e.target.value})} className="mt-1 w-full rounded-lg border border-black/30 p-3"/></label>
       <label className="block text-sm font-semibold">{en?"Apply to ticket types":"К каким билетам применять"}<select value={edit.applies_to} onChange={e=>update({applies_to:e.target.value as Scope,ticket_type_ids:[]})} className="mt-1 w-full rounded-lg border border-black/30 p-3">
        <option value="all">{en?"All tickets":"Все билеты"}</option><option value="adult">{en?"Adult table seats":"Места для взрослых"}</option><option value="child">{en?"Child admission":"Детские билеты"}</option><option value="selected">{en?"Selected ticket types":"Выбранные типы билетов"}</option>
