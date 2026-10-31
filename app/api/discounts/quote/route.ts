@@ -42,3 +42,18 @@ export async function POST(req:NextRequest){
   return reply({...quote,quote_only:true});
  }catch{return reply({error:"Discount quotation unavailable"},503)}
 }
+
+export async function GET(){
+ try{
+  const {db}=liveServices();
+  const {data:zones,error}=await db.from("event_price_zones").select("id,price_cents").eq("event_id",NYE_EVENT_ID);
+  if(error||!zones)return reply({error:"Price guide unavailable"},503);
+  const previews=await Promise.all(zones.map(async zone=>{
+   const {data,error:quoteError}=await db.rpc("quote_nye_automatic_discount",{
+    p_event_id:NYE_EVENT_ID,p_adult_seat_prices_cents:[zone.price_cents]
+   });
+   return {id:zone.id,discount_cents:quoteError?0:Math.max(0,Number(data?.discount_type==="early_bird"?data.discount_cents:0)||0)};
+  }));
+  return reply({zones:previews,estimate_only:true});
+ }catch{return reply({error:"Price guide unavailable"},503)}
+}
