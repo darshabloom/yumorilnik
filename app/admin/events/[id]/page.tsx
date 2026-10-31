@@ -11,7 +11,7 @@ type EventRecord = {
   id: string; slug: string; title: string; title_en: string | null;
   description: string | null; description_en: string | null;
   event_date: string; event_time: string; location: string | null;
-  image_url: string | null; detail_image_url:string|null; banner_fit:string; banner_width_percent:number; banner_height_vh:number; banner_position_x:number; banner_position_y:number; detail_fit:string; detail_position_x:number; detail_position_y:number; is_active: boolean;
+  image_url: string | null; detail_image_url:string|null; banner_fit:string; banner_width_percent:number; banner_height_vh:number; banner_position_x:number; banner_position_y:number; detail_fit:string; detail_position_x:number; detail_position_y:number; is_active: boolean; require_individual_guest_details:boolean;
 };
 type Ticket = { id: string; name: string; price_cents: number; currency: string; quantity_total: number };
 
@@ -44,7 +44,7 @@ export default function InlineEventEditor() {
         const { data: admin, error: adminError } = await supabase.from("admin_users").select("role").eq("user_id", user.id).maybeSingle();
         if (adminError || !admin) { router.replace("/admin/login"); return; }
         const { data, error: loadError } = await supabase.from("events")
-          .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,detail_image_url,banner_fit,banner_width_percent,banner_height_vh,banner_position_x,banner_position_y,detail_fit,detail_position_x,detail_position_y,is_active")
+          .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,detail_image_url,banner_fit,banner_width_percent,banner_height_vh,banner_position_x,banner_position_y,detail_fit,detail_position_x,detail_position_y,is_active,require_individual_guest_details")
           .eq("id", id).single();
         if (loadError) throw loadError;
         const { data: types } = await supabase.from("ticket_types")
@@ -119,7 +119,7 @@ export default function InlineEventEditor() {
       detail_image_url: snapshot.detail_image_url?.trim() || null,
       banner_fit:snapshot.banner_fit,banner_width_percent:snapshot.banner_width_percent,banner_height_vh:snapshot.banner_height_vh,banner_position_x:snapshot.banner_position_x,banner_position_y:snapshot.banner_position_y,
       detail_fit:snapshot.detail_fit,detail_position_x:snapshot.detail_position_x,detail_position_y:snapshot.detail_position_y,
-      is_active:snapshot.is_active, updated_at:new Date().toISOString(),
+      is_active:snapshot.is_active,require_individual_guest_details:snapshot.require_individual_guest_details, updated_at:new Date().toISOString(),
     };
     const {error: saveError} = await supabase.from("events").update(payload).eq("id",snapshot.id);
     saveInProgress.current = false;
@@ -243,6 +243,11 @@ export default function InlineEventEditor() {
       />
       {!isPreview && <div className="w-full space-y-5 bg-white px-5 pb-12 sm:px-10 lg:px-[6vw]">
 
+        <label className="flex items-start gap-3 rounded-lg border border-black/20 bg-[#fffaf1] p-4">
+          <input type="checkbox" checked={event.require_individual_guest_details!==false} onChange={e=>change("require_individual_guest_details",e.target.checked)} className="mt-1 h-5 w-5"/>
+          <span><strong>{en?"Require details for every guest":"Запрашивать данные каждого гостя"}</strong>
+          <small className="mt-1 block font-normal text-gray-700">{en?"Off: for general admission without childcare, collect only the lead booker's name, email and phone. Tickets are delivered to that contact.":"Выключено: для мероприятий со свободной рассадкой без присмотра за детьми запрашиваются только имя, email и телефон основного покупателя. Билеты отправляются ему."}</small></span>
+        </label>
         <label className="flex items-center gap-3 rounded-lg border p-4 font-bold">
           <input type="checkbox" checked={event.is_active} onChange={e=>change("is_active",e.target.checked)} className="h-5 w-5"/> Publish event
         </label>
