@@ -153,7 +153,7 @@ export default function InlineEventEditor() {
   const title = event?.[titleKey] ?? "";
   const description = event?.[descKey] ?? "";
 
-  const imageEditor = (target:"banner"|"detail") => <div className="absolute bottom-full right-0 z-30 mb-2 w-[min(90vw,340px)] rounded-xl border border-black/20 bg-white p-4 text-left shadow-2xl" onClick={e=>e.stopPropagation()}>
+  const imageEditor = (target:"banner"|"detail") => <div className="fixed inset-x-3 top-1/2 z-[100] mx-auto max-h-[min(82dvh,680px)] w-auto max-w-[420px] -translate-y-1/2 overflow-y-auto overscroll-contain rounded-xl border border-black/20 bg-white p-4 text-left shadow-2xl sm:inset-x-auto sm:right-5 sm:w-[min(90vw,420px)]" onClick={e=>e.stopPropagation()}>
     <div className="mb-3 flex items-center justify-between gap-2"><strong className="text-base">{target==="banner"?"Banner image":"Secondary image"}</strong><button type="button" onClick={()=>setEditingImage(null)} aria-label="Close image editor" className="rounded px-2 py-1 text-lg">×</button></div>
     <label htmlFor="event-image-upload" className={`flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-black bg-[#fff2db] px-4 py-3 text-sm font-bold transition-colors hover:bg-[#f5a047]/35 focus-within:ring-2 focus-within:ring-pink-600 ${uploading?"pointer-events-none opacity-50":""}`}>
       <span aria-hidden="true">↑</span> {uploading ? "Uploading image…" : "Choose image from device"}
