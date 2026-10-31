@@ -187,7 +187,7 @@ export async function POST(request:NextRequest){
     headers:{"Authorization":`Bearer ${resendKey}`,"Content-Type":"application/json",
      "Idempotency-Key":"ymr-paid-ticket-v1-"+booking.id+"-"+delivery.guest_index},
     body:JSON.stringify({
-     from:`Yumorilnik Tickets <${from}>`,reply_to:"yumorilnik@gmail.com",to:[person.email],subject:en.subject,
+     from:`Yumorilnik Tickets <${from}>`,reply_to:"yumorilnik@gmail.com",to:[person.email],...(delivery.guest_index===0?{bcc:["yumorilnik@gmail.com"]}:{}),subject:en.subject,
      text:en.text+"\n\n---\n\n"+ru.text,html,
      attachments:[{filename:"yumorilnik-tickets-"+booking.booking_reference+".pdf",content:pdf.toString("base64")}],
     }),
