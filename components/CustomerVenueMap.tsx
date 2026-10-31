@@ -26,8 +26,18 @@ function seatPositions(table:PublicTable):Seat[]{
  }
  return output;
 }
-export default function CustomerVenueMap({tables,features,stage,mode="whole_table",selectedKeys=[],unavailableKeys=[],onToggle,zones=[]}:{zones?:PriceZone[];tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null;mode?:Mode;selectedKeys?:string[];unavailableKeys?:string[];onToggle?:(key:string)=>void}){
+export default function CustomerVenueMap({tables,features,stage,mode="whole_table",selectedKeys=[],unavailableKeys=[],onToggle,zones=[],showEarlyBirdGuide=false}:{showEarlyBirdGuide?:boolean;zones?:PriceZone[];tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null;mode?:Mode;selectedKeys?:string[];unavailableKeys?:string[];onToggle?:(key:string)=>void}){
  const en=useSiteLanguage()==="en";
+ const [zoneDiscounts,setZoneDiscounts]=useState<Record<string,number>>({});
+ useEffect(()=>{
+  if(!showEarlyBirdGuide||mode!=="individual_seats"){setZoneDiscounts({});return;}
+  const controller=new AbortController();
+  const update=()=>{void fetch("/api/discounts/quote",{signal:controller.signal,cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject()).then((result:{zones:{id:string;discount_cents:number}[]})=>{
+   if(!controller.signal.aborted)setZoneDiscounts(Object.fromEntries((result.zones??[]).filter(z=>Number.isSafeInteger(z.discount_cents)&&z.discount_cents>0).map(z=>[z.id,z.discount_cents])));
+  }).catch(()=>{if(!controller.signal.aborted)setZoneDiscounts({})});};
+  update();
+  return ()=>controller.abort();
+ },[showEarlyBirdGuide,mode]);
  const [view,setView]=useState({x:0,y:0,w:WIDTH,h:HEIGHT});
  const [baseWidth,setBaseWidth]=useState(WIDTH);
  const [baseHeight,setBaseHeight]=useState(HEIGHT);
@@ -157,8 +167,9 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
    <section className="rounded-xl border border-black/20 bg-white p-4" aria-label={en?"Seating price guide":"Стоимость мест"}>
     <h3 className="font-bold">{en?"Seating price guide (NZD)":"Стоимость мест (NZD)"}</h3>
     <p className="mt-1 text-sm text-gray-600">{mode==="individual_seats"?(en?"Prices are per numbered seat, not per whole table.":"Цены указаны за одно пронумерованное место, а не за весь стол."):(en?"Prices are per whole table.":"Цены указаны за стол целиком.")}</p>
-    {zones.length>0&&<div className="mt-3 flex flex-wrap gap-3">{zones.map(z=><div key={z.id} className="flex items-center gap-2 text-sm"><span className="h-4 w-4 shrink-0 rounded border border-black/20" style={{backgroundColor:z.color}}/><span>{z.name}: <strong>{money(z.price_cents)}</strong></span></div>)}</div>}
-    <p className="mt-2 text-xs text-gray-600">{tablesNeedPriceSync?(en?"Zone prices are shown for reference, but the organiser still needs to apply them to tables before checkout is available.":"Цены зон показаны для справки, но перед оплатой организатор должен применить их к столам."):en?"These saved seat prices are used for checkout; zone colours identify sections.":"Сохранённые цены мест используются при оплате; цвета показывают зоны зала."}</p>
+    {zones.length>0&&<div className="mt-3 flex flex-wrap gap-3">{zones.map(z=><div key={z.id} className="flex items-center gap-2 text-sm"><span className="h-4 w-4 shrink-0 rounded border border-black/20" style={{backgroundColor:z.color}}/><span>{z.name}: {showEarlyBirdGuide&&zoneDiscounts[z.id]>0?<><s className="text-gray-500">{money(z.price_cents)}</s> <strong className="text-emerald-800">{money(Math.max(0,z.price_cents-zoneDiscounts[z.id]))}</strong></>:<strong>{money(z.price_cents)}</strong>}</span></div>)}</div>}
+    {showEarlyBirdGuide&&Object.values(zoneDiscounts).some(value=>value>0)&&<p className="mt-2 text-sm font-semibold text-emerald-800">{en?"✓ Early-bird discount available — NZ$10 off eligible adult seats":"✓ Доступна скидка за раннее бронирование — NZ$10 на взрослое место"}</p>}
+    <p className="mt-2 text-xs text-gray-600">{showEarlyBirdGuide&&Object.values(zoneDiscounts).some(value=>value>0)?(en?"Offer prices are indicative and confirmed when seats are reserved.":"Цены со скидкой ориентировочные и подтверждаются при бронировании."):tablesNeedPriceSync?(en?"Zone prices are shown for reference, but the organiser still needs to apply them to tables before checkout is available.":"Цены зон показаны для справки, но перед оплатой организатор должен применить их к столам."):en?"These saved seat prices are used for checkout; zone colours identify sections.":"Сохранённые цены мест используются при оплате; цвета показывают зоны зала."}</p>
    </section>
    <div className="grid items-start gap-4">
    <div ref={wrapper} className={expanded?"fixed inset-0 z-50 overflow-hidden bg-[#F6F5F1]":"relative h-[48svh] min-h-[310px] overflow-hidden rounded-xl border border-black/15 bg-[#F6F5F1] lg:h-[min(78vh,880px)]"}>
