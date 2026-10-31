@@ -104,7 +104,8 @@ export default function PromotionsAdmin(){
      (start!==null&&Number.isNaN(start.getTime()))||
      (end!==null&&Number.isNaN(end.getTime()))||
      (start!==null&&end!==null&&end<=start)||
-     (edit.applies_to==="selected"&&edit.ticket_type_ids.length===0)){
+     (edit.applies_to==="selected"&&edit.ticket_type_ids.length===0)||
+     (edit.event_id===NYE_ID&&edit.applies_to!=="adult")){
     setError(en?"Check the code, amount and usage limit.":"Проверьте код, сумму и лимит использований.");return;
   }
   setBusy(true);
@@ -158,9 +159,9 @@ export default function PromotionsAdmin(){
      <h3 className="font-bold">{en?"Automatic offer controls":"Управление автоматическими скидками"}</h3>
      <p className="text-xs text-gray-600">{en?"Activation affects real payments. Test the full checkout before enabling. Flash and personal budgets remain locked until their payment controls are completed.":"Включение влияет на реальные платежи. Сначала проверьте весь процесс оплаты. Краткосрочные и персональные скидки остаются заблокированными до завершения контроля платежей."}</p>
      <div className="mt-3 flex flex-wrap gap-3">
-      {(["early_bird","group"] as const).map(offer=>{
-       const enabled=offer==="early_bird"?discountOverview.early_bird_enabled:discountOverview.group_enabled;
-       const name=offer==="early_bird"?(en?"Early bird":"Раннее бронирование"):(en?"Group":"Групповая");
+      {(["early_bird","group","flash","personal"] as const).map(offer=>{
+       const enabled=offer==="early_bird"?discountOverview.early_bird_enabled:offer==="group"?discountOverview.group_enabled:offer==="flash"?discountOverview.flash_enabled:discountOverview.personal_enabled;
+       const name=offer==="early_bird"?(en?"Early bird":"Раннее бронирование"):offer==="group"?(en?"Group":"Групповая"):offer==="flash"?(en?"Flash campaigns":"Краткосрочные акции"):(en?"Personal promo codes":"Персональные промокоды");
        return <button key={offer} type="button" disabled={busy} onClick={()=>{
          const next=!enabled;
          if(next&&!window.confirm(en?`Enable ${name} discounts on LIVE bookings?`:`Включить скидку «${name}» для реальных заказов?`))return;
@@ -199,7 +200,7 @@ export default function PromotionsAdmin(){
        <option value="fixed_price">{en?"Fixed price per applicable ticket":"Фиксированная цена подходящего билета"}</option>
       </select></label>
       <label className="block text-sm font-semibold">{edit.discount_type==="percentage"?(en?"Percent (%)":"Процент (%)"):(en?"Amount (NZ$)":"Сумма (NZ$)")}<input type="number" min={edit.discount_type==="percentage"?"1":"0"} max={edit.discount_type==="percentage"?"100":undefined} step={edit.discount_type==="percentage"?"1":"0.01"} value={edit.amount} onChange={e=>update({amount:e.target.value})} className="mt-1 w-full rounded-lg border border-black/30 p-3"/></label>
-      <label className="block text-sm font-semibold">{en?"Event":"Мероприятие"}<select value={edit.event_id} onChange={e=>update({event_id:e.target.value,ticket_type_ids:[]})} className="mt-1 w-full rounded-lg border border-black/30 p-3"><option value="">{en?"All events":"Все мероприятия"}</option>{events.map(e=><option key={e.id} value={e.id}>{e.title}</option>)}</select></label>
+      <label className="block text-sm font-semibold">{en?"Event":"Мероприятие"}<select value={edit.event_id} onChange={e=>update({event_id:e.target.value,ticket_type_ids:[],...(e.target.value===NYE_ID?{applies_to:"adult" as Scope}:{})})} className="mt-1 w-full rounded-lg border border-black/30 p-3"><option value="">{en?"All events":"Все мероприятия"}</option>{events.map(e=><option key={e.id} value={e.id}>{e.title}</option>)}</select></label>
       {edit.event_id===NYE_ID&&<label className="block rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold">
        {en?"New Year discount budget category":"Категория бюджета новогодних скидок"}
        <select value={promoCategory} onChange={e=>setPromoCategory(e.target.value as "personal"|"flash")} className="mt-2 block w-full rounded border border-amber-300 bg-white p-2">
