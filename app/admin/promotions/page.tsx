@@ -71,6 +71,18 @@ export default function PromotionsAdmin(){
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[router]);
  const update=(patch:Partial<Edit>)=>setEdit(prev=>({...prev,...patch}));
+ async function changeDiscountOffer(offer:"early_bird"|"group"|"flash"|"personal",enabled:boolean){
+  setBusy(true);setError("");setMessage("");
+  try{
+   const {error}=await supabase.rpc("admin_set_event_discount_enabled",{
+    p_event_id:NYE_ID,p_offer_type:offer,p_enabled:enabled
+   });
+   if(error)throw error;
+   await reload();
+   setMessage(en?"Discount setting updated.":"Настройка скидки обновлена.");
+  }catch(e){setError(explainSaveError(e,en))}
+  finally{setBusy(false)}
+ }
  async function save(){
   setMessage("");setError("");
   if(edit.code.trim().toUpperCase()==="TEST12"&&edit.enabled){
@@ -134,6 +146,23 @@ export default function PromotionsAdmin(){
       [en?"Flash":"Краткосрочные",discountOverview.flash_spent_cents,discountOverview.flash_budget_cents,discountOverview.flash_enabled,null],
       [en?"Personal":"Персональные",discountOverview.personal_spent_cents,discountOverview.personal_budget_cents,discountOverview.personal_enabled,null]
      ] as [string,number,number,boolean,string|null][]).map(([label,used,limit,enabled,tickets])=><div key={label} className="flex justify-between gap-2 rounded-lg border p-3"><span>{label} {tickets&&<span className="text-gray-500">({tickets})</span>}<span className="block text-xs text-gray-500">{enabled?(en?"Enabled":"Включено"):(en?"Disabled":"Выключено")}</span></span><strong>NZ${(used/100).toFixed(2)} / NZ${(limit/100).toFixed(2)}</strong></div>)}
+    <div className="mt-3 border-t pt-3">
+     <h3 className="font-bold">{en?"Automatic offer controls":"Управление автоматическими скидками"}</h3>
+     <p className="text-xs text-gray-600">{en?"Activation affects real payments. Test the full checkout before enabling. Flash and personal budgets remain locked until their payment controls are completed.":"Включение влияет на реальные платежи. Сначала проверьте весь процесс оплаты. Краткосрочные и персональные скидки остаются заблокированными до завершения контроля платежей."}</p>
+     <div className="mt-3 flex flex-wrap gap-3">
+      {(["early_bird","group"] as const).map(offer=>{
+       const enabled=offer==="early_bird"?discountOverview.early_bird_enabled:discountOverview.group_enabled;
+       const name=offer==="early_bird"?(en?"Early bird":"Раннее бронирование"):(en?"Group":"Групповая");
+       return <button key={offer} type="button" disabled={busy} onClick={()=>{
+         const next=!enabled;
+         if(next&&!window.confirm(en?`Enable ${name} discounts on LIVE bookings?`:`Включить скидку «${name}» для реальных заказов?`))return;
+         void changeDiscountOffer(offer,next);
+        }} className="rounded-lg border border-amber-500 bg-amber-50 px-4 py-2 text-sm font-bold disabled:opacity-50">
+        {name}: {enabled?(en?"Disable":"Выключить"):(en?"Enable":"Включить")}
+       </button>
+      })}
+     </div>
+    </div>
     </div>
    </section>}
    <h1 className="text-3xl font-black">{en?"Promo codes":"Промокоды"}</h1>
