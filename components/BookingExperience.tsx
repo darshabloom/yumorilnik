@@ -35,6 +35,15 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
  const [seatAssignments,setSeatAssignments]=useState<Record<string,string>>({});
  const [activeSeatGuest,setActiveSeatGuest]=useState<string>("0");
  const [seatFeedback,setSeatFeedback]=useState("");
+ const [unavailableSeats,setUnavailableSeats]=useState<string[]>([]);
+ const [availabilityError,setAvailabilityError]=useState(false);
+ useEffect(()=>{
+  if(!event.id||event.seating_mode==="general_admission")return;
+  let active=true;
+  const refresh=async()=>{try{const response=await fetch("/api/booking/seat-availability?eventId="+encodeURIComponent(event.id!),{cache:"no-store"});if(!response.ok)throw Error("Unavailable");const body=await response.json();if(active){setUnavailableSeats(body.unavailable??[]);setAvailabilityError(false)}}catch{if(active)setAvailabilityError(true)}};
+  void refresh();const timer=setInterval(()=>void refresh(),12000);
+  return()=>{active=false;clearInterval(timer)};
+ },[event.id,event.seating_mode]);
  const [savingBooking,setSavingBooking]=useState(false);
  const [bookingConsent,setBookingConsent]=useState(false);
  const [promoCode,setPromoCode]=useState("");
@@ -78,6 +87,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
  const seatedPricing=event.seating_mode!=="general_admission";
  const seatingMode=tableBooking?"whole_table":"individual_seats";
  function toggleMapSelection(key:string){
+   if(unavailableSeats.includes(key)||unavailableSeats.includes(key.split(":")[0])){setSeatFeedback(en?"This seat is already reserved. Choose another.":"Это место уже забронировано. Выберите другое.");return;}
    setSeatFeedback("");
    if(tableBooking){setMapSelections(old=>old.includes(key)?old.filter(item=>item!==key):[...old,key]);return;}
    const first=0;
@@ -442,6 +452,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
        {step==="tickets"&&!privatePaymentTest&&<div className="w-full max-w-xs rounded-lg border border-black/15 bg-white p-3"><label className="block text-sm font-semibold">{en?"Promo code (optional)":"Промокод (необязательно)"}<input value={promoCode} onChange={e=>setPromoCode(e.target.value.toUpperCase().trimStart())} maxLength={32} autoComplete="off" placeholder={en?"Enter promo code":"Введите промокод"} className="mt-2 w-full rounded-lg border px-3 py-2"/></label><p className="mt-2 text-xs text-gray-600">{en?"Discounts are verified by the server before payment.":"Скидки проверяются сервером перед оплатой."}</p></div>}
        {step==="seats"&&<section aria-labelledby="seating-title" className="min-w-0 space-y-4">
          <button type="button" onClick={()=>setStep("tickets")} className="text-sm font-semibold underline">{en?"← Edit tickets":"← Изменить билеты"}</button>
+         {availabilityError&&<p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-800">{en?"Seat availability cannot be verified. Please refresh before booking.":"Не удалось проверить доступность мест. Обновите страницу перед бронированием."}</p>}
          {seatFeedback&&<p role="status" className="rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm font-semibold">{seatFeedback}</p>}
           {tableBooking&&<div className="rounded-xl border border-[#f5a047] bg-white p-4"><h3 className="font-bold">{en?"Whole tables":"Целые столы"}</h3><p className="mt-1 text-sm">{en?"Choose enough table places for every adult. Children do not receive separately assigned seats in this mode.":"Выберите столы с достаточным количеством мест для всех взрослых. В этом режиме отдельные места для детей не назначаются."}</p><p className="mt-2 font-semibold">{en?"Available places for adults":"Мест для взрослых"}: {tableCapacity}/{adultTicketCount}</p>{!tableHasAdultCapacity&&<p role="status" className="mt-2 text-sm text-amber-800">{en?"Select additional tables before continuing.":"Выберите дополнительные столы для продолжения."}</p>}</div>}
           {step==="seats"&&!tableBooking&&<div className="rounded-xl border border-[#f5a047] bg-white p-4"><h3 className="font-bold">{en?"Assign a seat to each adult":"Выберите место для каждого взрослого"}</h3><p className="mt-1 text-sm text-gray-600">{en?"Select a name, then tap their numbered seat on the map.":"Выберите имя, затем нажмите на номер места на схеме."}</p><div className="mt-3 flex flex-wrap gap-2">{Array.from({length:adultTicketCount},(_,i)=>{const key=String(i);const assigned=selections.find(s=>seatAssignments[s.key]===key);return <button type="button" key={key} onClick={()=>{setActiveSeatGuest(key);setSeatFeedback("");}} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${activeSeatGuest===key?"border-black bg-black text-white":"border-black/20 bg-[#fffaf1]"}`}>{guestInfo[key]?.name||`${en?"Adult":"Взрослый"} ${i+1}`}{assigned?` · ${assigned.label}/${assigned.seat} ✓`:" · +"}</button>})}</div><p className="mt-3 text-sm font-bold">{adultSeats}/{adultTicketCount} {en?"adult seats assigned":"мест для взрослых выбрано"}</p></div>}
@@ -449,7 +460,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
          {step==="seats"&&seatsStillNeeded===0&&!tableBooking&&<p role="status" className="rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm font-semibold">{en?"All adult seats assigned. You can continue below.":"Все взрослые рассажены. Можно переходить дальше."}</p>}
          {pricingIncomplete&&mapSelections.length>0&&<p role="status" className="rounded-lg border border-orange-300 bg-orange-50 px-4 py-3 text-sm">{en?`Price not set for table(s): ${tablesWithoutPrices.join(", ")||"ticket type"}. You can continue to the review preview, but payment and confirmed reservations remain unavailable.`:`Не указана цена за место для стола: ${tablesWithoutPrices.join(", ")||"тип билета"}. Вы можете продолжить проверку, но оплата и подтверждение брони пока недоступны.`}</p>}
          <h2 id="seating-title" className="text-xl font-bold">{event.seating_mode==="general_admission"?(en?"General admission":"Вход без закреплённых мест"):event.seating_mode==="tables"?(event.table_booking_mode==="individual_seats"?(en?"Seats at tables":"Места за столами"):(en?"Whole-table booking":"Бронирование столов")):(en?"Seating":"Рассадка")}</h2>
-         {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage} mode={seatingMode} selectedKeys={mapSelections} onToggle={toggleMapSelection} zones={venue.zones} />:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
+         {event.seating_mode!=="general_admission"&&venue&&(venue.tables.length>0||venue.features.length>0)?<CustomerVenueMap tables={venue.tables} features={venue.features} stage={venue.stage} mode={seatingMode} selectedKeys={mapSelections} unavailableKeys={unavailableSeats} onToggle={toggleMapSelection} zones={venue.zones} />:<div className="flex min-h-80 flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-black/20 bg-white p-6 text-center sm:min-h-[450px]">
             <div className="flex h-12 w-40 items-center justify-center rounded-lg bg-[#f5a047]/50 text-sm font-bold">{en?"Stage":"Сцена"}</div>
             <div className="grid grid-cols-3 gap-6 opacity-35" aria-hidden="true">
               {Array.from({length:9},(_,i)=><div key={i} className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-black/50 bg-[#fff2db]">○</div>)}
