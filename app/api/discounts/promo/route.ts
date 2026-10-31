@@ -38,7 +38,7 @@ export async function POST(req:NextRequest){
   for(const key of body.seat_keys as string[]){
    const [id,number,...extra]=key.split(":");
    const table=byId.get(id),seat=Number(number);
-   if(extra.length||!/^\\d+$/.test(number)||!table||seat<1||seat>((table.seats_top??0)+(table.seats_bottom??0)+(table.seats_left??0)+(table.seats_right??0))||!Number.isSafeInteger(table.seat_price_cents))
+   if(extra.length||!/^\d+$/.test(number)||!table||seat<1||seat>((table.seats_top??0)+(table.seats_bottom??0)+(table.seats_left??0)+(table.seats_right??0))||!Number.isSafeInteger(table.seat_price_cents))
     return respond({error:"Unable to verify selected seats."},422);
    const price=table.seat_price_cents;subtotal+=price;
    discount+=p.discount_type==="amount_off"?Math.min(price,p.amount_cents??0):
