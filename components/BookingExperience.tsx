@@ -27,7 +27,6 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
  const [adultSeatChildren,setAdultSeatChildren]=useState<Record<string,boolean>>({});
  const [childcareHours,setChildcareHours]=useState<Record<string,string>>({});
  const [childAges,setChildAges]=useState<Record<string,string>>({});
- const [ageGroups,setAgeGroups]=useState<Record<string,string>>({});
  const [accessChoice,setAccessChoice]=useState<"choose"|"guest"|"google"|"email">("choose");
  const [emailAuth,setEmailAuth]=useState({email:"",password:""});
  const [emailAuthMode,setEmailAuthMode]=useState<"signin"|"signup">("signin");
@@ -115,14 +114,6 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
  const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&mapSelections.length>adultTicketCount;
  const guestProblems=guestValidationProblems(adultTicketCount,childTicketCount,guestInfo,childParents,
   {adultSeatChildren,childcareHours,childAges,requireChildcareHours:nyeChildcare});
- const ageGroupRanges:Record<string,[number,number]>={"16–18":[16,17],"13–15":[13,15],"10–12":[10,12],"6–9":[6,9],"5 and under":[0,5]};
- for(let i=0;i<adultTicketCount+childTicketCount;i++){
-  if(i<adultTicketCount&&!adultSeatChildren[String(i)])continue;
-  const category=ageGroups[String(i)];const range=ageGroupRanges[category];const age=Number(childAges[String(i)]);
-  if(!range||!Number.isInteger(age)||age<range[0]||age>range[1]){
-   if(!guestProblems.some(p=>p.guestIndex===i&&p.field==="age"))guestProblems.push({guestIndex:i,field:"age"});
-  }
- }
  const guestDetailsComplete=guestProblems.length===0;
  const selectedPrices=mapSelections.map(key=>tableBooking?venue?.tables.find(t=>t.id===key)?.table_price_cents??null:selectedSeatPrice(key));
  const ticketPricesInvalid=admissionTotal===null||
@@ -156,7 +147,6 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
    setAdultSeatChildren({});
    setChildcareHours({});
    setChildAges({});
-   setAgeGroups({});
    setGuestErrors(false);
    setMapSelections([]);
    setSeatAssignments({});
@@ -335,7 +325,8 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
 
   <label className="block text-sm font-semibold">{en?"Full name":"Имя и фамилия"} *<input type="text" required autoComplete="off" value={guest.name} onChange={e=>update("name",e.target.value)} aria-invalid={guestErrors&&!guest.name.trim()} data-guest-index={i} data-guest-field="name" className={fieldClass}/></label>
   {childGuest?<div className="space-y-3">
-   <label className="block text-sm font-semibold">{en?"Child’s age group":"Возрастная группа ребёнка"} *<select className={fieldClass} value={ageGroups[key]??""} onChange={e=>setAgeGroups(old=>({...old,[key]:e.target.value}))} required><option value="">{en?"Choose age group":"Выберите возраст"}</option>{["16–18","13–15","10–12","6–9","5 and under"].map(g=><option key={g} value={g}>{g==="5 and under"&&!en?"До 5 лет":g}</option>)}</select></label>{ageGroups[key]==="5 and under"&&<p role="note" className="rounded-lg bg-amber-50 p-3 text-sm font-semibold">{en?"A parent or guardian must remain with this child at all times.":"Родитель или опекун должен постоянно находиться рядом с ребёнком."}</p>}<label className="block text-sm font-semibold">{en?"Exact age in years":"Точный возраст в годах"} *
+   {(childAges[key]!==undefined&&Number(childAges[key])<=5&&childAges[key]!=="" )&&<p role="note" className="rounded-lg bg-amber-50 p-3 text-sm font-semibold">{en?"A parent or guardian must remain with this child at all times.":"Родитель или опекун должен постоянно находиться рядом с ребёнком."}</p>}
+   <label className="block text-sm font-semibold">{en?"Age":"Возраст"} *
     <input type="number" min={0} max={17} step={1} required inputMode="numeric" value={childAges[key]??""} onChange={e=>setChildAges(old=>({...old,[key]:e.target.value}))} className={fieldClass} aria-invalid={guestErrors&&guestProblems.some(p=>p.guestIndex===i&&p.field==="age")} data-guest-index={i} data-guest-field="age"/>
    </label>
    <label className="block text-sm font-semibold">{en?"Parent / guardian":"Родитель / опекун"} *
