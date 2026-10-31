@@ -5,6 +5,8 @@ import {useRouter} from "next/navigation";
 import {supabase} from "@/lib/supabaseClient";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 
+type DiscountOverview={total_budget_cents:number;early_bird_budget_cents:number;group_budget_cents:number;flash_budget_cents:number;personal_budget_cents:number;early_bird_enabled:boolean;group_enabled:boolean;flash_enabled:boolean;personal_enabled:boolean;committed_cents:number;reserved_cents:number;early_bird_spent_cents:number;group_spent_cents:number;flash_spent_cents:number;personal_spent_cents:number;early_bird_tickets_used:number;group_tickets_used:number;early_bird_ticket_limit:number;group_ticket_limit:number};
+const NYE_ID="3f6fa4d1-aaca-4326-9c01-5774cffca2f5";
 type Type="percentage"|"amount_off"|"fixed_price";
 type Scope="all"|"adult"|"child"|"selected";
 type Promo={code:string;enabled:boolean;discount_type:Type;percent_off:number;amount_cents:number|null;event_id:string|null;max_uses:number|null;times_used:number;applies_to:Scope;ticket_type_ids:string[];starts_at:string|null;ends_at:string|null;min_tickets:number|null;max_discount_cents:number|null;internal_note:string|null};
@@ -34,6 +36,7 @@ export default function PromotionsAdmin(){
  const router=useRouter();
  const en=useSiteLanguage()==="en";
  const [promos,setPromos]=useState<Promo[]>([]);
+ const [discountOverview,setDiscountOverview]=useState<DiscountOverview|null>(null);
  const [events,setEvents]=useState<Event[]>([]);
  const [tickets,setTickets]=useState<Ticket[]>([]);
  const [edit,setEdit]=useState<Edit>(blank);
@@ -45,6 +48,8 @@ export default function PromotionsAdmin(){
   const {data:rows,error:rowsError}=await supabase.rpc("admin_list_booking_promotions_v2");
   if(rowsError)throw rowsError;
   setPromos((rows??[]) as Promo[]);
+  const overview=await supabase.rpc("admin_get_event_discount_overview",{p_event_id:NYE_ID});
+  if(!overview.error&&overview.data)setDiscountOverview(overview.data as DiscountOverview);
  }
  useEffect(()=>{
   void (async()=>{
@@ -116,6 +121,21 @@ export default function PromotionsAdmin(){
  return <main className="min-h-screen bg-[#fff5e3] px-4 py-9 text-black sm:px-8">
   <div className="mx-auto max-w-5xl space-y-6">
    <Link href="/admin" className="underline">{en?"← Admin dashboard":"← Панель администратора"}</Link>
+   {discountOverview&&<section className="rounded-xl border border-amber-200 bg-white p-5 space-y-3" aria-label="New Year ticket discounts">
+    <h2 className="text-xl font-bold">{en?"New Year ticket discounts":"Скидки на новогодние билеты"}</h2>
+    <p className="text-sm text-gray-600">{en?"Budget monitoring. Automatic offers are controlled separately in the database.":"Контроль бюджета. Автоматические скидки управляются отдельно в базе данных."}</p>
+    <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+     {[[en?"Budget":"Бюджет",discountOverview.total_budget_cents],[en?"Paid discounts":"Скидки оплаченных заказов",discountOverview.committed_cents],[en?"Reserved":"Зарезервировано",discountOverview.reserved_cents],[en?"Available":"Доступно",Math.max(0,discountOverview.total_budget_cents-discountOverview.committed_cents-discountOverview.reserved_cents)]].map(([label,cents])=><div key={String(label)} className="rounded-lg bg-amber-50 p-3"><div>{label}</div><strong className="text-lg">NZ${(Number(cents)/100).toFixed(2)}</strong></div>)}
+    </div>
+    <div className="grid gap-2 text-sm sm:grid-cols-2">
+     {([
+      [en?"Early bird":"Раннее бронирование",discountOverview.early_bird_spent_cents,discountOverview.early_bird_budget_cents,discountOverview.early_bird_enabled,`${discountOverview.early_bird_tickets_used}/${discountOverview.early_bird_ticket_limit}`],
+      [en?"Group":"Групповые",discountOverview.group_spent_cents,discountOverview.group_budget_cents,discountOverview.group_enabled,`${discountOverview.group_tickets_used}/${discountOverview.group_ticket_limit}`],
+      [en?"Flash":"Краткосрочные",discountOverview.flash_spent_cents,discountOverview.flash_budget_cents,discountOverview.flash_enabled,null],
+      [en?"Personal":"Персональные",discountOverview.personal_spent_cents,discountOverview.personal_budget_cents,discountOverview.personal_enabled,null]
+     ] as [string,number,number,boolean,string|null][]).map(([label,used,limit,enabled,tickets])=><div key={label} className="flex justify-between gap-2 rounded-lg border p-3"><span>{label} {tickets&&<span className="text-gray-500">({tickets})</span>}<span className="block text-xs text-gray-500">{enabled?(en?"Enabled":"Включено"):(en?"Disabled":"Выключено")}</span></span><strong>NZ${(used/100).toFixed(2)} / NZ${(limit/100).toFixed(2)}</strong></div>)}
+    </div>
+   </section>}
    <h1 className="text-3xl font-black">{en?"Promo codes":"Промокоды"}</h1>
    <p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">{en?
     "Codes can target all tickets, adults, children or selected ticket types. Codes can be redeemed in the protected Stripe sandbox once it is configured, but not in real payments. TEST12 remains disabled.":
