@@ -9,7 +9,7 @@ export default async function BookEvent({params,searchParams}:{params:Promise<{s
  const {slug}=await params;
  const {live_test}=await searchParams;
  const {data:event,error}=await supabaseServer.from("events")
-   .select("id,slug,title,title_en,image_url,booking_image_url,booking_image_fit,booking_image_position_x,booking_image_position_y,banner_fit,seating_mode,table_booking_mode,adult_seat_required,pricing_model,child_unseated_price_cents,is_active")
+   .select("id,slug,title,title_en,image_url,booking_image_url,booking_image_fit,booking_image_position_x,booking_image_position_y,banner_fit,seating_mode,table_booking_mode,adult_seat_required,pricing_model,child_unseated_price_cents,require_individual_guest_details,is_active")
    .eq("slug",slug).eq("is_active",true).maybeSingle();
  if(error)throw new Error("Unable to load event.");
  if(!event)notFound();
