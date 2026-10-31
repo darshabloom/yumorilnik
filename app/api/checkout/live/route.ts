@@ -4,7 +4,7 @@ import {NYE_EVENT_ID,liveConfigured,liveServices,assertLiveStripeAccount,checkou
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const out=(x:unknown,status=200)=>NextResponse.json(x,{status,headers:{"Cache-Control":"no-store"}});
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-type Payload={p_event_id:string;p_client_request_id:string;p_tickets:unknown[];p_guests:unknown[];p_selections:unknown[];p_promo_code?:string|null;p_expected_amount_cents?:number;p_live_test_access_code?:string};
+type Payload={p_event_id:string;p_client_request_id:string;p_tickets:unknown[];p_guests:unknown[];p_selections:unknown[];p_promo_code?:string|null;p_performer_access_code?:string|null;p_expected_amount_cents?:number;p_live_test_access_code?:string};
 type Hold={booking_id:string;reference:string;amount_cents:number;currency:string;state:string;stripe_session_id?:string|null};
 const PRIVATE_LIVE_TEST_PROMO="YMRLIVE50C2026";
 const PRIVATE_LIVE_TEST_AMOUNT_CENTS=50;
@@ -138,7 +138,7 @@ export async function POST(request:NextRequest){
  // The database is authoritative for seats, discounts and prices.
  const {data,error}=await db.rpc("prepare_live_checkout_confirmed",{
   p_event_id:body.p_event_id,p_client_request_id:body.p_client_request_id,
-  p_tickets:body.p_tickets,p_guests:body.p_guests,p_selections:body.p_selections,
+  p_tickets:body.p_tickets,p_guests:body.p_guests,p_selections:body.p_selections.map((item,i)=>i===0?{...(item as object),performer_access_code:body.p_performer_access_code??null}:item),
   p_promo_code:privateTest?PRIVATE_LIVE_TEST_PROMO:body.p_promo_code?.trim().toUpperCase()||null,
   p_expected_amount_cents:body.p_expected_amount_cents
  });
