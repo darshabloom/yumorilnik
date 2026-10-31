@@ -1,3 +1,4 @@
+import {createClient} from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import { supabaseServer } from "@/lib/supabaseServer";
 import BookingExperience from "@/components/BookingExperience";
@@ -24,7 +25,17 @@ export default async function BookEvent({params,searchParams}:{params:Promise<{s
    supabaseServer.from("event_price_zones").select("id,event_id,name,price_cents,color,x,y,width,height,sort_order,points").eq("event_id",event.id).order("sort_order")
  ]);
  if(tableResult.error||featureResult.error||mapResult.error||zoneResult.error)throw new Error("Unable to load venue layout.");
+ const serviceUrl=process.env.SUPABASE_URL??process.env.NEXT_PUBLIC_SUPABASE_URL;
+ const serviceKey=process.env.SUPABASE_SECRET_KEY??process.env.SUPABASE_SERVICE_ROLE_KEY;
+ let publicTables=tableResult.data??[];
+ if(serviceUrl&&serviceKey){
+  const adminDb=createClient(serviceUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+  const {data:restricted,error:restrictionError}=await adminDb.from("performer_table_access").select("table_id").eq("event_id",event.id);
+  if(restrictionError)throw new Error("Unable to verify reserved seating");
+  const restrictedIds=new Set((restricted??[]).map(t=>t.table_id));
+  publicTables=publicTables.filter(t=>!restrictedIds.has(t.id));
+ }
  return <BookingExperience event={event} tickets={tickets??[]}
   privateLiveTest={process.env.VERCEL_ENV==="production"&&process.env.LIVE_PAYMENT_TEST_ENABLED==="true"&&live_test==="1"&&event.id==="3f6fa4d1-aaca-4326-9c01-5774cffca2f5"}
-  venue={{zones:zoneResult.data??[],tables:tableResult.data??[],features:(featureResult.data??[]) as import("@/components/VenueLines").VenueFeature[],stage:mapResult.data}}/>;
+  venue={{zones:zoneResult.data??[],tables:publicTables,features:(featureResult.data??[]) as import("@/components/VenueLines").VenueFeature[],stage:mapResult.data}}/>;
 }
