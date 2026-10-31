@@ -17,7 +17,24 @@ export type BookingTicket = {
  currency:string; quantity_total:number|null; quantity_sold:number|null;show_remaining?:boolean;
 };
 export type BookingEvent = { id?:string;slug:string;title:string;title_en?:string|null;image_url:string|null;booking_image_url?:string|null;booking_image_fit?:string|null;booking_image_position_x?:number|null;booking_image_position_y?:number|null;banner_fit?:string|null;seating_mode?:string|null;table_booking_mode?:string|null;adult_seat_required?:boolean;pricing_model?:string;child_unseated_price_cents?:number; require_individual_guest_details?:boolean };
-export default function BookingExperience({event,tickets,venue,privateLiveTest=false}:{event:BookingEvent;tickets:BookingTicket[];venue?:{zones:PriceZone[];tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null};privateLiveTest?:boolean}) {
+export default function BookingExperience({event,tickets,venue:initialVenue,privateLiveTest=false}:{event:BookingEvent;tickets:BookingTicket[];venue?:{zones:PriceZone[];tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null};privateLiveTest?:boolean}) {
+ const [venue,setVenue]=useState(initialVenue);
+ const [performerInput,setPerformerInput]=useState("");
+ const [performerCode,setPerformerCode]=useState("");
+ const [performerError,setPerformerError]=useState("");
+ const [performerBusy,setPerformerBusy]=useState(false);
+ const [performerUnlocked,setPerformerUnlocked]=useState<string[]>([]);
+ async function unlockPerformerTables(){
+  setPerformerBusy(true);setPerformerError("");
+  try{
+   const response=await fetch("/api/performer-access",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:performerInput})});
+   const result=await response.json();
+   if(!response.ok||result.valid!==true)throw Error(result.error||"Access denied");
+   setVenue(old=>old?{...old,tables:[...old.tables.filter(t=>!result.tables.some((u:PublicTable)=>u.id===t.id)),...result.tables]}:old);
+   setPerformerCode(performerInput.trim().toUpperCase());setPerformerUnlocked(result.tables.map((t:PublicTable)=>t.id));
+  }catch(err){setPerformerError(err instanceof Error?err.message:"Access unavailable")}
+  finally{setPerformerBusy(false)}
+ }
  const igrisha=event.slug.toLowerCase().includes("igrisha");
  const skipAccountStep=false;
  const [quantities,setQuantities]=useState<Record<string,number>>({});
@@ -327,7 +344,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
    if(realBookingsEnabled||privatePaymentTest){
     if(event.id===NEW_YEARS_2026_EVENT_ID&&!promoCode.trim()&&(discountQuoteLoading||discountQuoteError||!discountQuote||discountQuote.seat_keys!==quoteKeys))throw new Error(en?"Unable to verify the current discount. Refresh the quotation before paying.":"Не удалось проверить скидку. Обновите расчёт перед оплатой.");
     const approvedAmount=privatePaymentTest?50:displayedPayableCents;
-    const response=await fetch("/api/checkout/live",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,p_expected_amount_cents:approvedAmount,p_promo_code:privatePaymentTest?null:promoCode.trim()||null,...(privatePaymentTest?{p_live_test_access_code:liveTestAccessCode}:{})})});
+    const response=await fetch("/api/checkout/live",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,p_expected_amount_cents:approvedAmount,p_performer_access_code:performerCode||null,p_promo_code:privatePaymentTest?null:promoCode.trim()||null,...(privatePaymentTest?{p_live_test_access_code:liveTestAccessCode}:{})})});
     const result=await response.json() as {url?:string;error?:string;code?:string};
     if(result.code==="PRICE_CHANGED"){
      requestId.current=null;
@@ -526,6 +543,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
          })}</div>}
        </section>}
         {(step==="tickets"||step==="seats")&&!privatePaymentTest&&<div className="w-full max-w-md rounded-lg border border-black/15 bg-white p-3"><label htmlFor="booking-promo" className="block text-sm font-semibold">{en?"Promo code (optional)":"Промокод (необязательно)"}</label><div className="mt-2 flex gap-2"><input id="booking-promo" value={promoInput} onChange={e=>{setPromoInput(e.target.value.toUpperCase().trimStart());setPromoFeedback("");}} maxLength={32} autoComplete="off" placeholder={en?"Enter promo code":"Введите промокод"} className="min-w-0 flex-1 rounded-lg border px-3 py-2"/><button type="button" disabled={!promoInput.trim()||promoBusy||mapSelections.length===0} onClick={()=>void applyPromo()} className="rounded-lg bg-black px-4 py-2 font-bold text-white disabled:opacity-40">{promoBusy?(en?"Checking…":"Проверка…"):(en?"Apply":"Применить")}</button></div>{promoApplied&&promoInput.trim()!==promoCode.trim()&&<p className="mt-2 text-xs text-gray-600">{en?`Current discount: ${promoCode}. Apply another code to compare.`:`Текущий промокод: ${promoCode}. Примените другой код для сравнения.`}</p>}{promoFeedback&&<p role="status" className={`mt-2 text-sm font-semibold ${promoFeedbackError?"text-red-700":"text-green-800"}`}>{promoFeedback}</p>}{promoApplied&&<p className="mt-1 text-sm font-bold text-green-800">{en?"Discount":"Скидка"}: −{format.format(promoDiscountCents/100)} · {en?"Estimated payable":"К оплате"}: {format.format(displayedPayableCents/100)}</p>}{mapSelections.length===0&&<p className="mt-2 text-xs text-gray-600">{en?"Select seats before applying your code.":"Выберите места перед применением промокода."}</p>}</div>}
+       {event.id===NEW_YEARS_2026_EVENT_ID&&(step==="tickets"||step==="seats")&&<div className="rounded-xl border border-amber-200 bg-white p-4"><label className="block text-sm font-semibold">{en?"Performer friends table access (optional)":"Доступ к столам для друзей артистов (необязательно)"}</label><div className="mt-2 flex gap-2"><input value={performerInput} onChange={e=>setPerformerInput(e.target.value.toUpperCase().trimStart())} placeholder={en?"Access code":"Код доступа"} className="min-w-0 flex-1 rounded-lg border px-3 py-2"/><button type="button" disabled={performerBusy||performerInput.trim().length<6} onClick={()=>void unlockPerformerTables()} className="rounded-lg bg-black px-4 py-2 font-semibold text-white disabled:opacity-40">{en?"Unlock tables":"Открыть столы"}</button></div>{performerError&&<p role="alert" className="mt-2 text-sm text-red-700">{performerError}</p>}{performerUnlocked.length>0&&<p role="status" className="mt-2 text-sm font-semibold text-green-800">{en?"Reserved tables unlocked. Choose your seats on the map.":"Зарезервированные столы открыты. Выберите места на схеме."}</p>}</div>}
        {step==="seats"&&<section aria-labelledby="seating-title" className="min-w-0 space-y-4">
          <button type="button" onClick={()=>setStep("tickets")} className="text-sm font-semibold underline">{en?"← Edit tickets":"← Изменить билеты"}</button>
          {availabilityError&&<p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-red-800">{en?"Seat availability cannot be verified. Please refresh before booking.":"Не удалось проверить доступность мест. Обновите страницу перед бронированием."}</p>}
