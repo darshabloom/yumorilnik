@@ -33,7 +33,7 @@ export default function EventMarkdown({text}: {text:string}) {
     const heading = /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
     if (heading) {
       const level = heading[1].length;
-      const className = level === 1 ? "mt-7 mb-4 text-3xl font-bold leading-tight sm:text-4xl" : level === 2 ? "mt-7 mb-3 text-2xl font-bold leading-tight sm:text-3xl" : "mt-6 mb-3 text-xl font-bold leading-snug sm:text-2xl";
+      const className = level === 1 ? "mt-5 mb-2 text-xl font-bold leading-snug sm:text-2xl" : level === 2 ? "mt-4 mb-2 text-lg font-bold leading-snug sm:text-xl" : "mt-3 mb-1.5 text-base font-bold leading-snug sm:text-lg";
       const children = inline(heading[2]);
       blocks.push(level === 1 ? <h2 key={i} className={className}>{children}</h2> : level === 2 ? <h3 key={i} className={className}>{children}</h3> : <h4 key={i} className={className}>{children}</h4>);
       i++; continue;
@@ -50,7 +50,7 @@ export default function EventMarkdown({text}: {text:string}) {
         items.push(<li key={i}>{inline(item[1])}</li>);
         i++;
       }
-      blocks.push(ordered ? <ol key={start} className="my-4 list-decimal space-y-2 pl-6">{items}</ol> : <ul key={start} className="my-4 list-disc space-y-2 pl-6">{items}</ul>);
+      blocks.push(ordered ? <ol key={start} className="my-2 list-decimal space-y-1 pl-5">{items}</ol> : <ul key={start} className="my-2 list-disc space-y-1 pl-5">{items}</ul>);
       continue;
     }
     const start = i;
@@ -58,7 +58,7 @@ export default function EventMarkdown({text}: {text:string}) {
     while (i < lines.length && lines[i].trim() && !/^\s{0,3}(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)/.test(lines[i])) {
       paragraph.push(lines[i].trim()); i++;
     }
-    blocks.push(<p key={start} className="my-3 leading-7">{paragraph.map((part,index)=><span key={index}>{index > 0 && <br/>}{inline(part)}</span>)}</p>);
+    blocks.push(<p key={start} className="my-2 leading-6">{paragraph.map((part,index)=><span key={index}>{index > 0 && <br/>}{inline(part)}</span>)}</p>);
   }
-  return <div className="min-w-0 break-words text-base sm:text-lg [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">{blocks}</div>;
+  return <div className="min-w-0 break-words text-sm leading-6 sm:text-base [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">{blocks}</div>;
 }
