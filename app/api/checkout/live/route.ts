@@ -4,7 +4,7 @@ import {NYE_EVENT_ID,liveConfigured,liveServices,assertLiveStripeAccount,checkou
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const out=(x:unknown,status=200)=>NextResponse.json(x,{status,headers:{"Cache-Control":"no-store"}});
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-type Payload={p_event_id:string;p_client_request_id:string;p_tickets:unknown[];p_guests:unknown[];p_selections:unknown[];p_promo_code?:string|null;p_live_test_access_code?:string};
+type Payload={p_event_id:string;p_client_request_id:string;p_tickets:unknown[];p_guests:unknown[];p_selections:unknown[];p_promo_code?:string|null;p_expected_amount_cents?:number;p_live_test_access_code?:string};
 type Hold={booking_id:string;reference:string;amount_cents:number;currency:string;state:string;stripe_session_id?:string|null};
 const PRIVATE_LIVE_TEST_PROMO="YMRLIVE50C2026";
 const PRIVATE_LIVE_TEST_AMOUNT_CENTS=50;
@@ -16,6 +16,7 @@ function valid(x:unknown):x is Payload{
   Array.isArray(p.p_guests)&&p.p_guests.length>0&&p.p_guests.length<=20&&
   Array.isArray(p.p_selections)&&p.p_selections.length<=20&&
   (p.p_promo_code==null||(typeof p.p_promo_code==="string"&&p.p_promo_code.length<=32))&&
+  Number.isSafeInteger(p.p_expected_amount_cents)&&Number(p.p_expected_amount_cents)>=50&&Number(p.p_expected_amount_cents)<=10000000&&
   (p.p_live_test_access_code==null||(typeof p.p_live_test_access_code==="string"&&p.p_live_test_access_code.length<=256));
 }
 function contact(guests:unknown[]){
@@ -135,11 +136,13 @@ export async function POST(request:NextRequest){
    return out({error:"Only one adult ticket may be purchased in the live test"},403);
  }
  // The database is authoritative for seats, discounts and prices.
- const {data,error}=await db.rpc("prepare_live_checkout",{
+ const {data,error}=await db.rpc("prepare_live_checkout_confirmed",{
   p_event_id:body.p_event_id,p_client_request_id:body.p_client_request_id,
   p_tickets:body.p_tickets,p_guests:body.p_guests,p_selections:body.p_selections,
-  p_promo_code:privateTest?PRIVATE_LIVE_TEST_PROMO:body.p_promo_code?.trim().toUpperCase()||null
+  p_promo_code:privateTest?PRIVATE_LIVE_TEST_PROMO:body.p_promo_code?.trim().toUpperCase()||null,
+  p_expected_amount_cents:body.p_expected_amount_cents
  });
+ if(error?.message?.includes("PAYABLE_AMOUNT_CHANGED"))return out({error:"The payable amount changed. Review the updated discount and confirm again.",code:"PRICE_CHANGED"},409);
  if(error||!data)return out({error:"Unable to reserve tickets and seats",code:"RESERVATION_CONFLICT"},409);
  const hold=data as Hold;
  // A failed promotion must NEVER redirect to a full-price Stripe checkout.
