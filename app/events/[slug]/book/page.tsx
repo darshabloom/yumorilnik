@@ -31,9 +31,15 @@ export default async function BookEvent({params,searchParams}:{params:Promise<{s
  if(serviceUrl&&serviceKey){
   const adminDb=createClient(serviceUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:restricted,error:restrictionError}=await adminDb.from("performer_table_access").select("table_id").eq("event_id",event.id);
-  if(restrictionError)throw new Error("Unable to verify reserved seating");
+  // New feature migrations may not yet be installed. Once present, fail
+  // closed on any other read failure to protect the restricted seats.
+  if(restrictionError&&restrictionError.code!=="42P01"&&restrictionError.code!=="PGRST205")
+   throw new Error("Unable to verify reserved seating");
   const restrictedIds=new Set((restricted??[]).map(t=>t.table_id));
   publicTables=publicTables.filter(t=>!restrictedIds.has(t.id));
+ }else if(event.id==="3f6fa4d1-aaca-4326-9c01-5774cffca2f5"){
+  // Service-only access is required for safe gated seating.
+  throw new Error("Seating access configuration unavailable");
  }
  return <BookingExperience event={event} tickets={tickets??[]}
   privateLiveTest={process.env.VERCEL_ENV==="production"&&process.env.LIVE_PAYMENT_TEST_ENABLED==="true"&&live_test==="1"&&event.id==="3f6fa4d1-aaca-4326-9c01-5774cffca2f5"}
