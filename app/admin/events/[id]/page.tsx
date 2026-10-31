@@ -11,7 +11,7 @@ type EventRecord = {
   id: string; slug: string; title: string; title_en: string | null;
   description: string | null; description_en: string | null;
   event_date: string; event_time: string; location: string | null;
-  image_url: string | null; detail_image_url:string|null; banner_fit:string; banner_position_x:number; banner_position_y:number; detail_fit:string; detail_position_x:number; detail_position_y:number; is_active: boolean;
+  image_url: string | null; detail_image_url:string|null; banner_fit:string; banner_width_percent:number; banner_height_vh:number; banner_position_x:number; banner_position_y:number; detail_fit:string; detail_position_x:number; detail_position_y:number; is_active: boolean;
 };
 type Ticket = { id: string; name: string; price_cents: number; currency: string; quantity_total: number };
 
@@ -44,7 +44,7 @@ export default function InlineEventEditor() {
         const { data: admin, error: adminError } = await supabase.from("admin_users").select("role").eq("user_id", user.id).maybeSingle();
         if (adminError || !admin) { router.replace("/admin/login"); return; }
         const { data, error: loadError } = await supabase.from("events")
-          .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,detail_image_url,banner_fit,banner_position_x,banner_position_y,detail_fit,detail_position_x,detail_position_y,is_active")
+          .select("id,slug,title,title_en,description,description_en,event_date,event_time,location,image_url,detail_image_url,banner_fit,banner_width_percent,banner_height_vh,banner_position_x,banner_position_y,detail_fit,detail_position_x,detail_position_y,is_active")
           .eq("id", id).single();
         if (loadError) throw loadError;
         const { data: types } = await supabase.from("ticket_types")
@@ -117,7 +117,7 @@ export default function InlineEventEditor() {
       event_date: snapshot.event_date, event_time: snapshot.event_time,
       location: snapshot.location?.trim() || null, image_url: snapshot.image_url?.trim() || null,
       detail_image_url: snapshot.detail_image_url?.trim() || null,
-      banner_fit:snapshot.banner_fit,banner_position_x:snapshot.banner_position_x,banner_position_y:snapshot.banner_position_y,
+      banner_fit:snapshot.banner_fit,banner_width_percent:snapshot.banner_width_percent,banner_height_vh:snapshot.banner_height_vh,banner_position_x:snapshot.banner_position_x,banner_position_y:snapshot.banner_position_y,
       detail_fit:snapshot.detail_fit,detail_position_x:snapshot.detail_position_x,detail_position_y:snapshot.detail_position_y,
       is_active:snapshot.is_active, updated_at:new Date().toISOString(),
     };
@@ -170,6 +170,16 @@ export default function InlineEventEditor() {
           {fit==="cover"?(en?"Fill frame (crop)":"Заполнить рамку (обрезать)"):(en?"Fit entire image":"Показать целиком")}
         </button>)}
       </div>
+      {target==="banner"&&<div className="mt-4 space-y-3 rounded-lg border border-black/15 p-3">
+        <p className="text-sm font-bold">{en?"Banner dimensions":"Размеры баннера"}</p>
+        <label className="block text-xs font-semibold">{en?"Width":"Ширина"}: {event?.banner_width_percent??100}%
+          <input type="range" min="30" max="100" step="1" className="mt-2 w-full" value={event?.banner_width_percent??100} onChange={e=>change("banner_width_percent",Number(e.target.value))}/>
+        </label>
+        <label className="block text-xs font-semibold">{en?"Height":"Высота"}: {event?.banner_height_vh??62}vh
+          <input type="range" min="15" max="90" step="1" className="mt-2 w-full" value={event?.banner_height_vh??62} onChange={e=>change("banner_height_vh",Number(e.target.value))}/>
+        </label>
+        <button type="button" onClick={()=>{change("banner_width_percent",100);change("banner_height_vh",62);}} className="text-xs font-bold underline">{en?"Reset dimensions":"Сбросить размеры"}</button>
+      </div>}
       <p className="mt-3 text-xs text-gray-600">{en?"Move the image within its frame":"Передвигайте изображение внутри рамки"}</p>
       {(["x","y"] as const).map(axis=>{
         const field = target==="banner"?(axis==="x"?"banner_position_x":"banner_position_y"):(axis==="x"?"detail_position_x":"detail_position_y");
@@ -214,7 +224,7 @@ export default function InlineEventEditor() {
         <p id="slug-help" className="mt-1 text-xs text-gray-600">{en?"Use letters, numbers and hyphens. Changes save automatically. Changing this URL will break previously shared links.":"Используйте латинские буквы, цифры и дефисы. Изменения сохраняются автоматически. Старые ссылки после изменения перестанут работать."}</p>
       </div>}
       <EventPresentation
-        event={{slug:event.slug,title,title_en:event.title_en,description,description_en:event.description_en,event_date:event.event_date,event_time:event.event_time,location:event.location,image_url:event.image_url,detail_image_url:event.detail_image_url,banner_fit:event.banner_fit,banner_position_x:event.banner_position_x,banner_position_y:event.banner_position_y,detail_fit:event.detail_fit,detail_position_x:event.detail_position_x,detail_position_y:event.detail_position_y}}
+        event={{slug:event.slug,title,title_en:event.title_en,description,description_en:event.description_en,event_date:event.event_date,event_time:event.event_time,location:event.location,image_url:event.image_url,detail_image_url:event.detail_image_url,banner_fit:event.banner_fit,banner_width_percent:event.banner_width_percent,banner_height_vh:event.banner_height_vh,banner_position_x:event.banner_position_x,banner_position_y:event.banner_position_y,detail_fit:event.detail_fit,detail_position_x:event.detail_position_x,detail_position_y:event.detail_position_y}}
         heading={isPreview ? undefined : <textarea aria-label="Event title" value={title} onChange={e=>change(titleKey,e.target.value.replace(/\n/g," "))}
           rows={2} placeholder={language==="ru"?"Название мероприятия":"Event title"}
           className="block min-h-24 w-full min-w-0 resize-y whitespace-pre-wrap break-words rounded-md bg-transparent text-3xl font-black leading-tight outline-none hover:bg-black/5 focus:bg-white focus:ring-2 focus:ring-pink-600 sm:min-h-28 sm:text-5xl"/>}
