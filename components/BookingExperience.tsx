@@ -280,7 +280,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
    const detail=error instanceof Error?error.message:"Unknown error";
    setBookingError(stripeSandboxEnabled?(en?`Sandbox checkout: ${detail}`:`Тестовая оплата: ${detail}`):
     localTestMode?(en?`Could not save this test booking: ${detail}`:`Не удалось сохранить тестовую заявку: ${detail}`):
-    (en?"The request could not be saved. Please try again or contact Marina.":"Не удалось сохранить заявку. Повторите попытку или свяжитесь с Мариной."));
+    (en?`Unable to open payment: ${detail}`:`Не удалось перейти к оплате: ${detail}`));
   }finally{setSavingBooking(false)}
  }
  const accessPanel=  <section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border-2 border-black bg-white p-6 shadow-[5px_5px_0_#171717] sm:p-9">
