@@ -47,3 +47,16 @@ BEGIN
 $guard$||anchor);
  EXECUTE fn;
 END $migration$;
+
+CREATE OR REPLACE FUNCTION public.admin_get_performer_table_access(p_event_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $body$
+BEGIN
+ IF auth.uid() IS NULL OR NOT EXISTS(SELECT 1 FROM public.admin_users a WHERE a.user_id=auth.uid() AND a.role IN ('owner','admin'))
+ THEN RAISE EXCEPTION 'Admin access required' USING errcode='42501';END IF;
+ RETURN jsonb_build_object(
+  'enabled',coalesce((SELECT enabled FROM public.performer_access_settings WHERE event_id=p_event_id),false),
+  'configured',EXISTS(SELECT 1 FROM public.performer_access_settings WHERE event_id=p_event_id),
+  'table_ids',coalesce((SELECT jsonb_agg(table_id) FROM public.performer_table_access WHERE event_id=p_event_id),'[]'::jsonb));
+END;$body$;
+REVOKE ALL ON FUNCTION public.admin_get_performer_table_access(uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.admin_get_performer_table_access(uuid) TO authenticated;
