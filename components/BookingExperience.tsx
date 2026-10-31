@@ -293,8 +293,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
     (en?"The request could not be saved. Please try again or contact Marina.":"Не удалось сохранить заявку. Повторите попытку или свяжитесь с Мариной."));
   }finally{setSavingBooking(false)}
  }
- if(step==="access"&&accessChoice==="choose")return <main className="flex min-h-[75vh] items-center justify-center bg-[#fff2db] px-4 py-12 text-black">
-  <section className="w-full max-w-lg space-y-5 rounded-2xl border-2 border-black bg-white p-6 shadow-[5px_5px_0_#171717] sm:p-9">
+ const accessPanel=  <section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border-2 border-black bg-white p-6 shadow-[5px_5px_0_#171717] sm:p-9">
    <Link href={`/events/${event.slug}`} className="text-sm font-semibold underline">{en?"← Event details":"← О мероприятии"}</Link>
    <h1 className="text-2xl font-black">{en?"How would you like to continue?":"Как хотите продолжить?"}</h1>
    <p className="text-sm text-gray-700">{en?"Sign in to manage bookings or continue as a guest. Your seats and tickets will be kept.":"Войдите для управления бронью или продолжите как гость. Ваши билеты и места сохранятся."}</p>
@@ -302,8 +301,8 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
    <button type="button" disabled={accessBusy} onClick={()=>void chooseGoogle()} className="w-full rounded-lg border-2 border-black bg-white px-4 py-4 font-bold disabled:opacity-50">{en?"Continue with Google":"Продолжить через Google"}</button>
    <div className="space-y-2 rounded-lg border p-3"><h2 className="font-bold">{en?"Email and password":"Email и пароль"}</h2><input type="email" value={emailAuth.email} onChange={e=>setEmailAuth(v=>({...v,email:e.target.value}))} placeholder="Email" className="w-full rounded-lg border p-3"/><input type="password" value={emailAuth.password} onChange={e=>setEmailAuth(v=>({...v,password:e.target.value}))} placeholder={en?"Password":"Пароль"} className="w-full rounded-lg border p-3"/><button type="button" disabled={accessBusy||!emailAuth.email.includes("@")||emailAuth.password.length<6} onClick={()=>void chooseEmail()} className="w-full rounded-lg bg-black p-3 text-white disabled:opacity-50">{emailAuthMode==="signin"?(en?"Sign in":"Войти"):(en?"Create account":"Создать аккаунт")}</button><button type="button" className="text-sm underline" onClick={()=>setEmailAuthMode(m=>m==="signin"?"signup":"signin")}>{emailAuthMode==="signin"?(en?"Create an account":"Создать аккаунт"):(en?"Sign in instead":"Войти")}</button></div><button type="button" onClick={()=>{setAccessChoice("guest");setStep("guests")}} className="w-full rounded-lg bg-black px-4 py-4 font-bold text-white">{en?"Continue as guest":"Продолжить как гость"}</button>
    <p className="text-xs text-gray-600">{en?"Guest checkout still requires booking contact details. Seats are not reserved until confirmation.":"При оформлении без регистрации всё равно нужны контактные данные. Места закрепляются только после подтверждения."}</p>
-  </section>
- </main>;
+  </section>;
+
  return <main className="min-h-screen bg-[#fffaf1] pb-36 text-black">
    <div className="relative bg-[#fffaf1]">
      {(event.booking_image_url||event.image_url)?<img src={event.booking_image_url||event.image_url||""} alt="" className="h-32 w-full sm:h-44 lg:h-48" style={{objectFit:event.booking_image_fit==="contain"?"contain":"cover",objectPosition:`${event.booking_image_position_x??50}% ${event.booking_image_position_y??50}%`}}/>:<div className="h-40 w-full bg-[#f5a047]/30"/>}
@@ -317,38 +316,35 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
        <p className="mt-1">{en?"Requests are saved only on this computer; they are not real reservations or tickets and are not sent to Supabase. Do not enter real personal information.":"Заявки сохраняются только на этом компьютере, не являются бронями или билетами и не отправляются в Supabase. Не вводите настоящие личные данные."}</p>
       </div>}
      <div className="mt-5 flex flex-wrap items-center gap-2 text-xs font-semibold sm:text-sm">{([{id:"tickets",en:"Tickets",ru:"Билеты"},{id:"seats",en:tableBooking?"Tables":"Seats",ru:tableBooking?"Столы":"Места"},{id:"access",en:"Sign in",ru:"Вход"},{id:"guests",en:"Guest details",ru:"Данные гостей"},{id:"review",en:"Payment",ru:"Оплата"}] as const).filter(s=>s.id!=="seats"||needsSeats).map((s,i,steps)=><button type="button" key={s.id} disabled={i>steps.findIndex(item=>item.id===step)} onClick={()=>{if(!savedReference){setStep(s.id);window.scrollTo({top:0,behavior:"smooth"});}}} aria-current={step===s.id?"step":undefined} className={`rounded-full border px-3 py-2 ${step===s.id?"border-black bg-black text-white":i<steps.findIndex(item=>item.id===step)?"border-black/25 bg-white text-black underline underline-offset-2":"border-black/15 bg-white text-gray-400"} disabled:cursor-default`}>{i+1} · {en?s.en:s.ru}</button>)}</div>
-     {step==="guests"?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8">
+     {step==="access"?accessPanel:step==="guests"?<section className="mx-auto mt-7 w-full max-w-3xl space-y-5 rounded-2xl border border-black/15 bg-white p-5 sm:p-8">
        <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-bold">{en?"Guest details":"Данные гостей"}</h2><button type="button" className="text-sm underline" onClick={()=>{setStep("access")}}>{en?"← Back to sign in":"← К гостям"}</button></div>
        <p className="text-sm text-gray-600">{en?"Tickets will be emailed to all adults. Under-18 tickets go to the booking adult. Enter each guest's name. An adult-priced ticket may be marked as a child with an assigned table seat. For regular child tickets select 3 or 6 hours of childcare and a parent. Nothing is saved until final submission.":"Билеты будут отправлены всем взрослым по электронной почте. Билеты несовершеннолетних получит сопровождающий взрослый. Укажите имена гостей. Взрослый билет можно отметить как место для ребёнка. Для обычного детского билета выберите 3 или 6 часов присмотра и сопровождающего взрослого. Данные сохранятся на последнем шаге."}</p>
        {Array.from({length:adultTicketCount+childTicketCount},(_,i)=>{
  const key=String(i),guest=guestInfo[key]??{name:"",email:"",phone:""};
  const admissionChild=i>=adultTicketCount;
- const seatedChild=!admissionChild&&adultSeatChildren[key]===true;
- const childGuest=admissionChild||seatedChild;
+ const seatedChild=false;
+ const childGuest=admissionChild;
  const assigned=!tableBooking&&!admissionChild?selections.find(s=>seatAssignments[s.key]===key):null;
  const seatLabel=admissionChild?(en?"Spare seating at venue":"Дополнительные места на мероприятии"):tableBooking?(en?"Whole-table selection":"Бронирование целого стола"):assigned?`${assigned.label} · ${en?"seat":"место"} ${assigned.seat}`:(en?"No seat selected":"Место не выбрано");
  const update=(field:"name"|"email"|"phone",value:string)=>setGuestInfo(old=>({...old,[key]:{...(old[key]??{name:"",email:"",phone:""}),[field]:value}}));
  const fieldClass="mt-1 block w-full rounded-lg border border-black/30 p-3";
  return <fieldset key={key} className="space-y-3 rounded-xl border border-black/15 p-4">
-  <legend className="px-2 font-semibold">{admissionChild?(en?"Child ticket":"Детский билет"):seatedChild?(en?"Child in adult-priced seat":"Ребёнок на взрослом месте"):(en?"Adult-priced seat":"Место по взрослому тарифу")} {admissionChild?i-adultTicketCount+1:i+1}</legend>
+  <legend className="px-2 font-semibold">{admissionChild?(en?"Babysitting child":"Ребёнок с присмотром"):(en?"Adult seat":"Место взрослого")} {admissionChild?i-adultTicketCount+1:i+1}</legend>
   <p className="text-sm font-semibold text-gray-700">{seatLabel}</p>
-  {!childGuest&&<p className="rounded-lg bg-[#fff2db] p-2 text-sm font-semibold">{en?"Age category: Adult":"Возрастная категория: Взрослый"}</p>}
-  {!admissionChild&&<label className="flex items-start gap-3 rounded-lg bg-[#fff2db] p-3 text-sm font-semibold">
-   <input type="checkbox" checked={seatedChild} onChange={e=>{setAdultSeatChildren(old=>({...old,[key]:e.target.checked}));setChildParents(old=>({...old,[key]:""}));}} className="mt-1 h-5 w-5"/>
-   <span>{en?"This ticket is for a child with an assigned adult-priced table seat. Only the table price applies; discuss any babysitting at the event.":"Билет для ребёнка с закреплённым местом по взрослому тарифу. Оплачивается только место; присмотр обсуждается на мероприятии."}</span>
-  </label>}
+
+
   <label className="block text-sm font-semibold">{en?"Full name":"Имя и фамилия"} *<input type="text" required autoComplete="off" value={guest.name} onChange={e=>update("name",e.target.value)} aria-invalid={guestErrors&&!guest.name.trim()} data-guest-index={i} data-guest-field="name" className={fieldClass}/></label>
   {childGuest?<div className="space-y-3">
-   <label className="block text-sm font-semibold">{en?"Age category":"Возрастная категория"} *<select className={fieldClass} value={ageGroups[key]??""} onChange={e=>setAgeGroups(old=>({...old,[key]:e.target.value}))} required><option value="">{en?"Choose age group":"Выберите возраст"}</option>{["16–18","13–15","10–12","6–9","5 and under"].map(g=><option key={g} value={g}>{g==="5 and under"&&!en?"До 5 лет":g}</option>)}</select></label>{ageGroups[key]==="5 and under"&&<p role="note" className="rounded-lg bg-amber-50 p-3 text-sm font-semibold">{en?"A parent or guardian must remain with this child at all times.":"Родитель или опекун должен постоянно находиться рядом с ребёнком."}</p>}<label className="block text-sm font-semibold">{en?"Exact age in years":"Точный возраст в годах"} *
+   <label className="block text-sm font-semibold">{en?"Child’s age group":"Возрастная группа ребёнка"} *<select className={fieldClass} value={ageGroups[key]??""} onChange={e=>setAgeGroups(old=>({...old,[key]:e.target.value}))} required><option value="">{en?"Choose age group":"Выберите возраст"}</option>{["16–18","13–15","10–12","6–9","5 and under"].map(g=><option key={g} value={g}>{g==="5 and under"&&!en?"До 5 лет":g}</option>)}</select></label>{ageGroups[key]==="5 and under"&&<p role="note" className="rounded-lg bg-amber-50 p-3 text-sm font-semibold">{en?"A parent or guardian must remain with this child at all times.":"Родитель или опекун должен постоянно находиться рядом с ребёнком."}</p>}<label className="block text-sm font-semibold">{en?"Exact age in years":"Точный возраст в годах"} *
     <input type="number" min={0} max={17} step={1} required inputMode="numeric" value={childAges[key]??""} onChange={e=>setChildAges(old=>({...old,[key]:e.target.value}))} className={fieldClass} aria-invalid={guestErrors&&guestProblems.some(p=>p.guestIndex===i&&p.field==="age")} data-guest-index={i} data-guest-field="age"/>
    </label>
-   <label className="block text-sm font-semibold">{en?"Parent / accompanying adult":"Родитель / сопровождающий взрослый"} *
+   <label className="block text-sm font-semibold">{en?"Parent / guardian":"Родитель / опекун"} *
     <select required value={childParents[key]??""} onChange={e=>setChildParents(old=>({...old,[key]:e.target.value}))} className={fieldClass} aria-invalid={guestErrors&&guestProblems.some(p=>p.guestIndex===i&&p.field==="parent")} data-guest-index={i} data-guest-field="parent">
      <option value="">{en?"Choose adult":"Выберите взрослого"}</option>
      {Array.from({length:adultTicketCount},(_,j)=>j).filter(j=>j!==i&&!adultSeatChildren[String(j)]).map(j=><option key={j} value={String(j)}>{guestInfo[String(j)]?.name.trim()||`${en?"Adult":"Взрослый"} ${j+1}`}</option>)}
     </select>
    </label>
-   {admissionChild&&nyeChildcare&&<label className="block text-sm font-semibold">{en?"How long will your child stay?":"На сколько часов останется ребёнок?"} *
+   {admissionChild&&nyeChildcare&&<label className="block text-sm font-semibold">{en?"Babysitting duration":"Продолжительность присмотра"} *
     <select required value={childcareHours[key]??""} onChange={e=>setChildcareHours(old=>({...old,[key]:e.target.value}))} className={fieldClass} aria-invalid={guestErrors&&guestProblems.some(p=>p.guestIndex===i&&p.field==="duration")} data-guest-index={i} data-guest-field="duration">
      <option value="">{en?"Choose duration":"Выберите время"}</option>
      <option value="3">{en?"3 hours — NZ$30":"3 часа — NZ$30"}</option>
