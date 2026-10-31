@@ -26,7 +26,7 @@ function seatPositions(table:PublicTable):Seat[]{
  }
  return output;
 }
-export default function CustomerVenueMap({tables,features,stage,mode="whole_table",selectedKeys=[],onToggle,zones=[]}:{zones?:PriceZone[];tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null;mode?:Mode;selectedKeys?:string[];onToggle?:(key:string)=>void}){
+export default function CustomerVenueMap({tables,features,stage,mode="whole_table",selectedKeys=[],unavailableKeys=[],onToggle,zones=[]}:{zones?:PriceZone[];tables:PublicTable[];features:VenueFeature[];stage:PublicStage|null;mode?:Mode;selectedKeys?:string[];unavailableKeys?:string[];onToggle?:(key:string)=>void}){
  const en=useSiteLanguage()==="en";
  const [view,setView]=useState({x:0,y:0,w:WIDTH,h:HEIGHT});
  const [baseWidth,setBaseWidth]=useState(WIDTH);
@@ -41,6 +41,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
  const tap=useRef<{key:string;tableId:string}|null>(null);
  const downOrigin=useRef<{x:number;y:number}|null>(null);
  const selected=tables.find(t=>t.id===focused);
+ const occupied=new Set(unavailableKeys);
  // Determine click targets in venue coordinates, including rotated tables.
  // A seat's hit area must never overlap the area of another numbered seat.
  const seatRadii=useMemo(()=>{
@@ -133,7 +134,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
   if(pointers.current.size===0){
    if(!moved.current&&tap.current){
     setFocused(tap.current.tableId);
-    if(tap.current.key)onToggle?.(tap.current.key);
+    if(tap.current.key&&!occupied.has(tap.current.key)&&!occupied.has(tap.current.tableId))onToggle?.(tap.current.key);
     else if(mode==="individual_seats")focusTable(tap.current.tableId);
    }
    tap.current=null;downOrigin.current=null;gesture.current=null;return;
@@ -173,10 +174,10 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
        <text x={stage.stage_width/2} y={stage.stage_height/2+6} fontSize="19" textAnchor="middle" fontWeight="700">{en?"Stage":"Сцена"}</text>
       </g>}
       {tables.filter(t=>t.is_active).map(t=><g key={t.id} transform={`translate(${t.x} ${t.y}) rotate(${t.rotation_deg} ${t.width/2} ${t.height/2})`}>
-        <rect x="0" y="0" width={t.width} height={t.height} rx={t.shape==="round"||t.shape==="oval"?Math.min(t.width,t.height)/2:0} fill={selectedKeys.includes(t.id)?"#f8c6dc":focused===t.id?"#ffe1ee":"#fff"} stroke={selectedKeys.includes(t.id)?"#c41e73":"#777"} strokeWidth="2" data-seat-key={mode==="whole_table"?t.id:""} data-table-id={t.id} style={{cursor:"pointer"}}/>
+        <rect x="0" y="0" width={t.width} height={t.height} rx={t.shape==="round"||t.shape==="oval"?Math.min(t.width,t.height)/2:0} fill={occupied.has(t.id)?"#c5c5c5":selectedKeys.includes(t.id)?"#f8c6dc":focused===t.id?"#ffe1ee":"#fff"} stroke={selectedKeys.includes(t.id)?"#c41e73":"#777"} strokeWidth="2" data-seat-key={mode==="whole_table"?t.id:""} data-table-id={t.id} style={{cursor:"pointer"}}/>
         <text x={t.width/2} y={t.height/2+4} fontSize="11" textAnchor="middle" fontWeight="700" pointerEvents="none">{shortTableLabel(t.label)}</text>
         {seatPositions(t).map(s=><g key={s.key} data-seat-key={mode==="individual_seats"?s.key:t.id} data-table-id={t.id} style={{cursor:"pointer"}}>
-          <rect x={s.x-(seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS)} y={s.y-(seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS)} width={(seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS)*2} height={(seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS)*2} rx="1" fill={selectedKeys.includes(s.key)?"#f5a047":"#fff"} stroke={selectedKeys.includes(s.key)?"#ad5d09":"#525252"} strokeWidth="1.3" pointerEvents="none"/>
+          <rect x={s.x-(seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS)} y={s.y-(seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS)} width={(seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS)*2} height={(seatRadii.get(s.key)?.visible??MAX_SEAT_RADIUS)*2} rx="1" fill={occupied.has(t.id)||occupied.has(s.key)?"#999":selectedKeys.includes(s.key)?"#f5a047":"#fff"} stroke={selectedKeys.includes(s.key)?"#ad5d09":"#525252"} strokeWidth="1.3" pointerEvents="none"/>
           <circle cx={s.x} cy={s.y} r={seatRadii.get(s.key)?.hit??MAX_HIT_RADIUS} fill="transparent" pointerEvents="all" />
           <text x={s.x} y={s.y+4} textAnchor="middle" fontSize="8" fontWeight="600" pointerEvents="none">{s.label}</text>
         </g>)}
@@ -184,7 +185,7 @@ export default function CustomerVenueMap({tables,features,stage,mode="whole_tabl
     </svg>
    </div>
    </div>
-   <div className="flex flex-wrap gap-4 text-xs text-gray-600"><span>{en?"□ Seat":"□ Место"}</span><span className="text-pink-700">{en?"■ Selected":"■ Выбрано"}</span><span>{en?"Reservations are not open yet":"Бронирование ещё не открыто"}</span></div>
+   <div className="flex flex-wrap gap-4 text-xs text-gray-600"><span>{en?"□ Seat":"□ Место"}</span><span className="text-pink-700">{en?"■ Selected":"■ Выбрано"}</span><span>{en?"■ Grey = reserved / unavailable":"■ Серый = занято / недоступно"}</span></div>
    {selected&&<p className="rounded-lg border border-black/15 bg-white p-3 text-sm text-gray-700" aria-live="polite"><strong>{selected.label}</strong> · {mode==="whole_table"?(selected.table_price_cents!==null?money(selected.table_price_cents):(en?"Price pending":"Цена уточняется")):((selected.seat_price_cents??zoneForTable(selected,zones)?.price_cents??null)!==null?money(selected.seat_price_cents??zoneForTable(selected,zones)!.price_cents)+(en?" per adult place":" за взрослое место"):(en?"Adult price not set for this table":"Взрослая цена для этого стола не указана"))}</p>}
  </div>;
 }
