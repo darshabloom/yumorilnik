@@ -11,7 +11,7 @@ export async function GET(request:Request){
  const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
  const [bookings,holds]=await Promise.all([
   db.from("bookings").select("id").eq("event_id",id).in("status",["confirmed","test_confirmed"]),
-  db.from("booking_live_checkouts").select("booking_id").eq("event_id",id).in("state",["creating","open","paid","needs_review"])
+  db.from("booking_live_checkouts").select("booking_id").eq("event_id",id).or(`state.in.(paid,needs_review),and(state.in.(creating,open),expires_at.gt.${new Date().toISOString()})`)
  ]);
  if(bookings.error||holds.error)return NextResponse.json({error:"Availability unavailable"},{status:503});
  const ids=[...new Set([...(bookings.data??[]).map(x=>x.id),...(holds.data??[]).map(x=>x.booking_id)])];
