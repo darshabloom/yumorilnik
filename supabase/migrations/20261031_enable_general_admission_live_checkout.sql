@@ -19,11 +19,11 @@ BEGIN
  IF position('e.seating_mode=''tables''\n     AND e.table_booking_mode=''individual_seats''' in fn)>0 THEN RAISE EXCEPTION 'Seating guard not replaced'; END IF;
  fn:=replace(fn,
   'coalesce((SELECT SUM(s.price_cents) FROM public.booking_selections s\n      WHERE s.booking_id=v_booking.id AND s.guest_index IS NOT NULL),0)',
-  'coalesce((SELECT SUM(s.price_cents) FROM public.booking_selections s\n      WHERE s.booking_id=v_booking.id AND s.guest_index IS NOT NULL),0) +coalesce((SELECT SUM(i.unit_admission_cents * i.quantity) FROM public.booking_items i WHERE i.booking_id=v_booking.id),0)');
+  'coalesce((SELECT SUM(s.price_cents) FROM public.booking_selections s\n      WHERE s.booking_id=v_booking.id AND s.guest_index IS NOT NULL),0) +coalesce((SELECT SUM(i.unit_admission_cents * i.quantity) FROM public.booking_items i JOIN public.events e ON e.id=p_event_id WHERE i.booking_id=v_booking.id AND e.seating_mode=''general_admission''),0)');
  -- General admission promotions must include the ticket admission amount.
  fn:=replace(fn,
   'WHERE s.booking_id=v_booking.id AND s.guest_index IS NOT NULL\n   UNION ALL',
-  'WHERE s.booking_id=v_booking.id AND s.guest_index IS NOT NULL\n   UNION ALL\n   SELECT i.category,i.ticket_type_id,(i.unit_admission_cents)::bigint FROM public.booking_items i WHERE i.booking_id=v_booking.id AND i.category=''adult'' AND i.unit_admission_cents>0\n   UNION ALL');
+  'WHERE s.booking_id=v_booking.id AND s.guest_index IS NOT NULL\n   UNION ALL\n   SELECT i.category,i.ticket_type_id,(i.unit_admission_cents)::bigint FROM public.booking_items i WHERE i.booking_id=v_booking.id AND i.category=''adult'' AND i.unit_admission_cents>0 AND EXISTS(SELECT 1 FROM public.events e WHERE e.id=p_event_id AND e.seating_mode=''general_admission'')\n   UNION ALL');
  -- Existing childcare line already counts child admission for NYE; preserve it.
  EXECUTE fn;
 END $migration$;
