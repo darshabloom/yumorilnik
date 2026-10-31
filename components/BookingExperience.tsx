@@ -339,7 +339,7 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
  const fieldClass="mt-1 block w-full rounded-lg border border-black/30 p-3";
  return <fieldset key={key} className="space-y-3 rounded-xl border border-black/15 p-4">
   <legend className="px-2 font-semibold">{leadOnly?(en?"Lead booker":"Основной покупатель"):admissionChild?(en?"Playroom Supervision Area":"Зона присмотра за детьми"):(en?"Adult seat":"Место взрослого")} {leadOnly?"":admissionChild?i-adultTicketCount+1:i+1}</legend>
-  {!leadOnly&&<p className="text-sm font-semibold text-gray-700">{seatLabel}</p>}
+  {!leadOnly&&<p className={`text-sm font-semibold ${assigned?"rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-emerald-900":"text-gray-700"}`}>{seatLabel}</p>}
 
 
   <label className="block text-sm font-semibold">{en?"Full name":"Имя и фамилия"} *<input type="text" required autoComplete="off" value={guest.name} onChange={e=>update("name",e.target.value)} aria-invalid={guestErrors&&!guest.name.trim()} data-guest-index={i} data-guest-field="name" className={fieldClass}/></label>
