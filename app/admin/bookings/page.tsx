@@ -198,6 +198,14 @@ function RealAdminBookingsPage(){
         <p className={booking.status==="cancelled"?"text-sm font-semibold text-red-700":"text-sm font-semibold text-amber-700"}>{booking.status==="cancelled"?(en?"Cancelled":"Отменена"):booking.status==="test_confirmed"?(en?"SANDBOX ONLY · not a real ticket":"ТОЛЬКО ТЕСТ · не настоящий билет"):booking.status==="confirmed"?(en?"Confirmed":"Подтверждено"):(en?"Awaiting review":"Ожидает проверки")}</p>
        </div>
       </div>
+      <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm">
+       <strong>{en?"Allocated seats":"Закреплённые места"}: </strong>
+       {booking.booking_selections.filter(s=>s.seat_number!==null).length
+        ?booking.booking_selections.filter(s=>s.seat_number!==null)
+          .sort((a,b)=>a.table_label.localeCompare(b.table_label,undefined,{numeric:true})||(a.seat_number??0)-(b.seat_number??0))
+          .map(s=>`${en?"Table":"Стол"} ${s.table_label} · ${en?"Seat":"Место"} ${s.seat_number}`).join("  |  ")
+        :(en?"No reserved seats recorded":"Закреплённых мест нет")}
+      </div>
       <button type="button" className="mt-4 min-h-11 rounded-lg border border-black px-4 font-bold" onClick={()=>{setSelectedId(selectedId===booking.id?null:booking.id);setConfirmingId(null);setReason("");}}>{selectedId===booking.id?(en?"Hide details":"Скрыть детали"):(en?"View guests and seats":"Гости и места")}</button>
       <Link href={"/admin/ticket-preview/"+encodeURIComponent(booking.id)} className="ml-2 inline-block rounded-lg border border-black px-4 py-3 text-sm font-bold">{en?"Ticket preview":"Просмотр билета"}</Link>
       {selectedId===booking.id&&<div className="mt-5 space-y-5 border-t border-black/15 pt-5">
