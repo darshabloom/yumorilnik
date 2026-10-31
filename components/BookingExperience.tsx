@@ -115,6 +115,14 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
  const seatOverage=!tableBooking&&event.seating_mode!=="general_admission"&&mapSelections.length>adultTicketCount;
  const guestProblems=guestValidationProblems(adultTicketCount,childTicketCount,guestInfo,childParents,
   {adultSeatChildren,childcareHours,childAges,requireChildcareHours:nyeChildcare});
+ const ageGroupRanges:Record<string,[number,number]>={"16–18":[16,17],"13–15":[13,15],"10–12":[10,12],"6–9":[6,9],"5 and under":[0,5]};
+ for(let i=0;i<adultTicketCount+childTicketCount;i++){
+  if(i<adultTicketCount&&!adultSeatChildren[String(i)])continue;
+  const category=ageGroups[String(i)];const range=ageGroupRanges[category];const age=Number(childAges[String(i)]);
+  if(!range||!Number.isInteger(age)||age<range[0]||age>range[1]){
+   if(!guestProblems.some(p=>p.guestIndex===i&&p.field==="age"))guestProblems.push({guestIndex:i,field:"age"});
+  }
+ }
  const guestDetailsComplete=guestProblems.length===0;
  const selectedPrices=mapSelections.map(key=>tableBooking?venue?.tables.find(t=>t.id===key)?.table_price_cents??null:selectedSeatPrice(key));
  const ticketPricesInvalid=admissionTotal===null||
