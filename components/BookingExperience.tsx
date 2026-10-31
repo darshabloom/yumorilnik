@@ -51,6 +51,8 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
  const [savingBooking,setSavingBooking]=useState(false);
  const [bookingConsent,setBookingConsent]=useState(false);
  const [promoCode,setPromoCode]=useState("");
+ const [discountQuote,setDiscountQuote]=useState<{discount_cents:number;discount_type:string|null;seat_keys:string}|null>(null);
+ const [discountQuoteLoading,setDiscountQuoteLoading]=useState(false);
  const [sandboxAccessCode,setSandboxAccessCode]=useState("");
  const [liveTestAccessCode,setLiveTestAccessCode]=useState("");
  const [savedStatus,setSavedStatus]=useState<"requested"|"confirmed"|null>(null);
@@ -149,6 +151,29 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
  });
  const tablesWithoutPrices=Array.from(new Set(selections.filter(item=>item.cost===null||item.cost===undefined).map(item=>item.label)));
  const tableTotal=tableBooking?mapSelections.reduce((sum,key)=>sum+(venue?.tables.find(t=>t.id===key)?.table_price_cents??0),0):0;
+ const quoteKeys=mapSelections.join("|");
+ useEffect(()=>{
+  if(event.id!==NEW_YEARS_2026_EVENT_ID||event.seating_mode==="general_admission"||tableBooking||mapSelections.length===0||promoCode.trim()){
+   setDiscountQuote(null);setDiscountQuoteLoading(false);return;
+  }
+  const controller=new AbortController();
+  setDiscountQuote(null);setDiscountQuoteLoading(true);
+  void fetch("/api/discounts/quote",{
+   method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({seat_keys:mapSelections}),signal:controller.signal
+  }).then(async response=>{
+   if(!response.ok)throw Error("Quote unavailable");
+   return response.json() as Promise<{discount_cents:number;discount_type:string|null}>;
+  }).then(quote=>{
+   if(!controller.signal.aborted&&Number.isSafeInteger(quote.discount_cents)&&quote.discount_cents>=0)
+    setDiscountQuote({...quote,seat_keys:quoteKeys});
+  }).catch(()=>{if(!controller.signal.aborted)setDiscountQuote(null)})
+    .finally(()=>{if(!controller.signal.aborted)setDiscountQuoteLoading(false)});
+  return ()=>controller.abort();
+ // Map selections are represented by the stable join key for this request.
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[event.id,event.seating_mode,tableBooking,quoteKeys,promoCode]);
+ const automaticDiscountCents=!promoCode.trim()&&!discountQuoteLoading&&discountQuote?.seat_keys===quoteKeys?discountQuote.discount_cents:0;
  const total=calculatedTotal;
  const currency=tickets[0]?.currency?.toUpperCase()||"NZD";
  const format=useMemo(()=>new Intl.NumberFormat("en-NZ",{style:"currency",currency}),[currency]);
@@ -380,6 +405,14 @@ export default function BookingExperience({event,tickets,venue,privateLiveTest=f
        {nyeChildcare&&childTicketCount>0&&<div className="rounded-lg border border-amber-200 bg-white p-4"><h3 className="font-semibold">{en?"Childcare duration per child":"Присмотр для каждого ребёнка"}</h3>{Array.from({length:childTicketCount},(_,i)=>{const index=adultTicketCount+i;const hours=childcareHours[String(index)];return <div key={index} className="mt-2 flex justify-between gap-3 text-sm"><span>{guestInfo[String(index)]?.name||`${en?"Child":"Ребёнок"} ${i+1}`} · {hours?`${hours} ${en?"hours":"часов"}`:(en?"Choose duration":"Выберите часы")}</span><span>{format.format(childcarePriceCents(hours==="6"?"6":"3")/100)}</span></div>})}</div>}
         {Object.values(adultSeatChildren).some(Boolean)&&<p className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm">{en?"Children booked into adult-priced table seats pay only the selected seat price. Babysitting can be arranged with Marina at the event.":"Дети на местах по взрослому тарифу оплачивают только место. Присмотр согласовывается с Мариной на мероприятии."}</p>}
         {event.seating_mode!=="general_admission"&&<div><h3 className="mb-2 font-semibold">{tableBooking?(en?"Selected tables":"Выбранные столы"):(en?"Selected seats":"Выбранные места")}</h3>{selections.length===0?<p className="text-sm text-gray-600">{en?"No seats selected":"Места не выбраны"}</p>:selections.map(s=><div key={s.key} className="flex justify-between gap-3 border-b border-black/10 py-2 text-sm"><span>{s.label}{s.seat?` · ${en?"seat":"место"} ${s.seat}`:""}</span><span>{s.cost==null?(en?"Price not set":"Цена не указана"):format.format(s.cost/100)}</span></div>)}</div>}
+       {event.id===NEW_YEARS_2026_EVENT_ID&&!promoCode.trim()&&mapSelections.length>0&&<div aria-live="polite" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+        {discountQuoteLoading?(en?"Checking available discounts…":"Проверяем доступные скидки…"):
+         automaticDiscountCents>0?<>
+          <div className="flex justify-between gap-3"><span>{discountQuote?.discount_type==="early_bird"?(en?"Early-bird discount":"Скидка за раннее бронирование"):(en?"Group booking discount":"Групповая скидка")}</span><strong>−{format.format(automaticDiscountCents/100)}</strong></div>
+          <div className="mt-1 flex justify-between gap-3 font-bold"><span>{en?"Estimated payable total":"Предварительная сумма к оплате"}</span><span>{format.format(Math.max(0,(total??0)-automaticDiscountCents)/100)}</span></div>
+          <p className="mt-2 text-xs text-gray-600">{en?"Discount availability is confirmed when the booking is reserved. Do not pay if Stripe displays a different total.":"Скидка подтверждается при бронировании. Не оплачивайте, если сумма в Stripe отличается."}</p>
+         </>:en?"No automatic discount currently available.":"Автоматические скидки сейчас недоступны."}
+       </div>}
        <div className="space-y-1 border-t border-black/20 pt-4"><div className="flex justify-between text-sm"><span>{en?"Tickets":"Билеты"}</span><span>{format.format(ticketTotal/100)}</span></div><div className="flex justify-between text-sm"><span>{tableBooking?(en?"Tables":"Столы"):(en?"Seats":"Места")}</span><span>{pricingIncomplete?(en?"Price pending":"Цена уточняется"):format.format((tableBooking?tableTotal:seatTotal)/100)}</span></div><div className="flex justify-between pt-2 text-lg font-bold"><span>{en?"Total":"Итого"}</span><span>{pricingIncomplete?(en?"Price pending":"Цена уточняется"):privatePaymentTest?<span className="flex flex-col items-end"><s className="text-sm font-normal text-gray-500">{format.format((total??0)/100)}</s><strong>{format.format(0.5)}</strong><small className="text-xs font-normal text-gray-600">{en?"Private single-use test price, verified by server":"Закрытая тестовая цена, проверяется сервером"}</small></span>:!localTestMode&&!stripeSandboxEnabled&&!realBookingsEnabled&&promoCode.trim()==="TEST12"?<span className="flex flex-col items-end"><s className="text-sm font-normal text-gray-500">{format.format((total??0)/100)}</s><strong>{format.format(0)}</strong><small className="text-xs font-normal text-gray-600">{en?"Subject to database approval":"После проверки кода в базе"}</small></span>:format.format((total??0)/100)}</span></div></div>
        {pricingIncomplete&&<p role="status" className="rounded-lg border border-orange-300 bg-orange-50 p-4 text-sm">{privatePaymentTest?(en?`Normal seat price missing: ${tablesWithoutPrices.join(", ")||"ticket type"}. Set the original table seat price in admin first. Your private test still costs only NZ$0.50.`:`Не установлена обычная цена места: ${tablesWithoutPrices.join(", ")||"тип билета"}. Сначала укажите исходную цену в настройках стола. Тестовая оплата останется NZ$0.50.`):en?`Unpriced table(s): ${tablesWithoutPrices.join(", ")||"ticket type"}. Marina needs to set these prices.`:`Нет цены для стола: ${tablesWithoutPrices.join(", ")||"тип билета"}. Марина должна указать эту цену.`}</p>}
        
