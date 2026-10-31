@@ -146,6 +146,7 @@ export default function PromotionsAdmin(){
       [en?"Flash":"Краткосрочные",discountOverview.flash_spent_cents,discountOverview.flash_budget_cents,discountOverview.flash_enabled,null],
       [en?"Personal":"Персональные",discountOverview.personal_spent_cents,discountOverview.personal_budget_cents,discountOverview.personal_enabled,null]
      ] as [string,number,number,boolean,string|null][]).map(([label,used,limit,enabled,tickets])=><div key={label} className="flex justify-between gap-2 rounded-lg border p-3"><span>{label} {tickets&&<span className="text-gray-500">({tickets})</span>}<span className="block text-xs text-gray-500">{enabled?(en?"Enabled":"Включено"):(en?"Disabled":"Выключено")}</span></span><strong>NZ${(used/100).toFixed(2)} / NZ${(limit/100).toFixed(2)}</strong></div>)}
+    </div>
     <div className="mt-3 border-t pt-3">
      <h3 className="font-bold">{en?"Automatic offer controls":"Управление автоматическими скидками"}</h3>
      <p className="text-xs text-gray-600">{en?"Activation affects real payments. Test the full checkout before enabling. Flash and personal budgets remain locked until their payment controls are completed.":"Включение влияет на реальные платежи. Сначала проверьте весь процесс оплаты. Краткосрочные и персональные скидки остаются заблокированными до завершения контроля платежей."}</p>
@@ -162,7 +163,6 @@ export default function PromotionsAdmin(){
        </button>
       })}
      </div>
-    </div>
     </div>
    </section>}
    <h1 className="text-3xl font-black">{en?"Promo codes":"Промокоды"}</h1>
