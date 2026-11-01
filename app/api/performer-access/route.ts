@@ -19,6 +19,7 @@ export async function POST(req:NextRequest){
   const ids=(restricted??[]).map(x=>x.table_id);
   const {data:tables,error:te}=await client.from("seating_tables").select("id,label,shape,x,y,width,height,rotation_deg,seats_top,seats_bottom,seats_left,seats_right,table_price_cents,seat_price_cents,price_zone_id,is_active,seat_gap_top,seat_gap_right,seat_gap_bottom,seat_gap_left").eq("event_id",eventId).in("id",ids.length?ids:["00000000-0000-0000-0000-000000000000"]).eq("is_active",true);
   if(te)return reply({error:"Restricted tables unavailable"},503);
-  return reply({valid:true,tables:tables??[]});
+  if(!tables?.length)return reply({error:"The access code is valid, but no reserved tables are active. Please ask the organiser to activate Tables 22 and 23 in the seating editor."},422);
+  return reply({valid:true,tables});
  }catch{return reply({error:"Access service unavailable"},503)}
 }
