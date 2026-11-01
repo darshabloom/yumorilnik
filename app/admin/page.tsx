@@ -11,6 +11,7 @@ type Access = { email: string; role: Role } | null;
 const tiles = [
   { title: "Events", ruTitle:"Мероприятия", detail: "Create events, update dates and ticket types",ruDetail:"Создавайте мероприятия, редактируйте даты и типы билетов", icon: "📅", href: "/admin/events" },
   { title: "Promo codes",ruTitle:"Промокоды", detail: "Manage discounts for any ticket type",ruDetail:"Промокоды для любых типов билетов", icon: "🏷️", href: "/admin/promotions" },
+  { title: "Performer access",ruTitle:"Доступ для друзей артистов",detail:"Manage shared access code and reserved performer tables",ruDetail:"Общий код доступа и зарезервированные столы для друзей артистов",icon:"🎭",href:"/admin/performer-access" },
   { title: "Bookings & seating",ruTitle:"Брони и рассадка", detail: "See ticket types, guest contacts, named seats, childcare and sandbox payments",ruDetail:"Билеты, контакты гостей, закреплённые места, присмотр и тестовые оплаты", icon: "🎟️", href: "/admin/bookings" },
   { title: "Future invitations",ruTitle:"Будущие приглашения",detail:"Manage opted-in adults and event invitation contacts",ruDetail:"Контакты для будущих приглашений по согласию",icon:"✉️",href:"/admin/contacts" },
   { title: "Test booking email",ruTitle:"Тест письма", detail: "Send a sample booking confirmation to your organiser email",ruDetail:"Отправить образец подтверждения брони на почту организатора",icon:"✉️",href:"/admin/test-email" },
@@ -72,7 +73,7 @@ export default function AdminHome() {
               <span aria-hidden="true" className="text-3xl">{tile.icon}</span>
               <h2 className="mt-3 text-xl font-black">{en?tile.title:tile.ruTitle}</h2>
               <p className="mt-2 text-sm text-gray-700">{en?tile.detail:tile.ruDetail}</p>
-              {tile.href ? <Link href={tile.href} className="mt-5 inline-block rounded-lg bg-black px-4 py-3 text-sm font-bold text-white">{tile.href==="/admin/bookings"?(en?"Manage bookings →":"Управлять бронями →"):tile.href==="/admin/contacts"?(en?"Manage contacts →":"Контакты →"):tile.href==="/staff/check-in"?(en?"Open check-in →":"Открыть регистрацию →"):tile.href==="/admin/check-in-staff"?(en?"Manage staff →":"Управлять доступом →"):tile.href==="/admin/promotions"?(en?"Manage codes →":"Управлять кодами →"):(en?"Manage events →":"Управлять мероприятиями →")}</Link> : <span className="mt-5 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold">{en?"Coming next":"Скоро"}</span>}
+              {tile.href ? <Link href={tile.href} className="mt-5 inline-block rounded-lg bg-black px-4 py-3 text-sm font-bold text-white">{tile.href==="/admin/bookings"?(en?"Manage bookings →":"Управлять бронями →"):tile.href==="/admin/contacts"?(en?"Manage contacts →":"Контакты →"):tile.href==="/staff/check-in"?(en?"Open check-in →":"Открыть регистрацию →"):tile.href==="/admin/check-in-staff"?(en?"Manage staff →":"Управлять доступом →"):tile.href==="/admin/performer-access"?(en?"Manage access →":"Управлять доступом →"):tile.href==="/admin/promotions"?(en?"Manage codes →":"Управлять кодами →"):(en?"Manage events →":"Управлять мероприятиями →")}</Link> : <span className="mt-5 inline-block rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold">{en?"Coming next":"Скоро"}</span>}
             </article>
           ))}
         </section>
