@@ -8,9 +8,11 @@ export function correctedConfirmation(input:{
  organiser:boolean;amountCents:number;currency:string;promoCode:string|null;
 }){
  const {event,reference,guests,seats,organiser}=input;
- const date=new Date(event.event_date+"T"+(event.event_time??"19:30"));
- const formatted=Number.isNaN(date.getTime())?event.event_date+" "+(event.event_time??""):
-  date.toLocaleString("en-NZ",{dateStyle:"full",timeStyle:"short",timeZone:"Pacific/Auckland"});
+ const [year,month,day]=event.event_date.split("-");
+ const dateText=year&&month&&day?
+  new Date(Date.UTC(Number(year),Number(month)-1,Number(day))).toLocaleDateString("en-NZ",
+   {timeZone:"UTC",weekday:"long",day:"numeric",month:"long",year:"numeric"}):event.event_date;
+ const formatted=dateText+" · "+(event.event_time?.slice(0,5)??"Time TBC")+" (Auckland)";
  const rows:ConfirmationGuest[]=guests.map(g=>{
   const seat=seats.find(x=>x.guest_index===g.guest_index);
   return {name:g.full_name,ticket:g.is_child_with_adult_seat?"Adult-priced seat / Место по взрослому тарифу":
