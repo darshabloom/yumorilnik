@@ -98,6 +98,14 @@ export async function POST(request:NextRequest){
  if(paidError)return json({error:"Unable to verify paid live bookings"},502);
  const paidIds=(paidRows??[]).map(x=>x.booking_id);
  if(paidIds.length===0)return json({reviewed:0,sent:0,failed:0,skipped:0,ineligible:0});
+ // One tracked organiser message per paid booking. guest_index=-1 is reserved
+ // for the organiser copy; the composite primary key prevents duplicate sends.
+ const {error:organiserQueueError}=await db.from("booking_confirmation_deliveries")
+  .upsert(paidIds.map(booking_id=>({booking_id,guest_index:-1,
+   recipient_email:"yumorilnik@gmail.com",status:"pending"})),{
+   onConflict:"booking_id,guest_index",ignoreDuplicates:true
+  });
+ if(organiserQueueError)return json({error:"Unable to queue organiser summaries"},502);
  const {data:rows,error:listError}=await db.from("booking_confirmation_deliveries")
   .select("booking_id,guest_index,recipient_email,status,attempts")
   .in("booking_id",paidIds).in("status",["pending","failed"]).lt("attempts",3)
@@ -138,21 +146,28 @@ export async function POST(request:NextRequest){
     throw new Error("Booking or amount does not match a paid live Stripe checkout");
    // Stripe sandbox test_confirmed records are deliberately excluded. Paid
    // production bookings may be emailed only once genuine launch flows exist.
+   const isOrganiser=delivery.guest_index===-1;
    const person=booking.booking_guests.find(g=>g.guest_index===delivery.guest_index&&g.category==="adult"&&!g.is_child_with_adult_seat);
-   if(!person||!person.email||person.email.toLowerCase()!==delivery.recipient_email.toLowerCase())
+   if(!isOrganiser&&(!person||!person.email||person.email.toLowerCase()!==delivery.recipient_email.toLowerCase()))
     throw new Error("Recipient does not match this booking");
    const children=booking.booking_guests.filter(g=>(g.category==="child"&&g.accompanying_adult_index===person.guest_index)||(g.is_child_with_adult_seat&&g.guardian_index===person.guest_index));
-   const namedGuests=[person,...children];
+   const namedGuests=isOrganiser?booking.booking_guests:[person!,...children];
+   // The confirmation email body shows the whole party's names and seats.
+   // Individual customer PDF attachments remain limited to their own tickets.
+   const party=booking.booking_guests;
    const places=booking.booking_selections
     .filter(seat=>seat.guest_index===null||namedGuests.some(g=>g.guest_index===seat.guest_index))
     .map(seat=>({guestName:booking.booking_guests.find(g=>g.guest_index===seat.guest_index)?.full_name??person.full_name,
      table:seat.table_label,seat:seat.seat_number}));
+   const emailPlaces=booking.booking_selections.filter(seat=>seat.guest_index!==null)
+    .map(seat=>({guestName:party.find(g=>g.guest_index===seat.guest_index)?.full_name??"Guest",
+     table:seat.table_label,seat:seat.seat_number}));
    const common={
     reference:booking.booking_reference,
     eventDateText:(booking.events?.event_date??"See event details / Проверьте информацию о мероприятии")+" "+(booking.events?.event_time??""),
-    adults:[{name:person.full_name,email:person.email}],
-    children:children.map(g=>({name:g.full_name,accompanyingAdultEmail:person.email!,childcareHours:g.childcare_hours,adultPricedSeat:g.is_child_with_adult_seat})),
-    places,promoCode:booking.promo_code,totalCents:booking.total_cents,
+    adults:party.filter(g=>g.category==="adult"&&!g.is_child_with_adult_seat).map(g=>({name:g.full_name,email:g.email??""})),
+    children:party.filter(g=>g.category==="child"||g.is_child_with_adult_seat).map(g=>({name:g.full_name,accompanyingAdultEmail:party.find(a=>a.guest_index===(g.guardian_index??g.accompanying_adult_index))?.email??"",childcareHours:g.childcare_hours,adultPricedSeat:g.is_child_with_adult_seat})),
+    places:emailPlaces,promoCode:booking.promo_code,totalCents:booking.total_cents,
     currency:booking.currency||"NZD",
    };
    // Bilingual until a booking-language field is designed and agreed.
@@ -173,7 +188,15 @@ export async function POST(request:NextRequest){
    const html=bookingConfirmationHtml({
     reference:booking.booking_reference,eventTitle:booking.events.title,
     eventDate:booking.events.event_date+" "+(booking.events.event_time??""),
-    venue:booking.events.location,guests:namedGuests.map(g=>{
+    venue:booking.events.location,organiser:isOrganiser,
+    organiserDetails:isOrganiser?[
+      "All ticket holders / Все обладатели билетов:",
+      ...party.map(g=>g.full_name+" — "+(g.email??"no email")+" — "+
+       (g.category==="child"?"child":"adult")),
+      "Total / Итого: "+new Intl.NumberFormat("en-NZ",{style:"currency",currency:booking.currency}).format(booking.total_cents/100),
+      "Promo code / Промокод: "+(booking.promo_code??"—")
+    ].join("\\n"):null,
+    guests:party.map(g=>{
       const seat=booking.booking_selections.find(s=>s.guest_index===g.guest_index);
       return {name:g.full_name,ticket:g.is_child_with_adult_seat?"Adult-priced seat / Место по взрослому тарифу":g.category==="child"?"Childcare / Детский":"Adult / Взрослый",
        table:seat?.table_label??null,seat:seat?.seat_number??null,
@@ -187,9 +210,9 @@ export async function POST(request:NextRequest){
     headers:{"Authorization":`Bearer ${resendKey}`,"Content-Type":"application/json",
      "Idempotency-Key":"ymr-paid-ticket-v1-"+booking.id+"-"+delivery.guest_index},
     body:JSON.stringify({
-     from:`Yumorilnik Tickets <${from}>`,reply_to:"yumorilnik@gmail.com",to:[person.email],...(person.email.toLowerCase()!=="yumorilnik@gmail.com"?{bcc:["yumorilnik@gmail.com"]}:{}),subject:en.subject,
+     from:`Yumorilnik Tickets <${from}>`,reply_to:"yumorilnik@gmail.com",to:[isOrganiser?"yumorilnik@gmail.com":person!.email!],subject:isOrganiser?"[Organiser] "+en.subject:en.subject,
      text:en.text+"\n\n---\n\n"+ru.text,html,
-     attachments:[{filename:"yumorilnik-tickets-"+booking.booking_reference+".pdf",content:pdf.toString("base64")}],
+     attachments:[{filename:(isOrganiser?"yumorilnik-all-tickets-":"yumorilnik-tickets-")+booking.booking_reference+".pdf",content:pdf.toString("base64")}],
     }),
    });
    const provider=await response.json() as {id?:string;message?:string};
