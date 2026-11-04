@@ -42,7 +42,7 @@ export async function POST(request:NextRequest){
   if(typeof body.bookingId==="string")bookingId=body.bookingId;
   if(typeof body.guestIndex==="number")guestIndex=body.guestIndex;
  }catch{return json({error:"Invalid request"},400)}
- if(!/^[a-f0-9-]{36}$/i.test(bookingId)||!Number.isInteger(guestIndex)||guestIndex<0)return json({error:"Invalid recipient"},400);
+ if(!/^[a-f0-9-]{36}$/i.test(bookingId)||!Number.isInteger(guestIndex)||guestIndex< -1)return json({error:"Invalid recipient"},400);
  const {data:entry,error}=await db.from("booking_confirmation_deliveries")
  .select("status,attempts,provider_message_id,recipient_email")
  .eq("booking_id",bookingId).eq("guest_index",guestIndex).maybeSingle();
