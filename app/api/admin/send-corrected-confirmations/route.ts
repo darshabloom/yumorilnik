@@ -47,9 +47,50 @@ async function eligible(db:SupabaseClient,booking:Booking){
 const recipients=(booking:Booking)=>Array.from(new Set(booking.booking_guests
  .filter(g=>g.category==="adult"&&!g.is_child_with_adult_seat&&g.email)
  .map(g=>g.email!.toLowerCase().trim())));
+function ticketRecipients(booking:Booking,email:string,organiser:boolean){
+ const guests=booking.booking_guests;
+ if(organiser)return guests;
+ return guests.filter(g=>{
+  const own=g.category==="adult"&&!g.is_child_with_adult_seat&&g.email?.toLowerCase().trim()===email;
+  if(own)return true;
+  if(g.category!=="child"&&!g.is_child_with_adult_seat)return false;
+  const parentIndex=g.guardian_index??g.accompanying_adult_index;
+  return guests.some(p=>p.guest_index===parentIndex&&p.email?.toLowerCase().trim()===email);
+ });
+}
 export async function GET(request:NextRequest){
  const db=await admin(request);
  if(!db)return reply({error:"Organiser permission required"},403);
+ const previewId=request.nextUrl.searchParams.get("previewBookingId");
+ if(previewId){
+  if(!/^[0-9a-f-]{36}$/i.test(previewId))return reply({error:"Invalid booking ID"},400);
+  const booking=await getBooking(db,previewId);
+  if(!booking||!booking.events||!await eligible(db,booking))
+   return reply({error:"Only previously emailed, confirmed and paid bookings can be previewed"},409);
+  const kind=request.nextUrl.searchParams.get("recipientType")==="organiser"?"organiser":"customer";
+  const recipient=kind==="organiser"?"yumorilnik@gmail.com":
+   (request.nextUrl.searchParams.get("email")??"").toLowerCase().trim();
+  if(kind==="customer"&&!recipients(booking).includes(recipient))
+   return reply({error:"Recipient does not belong to this booking"},403);
+  const people=ticketRecipients(booking,recipient,kind==="organiser");
+  const email=correctedConfirmation({reference:booking.booking_reference,event:booking.events,
+   guests:booking.booking_guests,seats:booking.booking_selections,organiser:kind==="organiser",
+   amountCents:booking.total_cents!,currency:booking.currency,promoCode:booking.promo_code});
+  if(request.nextUrl.searchParams.get("format")==="pdf"){
+   const pdf=await createTicketPdf({bookingId:booking.id,reference:booking.booking_reference,
+    event:{title:booking.events.title,event_date:booking.events.event_date,
+     event_time:booking.events.event_time,location:booking.events.location},
+    guests:people,seats:booking.booking_selections.filter(s=>s.guest_index!==null&&people.some(p=>p.guest_index===s.guest_index)),
+    isTest:false,issuedAt:booking.confirmed_at});
+   return new NextResponse(new Uint8Array(pdf),{headers:{"Content-Type":"application/pdf",
+    "Content-Disposition":'attachment; filename="yumorilnik-updated-tickets-'+booking.booking_reference+'.pdf"',
+    "Cache-Control":"no-store"}});
+  }
+  return reply({reference:booking.booking_reference,recipient,recipientType:kind,
+   subject:email.subject,html:email.html,
+   attachments:[{filename:"yumorilnik-updated-tickets-"+booking.booking_reference+".pdf",
+    guests:people.map(p=>p.full_name),pages:people.length}]});
+ }
  const {data,error}=await db.from("booking_confirmation_corrections")
   .select("booking_id,recipient_email,recipient_type,status,provider_message_id,sent_at,error_message")
   .order("last_attempt_at",{ascending:false,nullsFirst:false}).limit(200);
@@ -90,13 +131,7 @@ export async function POST(request:NextRequest){
   if(claimError||!claimed){results.push({email:target.email,kind:target.kind,status:"already_processed"});continue}
   let accepted=false;
   try{
-   const people=target.kind==="organiser"?party:party.filter(g=>{
-    const own=g.category==="adult"&&!g.is_child_with_adult_seat&&g.email?.toLowerCase().trim()===target.email;
-    if(own)return true;
-    if(g.category!=="child"&&!g.is_child_with_adult_seat)return false;
-    const parentIndex=g.guardian_index??g.accompanying_adult_index;
-    return party.some(p=>p.guest_index===parentIndex&&p.email?.toLowerCase().trim()===target.email);
-   });
+   const people=ticketRecipients(booking,target.email,target.kind==="organiser");
    const pdf=await createTicketPdf({
     bookingId:booking.id,reference:booking.booking_reference,
     event:{title:booking.events.title,event_date:booking.events.event_date,
