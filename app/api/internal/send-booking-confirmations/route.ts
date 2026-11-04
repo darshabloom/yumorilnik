@@ -98,14 +98,21 @@ export async function POST(request:NextRequest){
  if(paidError)return json({error:"Unable to verify paid live bookings"},502);
  const paidIds=(paidRows??[]).map(x=>x.booking_id);
  if(paidIds.length===0)return json({reviewed:0,sent:0,failed:0,skipped:0,ineligible:0});
- // One tracked organiser message per paid booking. guest_index=-1 is reserved
- // for the organiser copy; the composite primary key prevents duplicate sends.
- const {error:organiserQueueError}=await db.from("booking_confirmation_deliveries")
-  .upsert(paidIds.map(booking_id=>({booking_id,guest_index:-1,
-   recipient_email:"yumorilnik@gmail.com",status:"pending"})),{
-   onConflict:"booking_id,guest_index",ignoreDuplicates:true
-  });
- if(organiserQueueError)return json({error:"Unable to queue organiser summaries"},502);
+ // Queue new organiser summaries only for recent bookings; historical paid
+ // bookings must not trigger surprise duplicate email when this feature launches.
+ const {data:newBookings,error:newBookingsError}=await db.from("bookings")
+  .select("id").in("id",paidIds).eq("status","confirmed")
+  .gte("created_at","2026-11-04T00:00:00.000Z");
+ if(newBookingsError)return json({error:"Unable to identify new organiser summaries"},502);
+ const newIds=(newBookings??[]).map(b=>b.id);
+ if(newIds.length){
+  const {error:organiserQueueError}=await db.from("booking_confirmation_deliveries")
+   .upsert(newIds.map(booking_id=>({booking_id,guest_index:-1,
+    recipient_email:"yumorilnik@gmail.com",status:"pending"})),{
+    onConflict:"booking_id,guest_index",ignoreDuplicates:true
+   });
+  if(organiserQueueError)return json({error:"Unable to queue organiser summaries"},502);
+ }
  const {data:rows,error:listError}=await db.from("booking_confirmation_deliveries")
   .select("booking_id,guest_index,recipient_email,status,attempts")
   .in("booking_id",paidIds).in("status",["pending","failed"]).lt("attempts",3)
@@ -150,15 +157,11 @@ export async function POST(request:NextRequest){
    const person=booking.booking_guests.find(g=>g.guest_index===delivery.guest_index&&g.category==="adult"&&!g.is_child_with_adult_seat);
    if(!isOrganiser&&(!person||!person.email||person.email.toLowerCase()!==delivery.recipient_email.toLowerCase()))
     throw new Error("Recipient does not match this booking");
-   const children=booking.booking_guests.filter(g=>(g.category==="child"&&g.accompanying_adult_index===person.guest_index)||(g.is_child_with_adult_seat&&g.guardian_index===person.guest_index));
+   const children=booking.booking_guests.filter(g=>(g.category==="child"&&g.accompanying_adult_index===person?.guest_index)||(g.is_child_with_adult_seat&&g.guardian_index===person?.guest_index));
    const namedGuests=isOrganiser?booking.booking_guests:[person!,...children];
    // The confirmation email body shows the whole party's names and seats.
    // Individual customer PDF attachments remain limited to their own tickets.
    const party=booking.booking_guests;
-   const places=booking.booking_selections
-    .filter(seat=>seat.guest_index===null||namedGuests.some(g=>g.guest_index===seat.guest_index))
-    .map(seat=>({guestName:booking.booking_guests.find(g=>g.guest_index===seat.guest_index)?.full_name??person.full_name,
-     table:seat.table_label,seat:seat.seat_number}));
    const emailPlaces=booking.booking_selections.filter(seat=>seat.guest_index!==null)
     .map(seat=>({guestName:party.find(g=>g.guest_index===seat.guest_index)?.full_name??"Guest",
      table:seat.table_label,seat:seat.seat_number}));
