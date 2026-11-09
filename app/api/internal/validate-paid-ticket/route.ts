@@ -27,7 +27,7 @@ export async function POST(req:NextRequest){
   return result({valid:false});
  const ref=reference.trim().toUpperCase().replace(/\s+/g,"");
  const contact=email.trim().toLowerCase();
- if(!/^YMR-[A-Z0-9-]{5,80}$/.test(ref)||contact.length>254||
+ if(!(/^(YMR-[A-Z0-9-]{5,80}|NY27-[A-Z]{2}[0-9]{2})$/.test(ref))||contact.length>254||
   !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact))
   return result({valid:false});
  const url=process.env.SUPABASE_URL??process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -52,8 +52,12 @@ export async function POST(req:NextRequest){
  const paidLive=paid?.state==="paid"&&
    paid.stripe_session_id?.startsWith("cs_live_")&&
    paid.stripe_payment_intent_id?.startsWith("pi_");
+ const {data:gift,error:giftError}=await db.from("complimentary_bookings")
+  .select("booking_id,revoked_at").eq("booking_id",booking.id).maybeSingle();
+ if(giftError)return result({error:"Verification temporarily unavailable"},503);
+ const validGift=!!gift&&!gift.revoked_at;
  const matchingAdult=(guests??[]).some(g=>
    g.category==="adult"&&!g.is_child_with_adult_seat&&
    typeof g.email==="string"&&g.email.trim().toLowerCase()===contact);
- return result({valid:!!paidLive&&matchingAdult});
+ return result({valid:(!!paidLive||validGift)&&matchingAdult});
 }
