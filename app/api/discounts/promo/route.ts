@@ -58,6 +58,7 @@ export async function POST(req:NextRequest){
    return respond({valid:true,code,discount_cents:subtotal,original_cents:subtotal,payable_cents:0,
     seat_keys:(body.seat_keys as string[]).join("|"),message:"Complimentary seat. No payment required."});
   }
+  if(!budget||!assignment)return respond({error:"Promotion configuration unavailable"},503);
   const used=(reservations??[]).reduce((n,r)=>n+r.amount_cents,0);
   const categoryUsed=(reservations??[]).filter(r=>r.discount_type===assignment?.discount_category).reduce((n,r)=>n+r.amount_cents,0);
   const categoryCap=assignment?.discount_category==="personal"?budget.personal_budget_cents:budget.flash_budget_cents;
