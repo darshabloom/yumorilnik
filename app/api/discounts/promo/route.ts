@@ -25,9 +25,9 @@ export async function POST(req:NextRequest){
   if(p.event_id!==NYE_EVENT_ID||p.applies_to!=="adult")return respond({error:"This code is not eligible for these tickets."},422);
   if(p.min_tickets!==null&&body.seat_keys.length<p.min_tickets)return respond({error:"More tickets are required for this code."},422);
   const {data:assignment}=await db.from("event_discount_promotion_assignments").select("discount_category").eq("event_id",NYE_EVENT_ID).eq("promo_code",code).maybeSingle();
-  if(!assignment||!["personal","flash"].includes(assignment.discount_category))return respond({error:"This code is not activated for this event."},422);
+  if(code!=="FRIENDNY27"&&(!assignment||!["personal","flash"].includes(assignment.discount_category)))return respond({error:"This code is not activated for this event."},422);
   const {data:budget}=await db.from("event_discount_budgets").select("total_budget_cents,personal_budget_cents,flash_budget_cents,personal_enabled,flash_enabled").eq("event_id",NYE_EVENT_ID).maybeSingle();
-  if(!budget||(assignment.discount_category==="personal"?!budget.personal_enabled:!budget.flash_enabled))
+  if(code!=="FRIENDNY27"&&(!budget||(assignment.discount_category==="personal"?!budget.personal_enabled:!budget.flash_enabled)))
    return respond({error:"This promotion is currently unavailable."},422);
   const ids=body.seat_keys.map((k:string)=>k.split(":")[0]);
   if(ids.some((id:string)=>!uuid.test(id)))return respond({error:"Invalid seat selection."},400);
@@ -48,6 +48,16 @@ export async function POST(req:NextRequest){
   discount=Math.min(discount,p.max_discount_cents??discount,subtotal);
   const {data:reservations,error:re}=await db.from("booking_discount_reservations").select("discount_type,amount_cents").eq("event_id",NYE_EVENT_ID).in("state",["reserved","committed"]);
   if(re)return respond({error:"Discount availability cannot be checked."},503);
+  if(code==="FRIENDNY27"){
+   if(body.seat_keys.length!==1)return respond({error:"This invitation is for one adult seat only."},422);
+   if(p.discount_type!=="percentage"||p.percent_off!==100||p.max_uses!==1||
+       p.times_used!==0)return respond({error:"Invitation is unavailable"},422);
+   const {data:restricted,error:restrictedError}=await db.from("restricted_seating_tables")
+    .select("table_id").eq("event_id",NYE_EVENT_ID).in("table_id",ids);
+   if(restrictedError||restricted?.length)return respond({error:"Choose an unrestricted seat for this invitation."},422);
+   return respond({valid:true,code,discount_cents:subtotal,original_cents:subtotal,payable_cents:0,
+    seat_keys:(body.seat_keys as string[]).join("|"),message:"Complimentary seat. No payment required."});
+  }
   const used=(reservations??[]).reduce((n,r)=>n+r.amount_cents,0);
   const categoryUsed=(reservations??[]).filter(r=>r.discount_type===assignment.discount_category).reduce((n,r)=>n+r.amount_cents,0);
   const categoryCap=assignment.discount_category==="personal"?budget.personal_budget_cents:budget.flash_budget_cents;
