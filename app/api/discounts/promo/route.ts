@@ -27,7 +27,7 @@ export async function POST(req:NextRequest){
   const {data:assignment}=await db.from("event_discount_promotion_assignments").select("discount_category").eq("event_id",NYE_EVENT_ID).eq("promo_code",code).maybeSingle();
   if(code!=="FRIENDNY27"&&(!assignment||!["personal","flash"].includes(assignment.discount_category)))return respond({error:"This code is not activated for this event."},422);
   const {data:budget}=await db.from("event_discount_budgets").select("total_budget_cents,personal_budget_cents,flash_budget_cents,personal_enabled,flash_enabled").eq("event_id",NYE_EVENT_ID).maybeSingle();
-  if(code!=="FRIENDNY27"&&(!budget||(assignment.discount_category==="personal"?!budget.personal_enabled:!budget.flash_enabled)))
+  if(code!=="FRIENDNY27"&&(!budget||(assignment?.discount_category==="personal"?!budget.personal_enabled:!budget.flash_enabled)))
    return respond({error:"This promotion is currently unavailable."},422);
   const ids=body.seat_keys.map((k:string)=>k.split(":")[0]);
   if(ids.some((id:string)=>!uuid.test(id)))return respond({error:"Invalid seat selection."},400);
@@ -59,8 +59,8 @@ export async function POST(req:NextRequest){
     seat_keys:(body.seat_keys as string[]).join("|"),message:"Complimentary seat. No payment required."});
   }
   const used=(reservations??[]).reduce((n,r)=>n+r.amount_cents,0);
-  const categoryUsed=(reservations??[]).filter(r=>r.discount_type===assignment.discount_category).reduce((n,r)=>n+r.amount_cents,0);
-  const categoryCap=assignment.discount_category==="personal"?budget.personal_budget_cents:budget.flash_budget_cents;
+  const categoryUsed=(reservations??[]).filter(r=>r.discount_type===assignment?.discount_category).reduce((n,r)=>n+r.amount_cents,0);
+  const categoryCap=assignment?.discount_category==="personal"?budget.personal_budget_cents:budget.flash_budget_cents;
   if(discount<=0)return respond({error:"This code does not reduce the selected ticket price."},422);
   if(used+discount>budget.total_budget_cents||categoryUsed+discount>categoryCap)return respond({error:"This promotion's discount budget is exhausted."},422);
   return respond({valid:true,code,discount_cents:discount,original_cents:subtotal,payable_cents:subtotal-discount,seat_keys:(body.seat_keys as string[]).join("|"),message:"Promo code applied. Final eligibility is checked again at checkout."});
