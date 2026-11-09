@@ -96,7 +96,11 @@ export async function POST(request:NextRequest){
  if(requestedBookingId)paidQuery=paidQuery.eq("booking_id",requestedBookingId);
  const {data:paidRows,error:paidError}=await paidQuery.limit(requestedBookingId?1:1000);
  if(paidError)return json({error:"Unable to verify paid live bookings"},502);
- const paidIds=(paidRows??[]).map(x=>x.booking_id);
+ const {data:giftRows,error:giftError}=await db.from("complimentary_bookings")
+  .select("booking_id").is("revoked_at",null);
+ if(giftError)return json({error:"Unable to verify complimentary bookings"},502);
+ const giftIds=(giftRows??[]).map(x=>x.booking_id);
+ const paidIds=[...new Set([...(paidRows??[]).map(x=>x.booking_id),...giftIds])];
  if(paidIds.length===0)return json({reviewed:0,sent:0,failed:0,skipped:0,ineligible:0});
  // Queue new organiser summaries only for recent bookings; historical paid
  // bookings must not trigger surprise duplicate email when this feature launches.
@@ -127,9 +131,14 @@ export async function POST(request:NextRequest){
    .select("state,amount_cents,currency,stripe_session_id,stripe_payment_intent_id")
    .eq("booking_id",delivery.booking_id).maybeSingle();
   if(liveError)return json({error:"Unable to verify live payment status"},502);
-  if(!live||live.state!=="paid"||live.currency!=="nzd"||
-   !live.stripe_session_id?.startsWith("cs_live_")||
-   !live.stripe_payment_intent_id?.startsWith("pi_")){
+  const {data:gift,error:giftError}=await db.from("complimentary_bookings")
+   .select("booking_id,revoked_at").eq("booking_id",delivery.booking_id).maybeSingle();
+  if(giftError)return json({error:"Unable to verify complimentary ticket"},502);
+  const paidValid=!!live&&live.state==="paid"&&live.currency==="nzd"&&
+   !!live.stripe_session_id?.startsWith("cs_live_")&&
+   !!live.stripe_payment_intent_id?.startsWith("pi_");
+  const complimentaryValid=!live&&!!gift&&!gift.revoked_at;
+  if(!paidValid&&!complimentaryValid){
    ineligible++;continue;
   }
   // Atomic conditional claim: concurrent processors cannot send the same row.
@@ -148,8 +157,9 @@ export async function POST(request:NextRequest){
    if(bookingError||!row)throw new Error("Booking record unavailable");
    const booking=row as unknown as Booking;
    if(booking.status!=="confirmed"||booking.total_cents===null||
-    booking.total_cents<50||booking.currency.toLowerCase()!=="nzd"||
-    Number(live.amount_cents)!==Number(booking.total_cents))
+    (complimentaryValid?booking.total_cents!==0:
+     booking.total_cents<50||Number(live?.amount_cents)!==Number(booking.total_cents))||
+    booking.currency.toLowerCase()!=="nzd")
     throw new Error("Booking or amount does not match a paid live Stripe checkout");
    // Stripe sandbox test_confirmed records are deliberately excluded. Paid
    // production bookings may be emailed only once genuine launch flows exist.
