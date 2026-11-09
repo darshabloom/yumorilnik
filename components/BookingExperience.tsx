@@ -344,13 +344,16 @@ export default function BookingExperience({event,tickets,venue:initialVenue,priv
    if(realBookingsEnabled||privatePaymentTest){
     if(event.id===NEW_YEARS_2026_EVENT_ID&&!promoCode.trim()&&(discountQuoteLoading||discountQuoteError||!discountQuote||discountQuote.seat_keys!==quoteKeys))throw new Error(en?"Unable to verify the current discount. Refresh the quotation before paying.":"Не удалось проверить скидку. Обновите расчёт перед оплатой.");
     const approvedAmount=privatePaymentTest?50:displayedPayableCents;
-    const response=await fetch("/api/checkout/live",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,p_expected_amount_cents:approvedAmount,p_performer_access_code:performerCode||null,p_promo_code:privatePaymentTest?null:promoCode.trim()||null,...(privatePaymentTest?{p_live_test_access_code:liveTestAccessCode}:{})})});
-    const result=await response.json() as {url?:string;error?:string;code?:string};
+    const response=await fetch(!privatePaymentTest&&promoCode.trim().toUpperCase()==="FRIENDNY27"&&approvedAmount===0?"/api/checkout/complimentary":"/api/checkout/live",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...payload,p_expected_amount_cents:approvedAmount,p_performer_access_code:performerCode||null,p_promo_code:privatePaymentTest?null:promoCode.trim()||null,...(privatePaymentTest?{p_live_test_access_code:liveTestAccessCode}:{})})});
+    const result=await response.json() as {url?:string;error?:string;code?:string;state?:string;reference?:string};
     if(result.code==="PRICE_CHANGED"){
      requestId.current=null;
      setDiscountQuote(null);
      setDiscountQuoteRefresh(n=>n+1);
      throw new Error(en?"The price or discount changed. Please review the updated amount and press payment again.":"Цена или скидка изменилась. Проверьте обновлённую сумму и нажмите оплату ещё раз.");
+    }
+    if(response.ok&&result.state==="confirmed"&&result.url?.startsWith("/booking/complete?complimentary_token=")){
+     window.location.assign(result.url);return;
     }
     if(!response.ok||!result.url)throw new Error(result.error||"Live checkout is unavailable");
     if(new URL(result.url).hostname!=="checkout.stripe.com")throw new Error("Invalid Stripe checkout destination");
