@@ -6,7 +6,7 @@ import {useSearchParams} from "next/navigation";
 import {useSiteLanguage} from "@/lib/useSiteLanguage";
 
 type Confirmed={
- state:"confirmed";stripePaid:true;reference:string;paidCents:number;currency:string;
+ state:"confirmed";stripePaid:boolean;complimentary?:boolean;reference:string;paidCents:number;currency:string;
  event:{title:string;date:string|null;time:string|null;location:string|null};
  guests:{name:string;category:string;seats:{table:string;seat:number|null}[]}[];
  confirmationEmailStatus:string;emailSendingEnabled:boolean;matryoshkaUrl:string;message?:string;
@@ -16,6 +16,7 @@ type Status=Confirmed|{state:string;stripePaid?:boolean;message?:string;error?:s
 function PaymentResult(){
  const params=useSearchParams();
  const sessionId=params.get("session_id")??"";
+ const complimentaryToken=params.get("complimentary_token")??"";
  const en=useSiteLanguage()==="en";
  const [result,setResult]=useState<Status|null>(null);
  const [loading,setLoading]=useState(true);
@@ -24,20 +25,20 @@ function PaymentResult(){
  const [downloading,setDownloading]=useState(false);
  const [downloadError,setDownloadError]=useState("");
  const check=useCallback(async()=>{
-  if(!/^cs_live_[A-Za-z0-9_]{12,200}$/.test(sessionId)){
+  if(!/^[a-f0-9]{64}$/.test(complimentaryToken)&&!/^cs_live_[A-Za-z0-9_]{12,200}$/.test(sessionId)){
    setResult({state:"error",message:"The Stripe checkout session is missing"});
    setLoading(false);return;
   }
   try{
-   const response=await fetch("/api/checkout/live/status",{
+   const response=await fetch(complimentaryToken?"/api/checkout/complimentary/status":"/api/checkout/live/status",{
     method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({sessionId}),cache:"no-store",
+    body:JSON.stringify(complimentaryToken?{token:complimentaryToken}:{sessionId}),cache:"no-store",
    });
    const data=await response.json() as Status;
    setResult(response.ok?data:{state:"error",message:(data as {error?:string}).error||"Verification temporarily unavailable"});
   }catch{setResult({state:"error",message:"Could not contact the booking service"});}
   finally{setLoading(false);setAttempts(x=>x+1);}
- },[sessionId]);
+ },[sessionId,complimentaryToken]);
  useEffect(()=>{void check()},[check]);
  useEffect(()=>{
   if(loading||!result||result.state==="confirmed"||result.state==="needs_review"||result.state==="refunded"||attempts>=12)return;
@@ -45,12 +46,12 @@ function PaymentResult(){
   return()=>clearTimeout(timer);
  },[loading,result,attempts,check]);
  async function downloadTicketPdf(){
-  if(downloading||!sessionId)return;
+  if(downloading||(!sessionId&&!complimentaryToken))return;
   setDownloading(true);setDownloadError("");
   try{
-   const response=await fetch("/api/checkout/live/ticket-pdf",{
+   const response=await fetch(complimentaryToken?"/api/checkout/complimentary/ticket-pdf":"/api/checkout/live/ticket-pdf",{
     method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({sessionId}),cache:"no-store"
+    body:JSON.stringify(complimentaryToken?{token:complimentaryToken}:{sessionId}),cache:"no-store"
    });
    if(!response.ok){
     const payload=await response.json().catch(()=>({error:"Ticket not available"})) as {error?:string};
@@ -74,7 +75,7 @@ function PaymentResult(){
   <section className="mx-auto max-w-2xl rounded-2xl border border-black/15 bg-white p-6 shadow-sm sm:p-9">
    {details?<div className="space-y-5">
     <div className="rounded-xl bg-green-50 p-4 text-green-900" role="status">
-     <p className="text-sm font-bold">✓ {en?"Payment verified · Booking confirmed":"Оплата проверена · Бронь подтверждена"}</p>
+     <p className="text-sm font-bold">✓ {details.complimentary?(en?"Complimentary ticket confirmed":"Бесплатный билет подтверждён"):(en?"Payment verified · Booking confirmed":"Оплата проверена · Бронь подтверждена")}</p>
      <h1 className="mt-2 text-3xl font-black">{en?"Your event booking":"Ваше бронирование"}</h1>
     </div>
     <div className="rounded-xl border border-black/15 bg-[#fff5e3] p-5">
@@ -96,7 +97,7 @@ function PaymentResult(){
        <div className="mt-1 text-sm">{guest.seats.length?guest.seats.map((seat,j)=><p key={j}>{seat.table}{seat.seat!=null?` · ${en?"Seat":"Место"} ${seat.seat}`:""}</p>):en?"No assigned seat":"Без закреплённого места"}</div>
       </li>)}
      </ul>
-     <p className="mt-3 text-lg font-black">{en?"Paid":"Оплачено"}: {money(details.paidCents)}</p>
+     <p className="mt-3 text-lg font-black">{details.complimentary?(en?"Total":"Итого"):(en?"Paid":"Оплачено")}: {money(details.paidCents)}</p>
      <div className="mt-4 rounded-xl border border-black/15 bg-[#fffaf2] p-4">
       <h3 className="font-black">{en?"Your admission ticket PDF":"Ваш PDF-билет"}</h3>
       <p className="mt-1 text-sm">{en?"Download the same admission ticket with QR code as in your confirmation email. Present the QR code to event staff at check-in.":"Скачайте билет с QR-кодом, как в письме с подтверждением. Покажите QR-код сотруднику на входе."}</p>
